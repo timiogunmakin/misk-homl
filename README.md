@@ -38,28 +38,28 @@ This module makes a few assumptions of your established knowledge regarding your
 
 | Assumptions                       | Resource      
 | --------------------------------- | ------------- |
-| You should be familiar with...    | [https://github.com/bradleyboehmke/misk-packages) | 
-| You should be familiar with...    | [https://github.com/bradleyboehmke/misk-packages) | 
-| You should be familiar with...    | [https://github.com/bradleyboehmke/misk-packages) | 
-| You should be familiar with...    | [https://github.com/bradleyboehmke/misk-packages) | 
+| You should be familiar with...    | [link](https://github.com/misk-data-science/misk-homl) | 
+| You should be familiar with...    | [link](https://github.com/misk-data-science/misk-homl) | 
+| You should be familiar with...    | [link](https://github.com/misk-data-science/misk-homl) | 
+| You should be familiar with...    | [link](https://github.com/misk-data-science/misk-homl) | 
 
 
 ## Schedule
 
 TBD
 
-| Session       | Description                          | Reading(s)    | Python        | R             |
+| Session       | Description                          | Reading(s)    | Slides        | Python        | R             |
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
-| 1             | Introduction to machine learning and the modeling process | TBD           | TBD           | TBD           |
-| 2             | Feature and target engineering       | TBD           | TBD           | TBD           |
-| 3             | Linear & logistic regression         | TBD           | TBD           | TBD           |
-| 4             | Multivariate adaptive regression splines | TBD           | TBD           | TBD           |
-| 5             | K-nearest neighbors                  | TBD           | TBD           | TBD           |
-| 6             | Decision trees and bagging           | TBD           | TBD           | TBD           |
-| 7             | Random forests                       | TBD           | TBD           | TBD           |
-| 8             | Gradient boosting                    | TBD           | TBD           | TBD           |
-| 9             | Stacked models & AutoML              | TBD           | TBD           | TBD           |
-| 10            | Case study.                          | TBD           | TBD           | TBD           |
+| 1             | Introduction to machine learning and the modeling process | TBD           | TBD           | TBD           | TBD           |
+| 2             | Feature and target engineering       | TBD           | TBD           | TBD           | TBD           |
+| 3             | Linear & logistic regression         | TBD           | TBD           | TBD           | TBD           |
+| 4             | Multivariate adaptive regression splines | TBD           | TBD           | TBD           | TBD           |
+| 5             | K-nearest neighbors                  | TBD           | TBD           | TBD           | TBD           |
+| 6             | Decision trees and bagging           | TBD           | TBD           | TBD           | TBD           |
+| 7             | Random forests                       | TBD           | TBD           | TBD           | TBD           |
+| 8             | Gradient boosting                    | TBD           | TBD           | TBD           | TBD           |
+| 9             | Stacked models & AutoML              | TBD           | TBD           | TBD           | TBD           |
+| 10            | Case study.                          | TBD           | TBD           | TBD           | TBD           |
 
 
 ## Extras
