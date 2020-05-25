@@ -48,8 +48,8 @@ This module makes a few assumptions of your established knowledge regarding your
 
 TBD
 
-| Session       | Description                          | Reading(s)    | Slides        | Python        | R             |
-| :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
+| Session       | Description                          | Reading(s)    | Slides        | Python        | R             
+| :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: | :-----------: |
 | 1             | Introduction to machine learning and the modeling process | TBD           | TBD           | TBD           | TBD           |
 | 2             | Feature and target engineering       | TBD           | TBD           | TBD           | TBD           |
 | 3             | Linear & logistic regression         | TBD           | TBD           | TBD           | TBD           |
