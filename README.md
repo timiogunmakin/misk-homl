@@ -58,7 +58,7 @@ This module will use [__Hands-On Machine Learning with R__](https://bradleyboehm
 | 5             | K-nearest neighbors                  | Ch [8](https://bradleyboehmke.github.io/HOML/knn.html)      | TBD           | TBD           | Notebook [8](https://misk-data-science.github.io/misk-homl/materials/R/08-knn.nb.html) |
 | 6             | Decision trees and bagging           | Ch [9](https://bradleyboehmke.github.io/HOML/DT.html) & [10](https://bradleyboehmke.github.io/HOML/bagging.html)  | TBD           | TBD           | Notebook [9](https://misk-data-science.github.io/misk-homl/materials/R/09-decision-trees.nb.html) & [10](https://misk-data-science.github.io/misk-homl/materials/R/10-bagging.nb.html) |
 | 7             | Random forests                       | Ch [11](https://bradleyboehmke.github.io/HOML/random-forest.html)     | TBD           | TBD           | Notebook [11](https://misk-data-science.github.io/misk-homl/materials/R/11-random-forests.nb.html) |
-| 8             | Gradient boosting                    | Ch [12](https://bradleyboehmke.github.io/HOML/gbm.html)     | TBD           | TBD           | Notebook [12](https://misk-data-science.github.io/misk-homl/materials/R/12-gbm-nb.html) |
+| 8             | Gradient boosting                    | Ch [12](https://bradleyboehmke.github.io/HOML/gbm.html)     | TBD           | TBD           | Notebook [12](https://misk-data-science.github.io/misk-homl/materials/R/12-gbm.nb.html) |
 | 9             | Stacked models & AutoML              | Ch [13](https://bradleyboehmke.github.io/HOML/stacking.html)     | TBD           | TBD           | TBD |
 | 10            | Case study.                          | TBD           | TBD           | TBD           | TBD           |
 
