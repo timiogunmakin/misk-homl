@@ -1,4 +1,0 @@
-# (PART) Getting Started {-}
-
-# Introduction to... {#intro}
-
