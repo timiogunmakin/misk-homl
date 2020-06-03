@@ -1749,47 +1749,16 @@ summary {
 
 
 <!-- rnb-text-begin -->
+<div id="setting-up-your-environment" class="section level2">
+<h2>Setting up your environment</h2>
+<p>The following packages will be used:</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjI1xuIyBTZXR0aW5nIFVwIFlvdXIgRW52aXJvbm1lbnQgI1xuIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjI1xuIyB0aGUgZm9sbG93aW5nIHBhY2thZ2VzIHdpbGwgYmUgdXNlZFxubGlzdF9vZl9wa2dzIDwtIGMoXG4gIFwiQW1lc0hvdXNpbmdcIiwgICAjIHByb3ZpZGVzIGRhdGEgd2UnbGwgdXNlXG4gIFwidGlkeXZlcnNlXCIsICAgICAjIGRhdGEgbXVuZ2luZyAmIHZpc3VhbGl6YXRpb25cbiAgXCJyZXNoYXBlMlwiLCAgICAgICMgZGF0YSB0cmFuc2Zvcm1hdGlvbiBmb3Igb25lIGV4YW1wbGVcbiAgXCJleHRyYWNhdFwiLCAgICAgICMgdmlzdWFsaXppbmcgbWlzc2luZyBkYXRhIChvbmUgZXhhbXBsZSlcbiAgXCJmYWN0b2V4dHJhXCIsICAgICMgY2x1c3RlcmluZyAmIFBDQSB2aXN1YWxpemF0aW9uc1xuICBcInJzYW1wbGVcIiwgICAgICAgIyBzYW1wbGluZyBwcm9jZWR1cmVzXG4gIFwicmVjaXBlc1wiLCAgICAgICAjIGZlYXR1cmUgZW5naW5lZXJpbmcgcHJvY2VkdXJlc1xuICBcImNhcmV0XCIsICAgICAgICAgIyBtZXRhIG1vZGVsaW5nIHBhY2thZ2UsXG4gIFwiaDJvXCIsICAgICAgICAgICAjIG1ldGEgbW9kZWxpbmcsIG1vZGVsIHN0YWNraW5nLCAmIGF1dG8gTUxcbiAgXCJnbG1uZXRcIiwgICAgICAgICMgcmVndWxhcml6ZWQgcmVncmVzc2lvblxuICBcImVhcnRoXCIsICAgICAgICAgIyBtdWx0aXZhcmlhdGUgYWRhcHRpdmUgcmVncmVzc2lvbiBzcGxpbmVzXG4gIFwicmFuZ2VyXCIsICAgICAgICAjIGZhc3QgcmFuZG9tIGZvcmVzdFxuICBcImdibVwiLCAgICAgICAgICAgIyBncmFkaWVudCBib29zdGluZyBtYWNoaW5lc1xuICBcInhnYm9vc3RcIiwgICAgICAgIyBleHRyZW1lIGdyYWRpZW50IGJvb3N0aW5nXG4gIFwiYnJvb21cIiwgICAgICAgICAjIHByb3ZpZGVzIG1vZGVsIHJlc3VsdCBjbGVhbiB1cFxuICBcInZpcFwiLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvblxuICBcInBkcFwiLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvblxuKVxuYGBgIn0= -->
-<pre class="r"><code>###############################
-# Setting Up Your Environment #
-###############################
-# the following packages will be used
-list_of_pkgs &lt;- c(
-  &quot;AmesHousing&quot;,   # provides data we'll use
-  &quot;tidyverse&quot;,     # data munging &amp; visualization
-  &quot;reshape2&quot;,      # data transformation for one example
-  &quot;extracat&quot;,      # visualizing missing data (one example)
-  &quot;factoextra&quot;,    # clustering &amp; PCA visualizations
-  &quot;rsample&quot;,       # sampling procedures
-  &quot;recipes&quot;,       # feature engineering procedures
-  &quot;caret&quot;,         # meta modeling package,
-  &quot;h2o&quot;,           # meta modeling, model stacking, &amp; auto ML
-  &quot;glmnet&quot;,        # regularized regression
-  &quot;earth&quot;,         # multivariate adaptive regression splines
-  &quot;ranger&quot;,        # fast random forest
-  &quot;gbm&quot;,           # gradient boosting machines
-  &quot;xgboost&quot;,       # extreme gradient boosting
-  &quot;broom&quot;,         # provides model result clean up
-  &quot;vip&quot;,           # model interpretation
-  &quot;pdp&quot;,           # model interpretation
-)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBydW4gdGhlIGZvbGxvd2luZyBsaW5lIG9mIGNvZGUgdG8gaW5zdGFsbCB0aGUgcGFja2FnZXMgeW91IGN1cnJlbnRseSBkbyBub3QgaGF2ZVxubmV3X3BrZ3MgPC0gbGlzdF9vZl9wa2dzWyEobGlzdF9vZl9wa2dzICVpbiUgaW5zdGFsbGVkLnBhY2thZ2VzKClbLFwiUGFja2FnZVwiXSldXG5pZihsZW5ndGgobmV3X3BrZ3MpKSBpbnN0YWxsLnBhY2thZ2VzKG5ld19wa2dzKVxuYGBgIn0= -->
-<pre class="r"><code># run the following line of code to install the packages you currently do not have
-new_pkgs &lt;- list_of_pkgs[!(list_of_pkgs %in% installed.packages()[,&quot;Package&quot;])]
-if(length(new_pkgs)) install.packages(new_pkgs)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<!-- rnb-text-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxuIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjI1xuIyBTZXR0aW5nIFVwIFlvdXIgRW52aXJvbm1lbnQgI1xuIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjI1xuIyB0aGUgZm9sbG93aW5nIHBhY2thZ2VzIHdpbGwgYmUgdXNlZFxubGlzdF9vZl9wa2dzIDwtIGMoXG4gIFxcQW1lc0hvdXNpbmdcXCwgICAjIHByb3ZpZGVzIGRhdGEgd2UnbGwgdXNlXG4gIFxcdGlkeXZlcnNlXFwsICAgICAjIGRhdGEgbXVuZ2luZyAmIHZpc3VhbGl6YXRpb25cbiAgXFxyZXNoYXBlMlxcLCAgICAgICMgZGF0YSB0cmFuc2Zvcm1hdGlvbiBmb3Igb25lIGV4YW1wbGVcbiAgXFxleHRyYWNhdFxcLCAgICAgICMgdmlzdWFsaXppbmcgbWlzc2luZyBkYXRhIChvbmUgZXhhbXBsZSlcbiAgXFxmYWN0b2V4dHJhXFwsICAgICMgY2x1c3RlcmluZyAmIFBDQSB2aXN1YWxpemF0aW9uc1xuICBcXHJzYW1wbGVcXCwgICAgICAgIyBzYW1wbGluZyBwcm9jZWR1cmVzXG4gIFxccmVjaXBlc1xcLCAgICAgICAjIGZlYXR1cmUgZW5naW5lZXJpbmcgcHJvY2VkdXJlc1xuICBcXGNhcmV0XFwsICAgICAgICAgIyBtZXRhIG1vZGVsaW5nIHBhY2thZ2UsXG4gIFxcaDJvXFwsICAgICAgICAgICAjIG1ldGEgbW9kZWxpbmcsIG1vZGVsIHN0YWNraW5nLCAmIGF1dG8gTUxcbiAgXFxnbG1uZXRcXCwgICAgICAgICMgcmVndWxhcml6ZWQgcmVncmVzc2lvblxuICBcXGVhcnRoXFwsICAgICAgICAgIyBtdWx0aXZhcmlhdGUgYWRhcHRpdmUgcmVncmVzc2lvbiBzcGxpbmVzXG4gIFxccmFuZ2VyXFwsICAgICAgICAjIGZhc3QgcmFuZG9tIGZvcmVzdFxuICBcXGdibVxcLCAgICAgICAgICAgIyBncmFkaWVudCBib29zdGluZyBtYWNoaW5lc1xuICBcXHhnYm9vc3RcXCwgICAgICAgIyBleHRyZW1lIGdyYWRpZW50IGJvb3N0aW5nXG4gIFxcYnJvb21cXCwgICAgICAgICAjIHByb3ZpZGVzIG1vZGVsIHJlc3VsdCBjbGVhbiB1cFxuICBcXHZpcFxcLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvblxuICBcXHBkcFxcLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvblxuKVxuYGBgXG5gYGAifQ== -->
+<code>r</code>r ############################### # Setting Up Your Environment # ############################### # the following packages will be used list_of_pkgs &lt;- c( , # provides data we’ll use , # data munging &amp; visualization 2, # data transformation for one example , # visualizing missing data (one example) , # clustering &amp; PCA visualizations , # sampling procedures , # feature engineering procedures , # meta modeling package, 
+</div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiRW52aXJvbm1lbnQgU2V0dXAiCm91dHB1dDogaHRtbF9ub3RlYm9vawotLS0KCmBgYHtyfQojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgU2V0dGluZyBVcCBZb3VyIEVudmlyb25tZW50ICMKIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIwojIHRoZSBmb2xsb3dpbmcgcGFja2FnZXMgd2lsbCBiZSB1c2VkCmxpc3Rfb2ZfcGtncyA8LSBjKAogICJBbWVzSG91c2luZyIsICAgIyBwcm92aWRlcyBkYXRhIHdlJ2xsIHVzZQogICJ0aWR5dmVyc2UiLCAgICAgIyBkYXRhIG11bmdpbmcgJiB2aXN1YWxpemF0aW9uCiAgInJlc2hhcGUyIiwgICAgICAjIGRhdGEgdHJhbnNmb3JtYXRpb24gZm9yIG9uZSBleGFtcGxlCiAgImV4dHJhY2F0IiwgICAgICAjIHZpc3VhbGl6aW5nIG1pc3NpbmcgZGF0YSAob25lIGV4YW1wbGUpCiAgImZhY3RvZXh0cmEiLCAgICAjIGNsdXN0ZXJpbmcgJiBQQ0EgdmlzdWFsaXphdGlvbnMKICAicnNhbXBsZSIsICAgICAgICMgc2FtcGxpbmcgcHJvY2VkdXJlcwogICJyZWNpcGVzIiwgICAgICAgIyBmZWF0dXJlIGVuZ2luZWVyaW5nIHByb2NlZHVyZXMKICAiY2FyZXQiLCAgICAgICAgICMgbWV0YSBtb2RlbGluZyBwYWNrYWdlLAogICJoMm8iLCAgICAgICAgICAgIyBtZXRhIG1vZGVsaW5nLCBtb2RlbCBzdGFja2luZywgJiBhdXRvIE1MCiAgImdsbW5ldCIsICAgICAgICAjIHJlZ3VsYXJpemVkIHJlZ3Jlc3Npb24KICAiZWFydGgiLCAgICAgICAgICMgbXVsdGl2YXJpYXRlIGFkYXB0aXZlIHJlZ3Jlc3Npb24gc3BsaW5lcwogICJyYW5nZXIiLCAgICAgICAgIyBmYXN0IHJhbmRvbSBmb3Jlc3QKICAiZ2JtIiwgICAgICAgICAgICMgZ3JhZGllbnQgYm9vc3RpbmcgbWFjaGluZXMKICAieGdib29zdCIsICAgICAgICMgZXh0cmVtZSBncmFkaWVudCBib29zdGluZwogICJicm9vbSIsICAgICAgICAgIyBwcm92aWRlcyBtb2RlbCByZXN1bHQgY2xlYW4gdXAKICAidmlwIiwgICAgICAgICAgICMgbW9kZWwgaW50ZXJwcmV0YXRpb24KICAicGRwIiwgICAgICAgICAgICMgbW9kZWwgaW50ZXJwcmV0YXRpb24KKQpgYGAKCmBgYHtyfQojIHJ1biB0aGUgZm9sbG93aW5nIGxpbmUgb2YgY29kZSB0byBpbnN0YWxsIHRoZSBwYWNrYWdlcyB5b3UgY3VycmVudGx5IGRvIG5vdCBoYXZlCm5ld19wa2dzIDwtIGxpc3Rfb2ZfcGtnc1shKGxpc3Rfb2ZfcGtncyAlaW4lIGluc3RhbGxlZC5wYWNrYWdlcygpWywiUGFja2FnZSJdKV0KaWYobGVuZ3RoKG5ld19wa2dzKSkgaW5zdGFsbC5wYWNrYWdlcyhuZXdfcGtncykKYGBgCgo=</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiRW52aXJvbm1lbnQgU2V0dXAiCm91dHB1dDogaHRtbF9ub3RlYm9vawotLS0KCiMjIFNldHRpbmcgdXAgeW91ciBlbnZpcm9ubWVudAoKVGhlIGZvbGxvd2luZyBwYWNrYWdlcyB3aWxsIGJlIHVzZWQ6CgpgYGB7cn0KbGlzdF9vZl9wa2dzIDwtIGMoCiAgIkFtZXNIb3VzaW5nIiwgICAjIHByb3ZpZGVzIGRhdGEgd2UnbGwgdXNlCiAgImRzbGFicyIsICAgICAgICAjIHByb3ZpZGVzIG1uaXN0IGRhdGEKICAidGlkeXZlcnNlIiwgICAgICMgZGF0YSBtdW5naW5nICYgdmlzdWFsaXphdGlvbgogICJyZXNoYXBlMiIsICAgICAgIyBkYXRhIHRyYW5zZm9ybWF0aW9uIGZvciBvbmUgZXhhbXBsZQogICJleHRyYWNhdCIsICAgICAgIyB2aXN1YWxpemluZyBtaXNzaW5nIGRhdGEgKG9uZSBleGFtcGxlKQogICJmYWN0b2V4dHJhIiwgICAgIyBjbHVzdGVyaW5nICYgUENBIHZpc3VhbGl6YXRpb25zCiAgImhlcmUiLCAgICAgICAgICAjIGNvb3JkaW5hdGluZyBwYXRocwogICJyc2FtcGxlIiwgICAgICAgIyBzYW1wbGluZyBwcm9jZWR1cmVzCiAgInJlY2lwZXMiLCAgICAgICAjIGZlYXR1cmUgZW5naW5lZXJpbmcgcHJvY2VkdXJlcwogICJjYXJldCIsICAgICAgICAgIyBtZXRhIG1vZGVsaW5nIHBhY2thZ2UsCiAgImgybyIsICAgICAgICAgICAjIG1ldGEgbW9kZWxpbmcsIG1vZGVsIHN0YWNraW5nLCAmIGF1dG8gTUwKICAiZ2xtbmV0IiwgICAgICAgICMgcmVndWxhcml6ZWQgcmVncmVzc2lvbgogICJlYXJ0aCIsICAgICAgICAgIyBtdWx0aXZhcmlhdGUgYWRhcHRpdmUgcmVncmVzc2lvbiBzcGxpbmVzCiAgInJhbmdlciIsICAgICAgICAjIGZhc3QgcmFuZG9tIGZvcmVzdAogICJnYm0iLCAgICAgICAgICAgIyBncmFkaWVudCBib29zdGluZyBtYWNoaW5lcwogICJ4Z2Jvb3N0IiwgICAgICAgIyBleHRyZW1lIGdyYWRpZW50IGJvb3N0aW5nCiAgImJyb29tIiwgICAgICAgICAjIHByb3ZpZGVzIG1vZGVsIHJlc3VsdCBjbGVhbiB1cAogICJ2aXAiLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvbgogICJwZHAiLCAgICAgICAgICAgIyBtb2RlbCBpbnRlcnByZXRhdGlvbgogICJwbG90Uk9DIiwgICAgICAgIyBwbG90dGluZyBST0MgY3VydmUKICAicnByb2pyb290IiAgICAgICMgY29vcmRpbmF0aW5nIHBhdGhzCikKYGBgCgpSdW4gdGhlIGZvbGxvd2luZyBsaW5lIG9mIGNvZGUgdG8gaW5zdGFsbCB0aGUgcGFja2FnZXMgeW91IGN1cnJlbnRseSBkbyBub3QgaGF2ZToKCmBgYHtyfQpuZXdfcGtncyA8LSBsaXN0X29mX3BrZ3NbIShsaXN0X29mX3BrZ3MgJWluJSBpbnN0YWxsZWQucGFja2FnZXMoKVssIlBhY2thZ2UiXSldCmlmIChsZW5ndGgobmV3X3BrZ3MpKSBpbnN0YWxsLnBhY2thZ2VzKG5ld19wa2dzKQpgYGAK</div>
 
 
 

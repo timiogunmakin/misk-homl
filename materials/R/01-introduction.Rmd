@@ -1,0 +1,63 @@
+---
+title: "Chapter 01: Introduction to Machine Learning"
+output: html_notebook
+---
+
+
+## The data sets
+
+* Ames homes sales data
+    
+```{r import-ames-data}
+# access data
+ames <- AmesHousing::make_ames()
+
+# initial dimension
+dim(ames)
+
+# response variable
+head(ames$Sale_Price)
+```
+    
+* Employee attrition information originally provided by [IBM Watson Analytics Lab](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/).
+
+```{r import-attrition-data}
+# access data
+attrition <- rsample::attrition
+
+# initial dimension
+dim(attrition)
+
+# response variable
+head(attrition$Attrition)
+```    
+    
+* MNIST handwritten numbers data 
+
+```{r import-mnist-data, message=FALSE, warning=FALSE}
+#access data
+mnist <- dslabs::read_mnist()
+names(mnist)
+
+# initial feature dimensions
+dim(mnist$train$images)
+
+# response variable
+head(mnist$train$labels)
+```   
+
+* Grocery items and quantities purchased. 
+
+```{r import-mybasket-data, message=FALSE, warning=FALSE}
+# URL to download/read in the data
+url <- "https://koalaverse.github.io/homlr/data/my_basket.csv"
+
+# Access data
+my_basket <- readr::read_csv(url)
+
+# Print dimensions
+dim(my_basket)
+
+# Peek at response variable
+my_basket
+```   
