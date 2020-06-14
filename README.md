@@ -53,9 +53,9 @@ More info TBD.
 | 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | TBD  | TBD   |
 | 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | TBD  | TBD   |
 | 3             | Feature and target engineering       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html)  | TBD  | TBD   |
-| 4             | Linear & logistic regression         | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | TBD  | TBD   |
+| 4             | Linear regression                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | TBD  | TBD   |
 | 5             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
-| 6             | Regularized regression               | [Notebook]()  | TBD  | TBD   |
+| 6             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
 | 7             | Multivariate adaptive regression splines | [Notebook]()  | TBD  | TBD   |
 | 8             | K-nearest neighbors                  | [Notebook]()  | TBD  | TBD   |
 | 9             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
