@@ -53,15 +53,16 @@ More info TBD.
 | 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | TBD  | TBD   |
 | 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | TBD  | TBD   |
 | 3             | Feature and target engineering       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html)  | TBD  | TBD   |
-| 4             | Linear & logistic regression         | [Notebook]()  | TBD  | TBD   |
-| 5             | Regularized regression               | [Notebook]()  | TBD  | TBD   |
-| 6             | Multivariate adaptive regression splines | [Notebook]()  | TBD  | TBD   |
-| 7             | K-nearest neighbors                  | [Notebook]()  | TBD  | TBD   |
-| 8             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
-| 9             | Random forests                       | [Notebook]()  | TBD  | TBD   |
-| 10            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
-| 11            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
-| 12            | Case study.                          | [Notebook]()  | TBD  | TBD   |
+| 4             | Linear & logistic regression         | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | TBD  | TBD   |
+| 5             | Logistic regression                  | [Notebook]()  | TBD  | TBD   |
+| 6             | Regularized regression               | [Notebook]()  | TBD  | TBD   |
+| 7             | Multivariate adaptive regression splines | [Notebook]()  | TBD  | TBD   |
+| 8             | K-nearest neighbors                  | [Notebook]()  | TBD  | TBD   |
+| 9             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
+| 10            | Random forests                       | [Notebook]()  | TBD  | TBD   |
+| 11            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
+| 12            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
+| 13            | Case study.                          | [Notebook]()  | TBD  | TBD   |
 
 
 ## Extras

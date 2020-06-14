@@ -577,6 +577,23 @@ Linear regression is usually the first supervised learning algorithm you will le
 
 # Exercises
 
+Using the same dataset as you used in the previous module's [exercise](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html#exercises):
 
+1. Pick a single feature and apply simple linear regression model.
+   - Interpret the feature's coefficient
+   - What is the model's performance? How does it compare to the KNN in the last module?
+2. Pick another feature to add to the model.
+   - Before applying the module why do you think this feature will help?
+   - Apply a linear regression model with the two features and compare to the simple linear model.
+   - Interpret the coefficients.
+3. Now apply a model that includes all the predictors.
+   - How does this model compare to the previous two?
+4. Can you identify any model concerns?
+5. Apply a principal component regression model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+6. Now apply a partial least square model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
 
 # References
