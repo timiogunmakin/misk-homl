@@ -46,21 +46,22 @@ This module makes a few assumptions of your established knowledge regarding your
 
 ## Schedule
 
-This module will use [__Hands-On Machine Learning with R__](https://bradleyboehmke.github.io/HOML/) as the primary text. Although this book demonstrates examples using R, example code is also provided in the Python resources so students can implement the same steps and algorithms using Python. Students can also use [__Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow__](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1492032646/ref=dp_ob_image_bk) as an additional supporting text book which demonstrates many of the same concepts with Python.
+More info TBD.
 
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
-| 1             | Introduction to machine learning and the modeling process | TBD           | TBD           | TBD           | TBD           |
-| 2             | Feature and target engineering       | TBD           | TBD           | TBD           | TBD           |
-| 3             | Linear & logistic regression         | TBD           | TBD           | TBD           | TBD           |
-| 4             | Regularized regression               | TBD           | TBD           | TBD           | TBD           |
-| 4             | Multivariate adaptive regression splines | TBD           | TBD           | TBD           | TBD           |
-| 5             | K-nearest neighbors                  | TBD           | TBD           | TBD           | TBD           |
-| 6             | Decision trees and bagging           | TBD           | TBD           | TBD           | TBD           |
-| 7             | Random forests                       | TBD           | TBD           | TBD           | TBD           |
-| 8             | Gradient boosting                    | TBD           | TBD           | TBD           | TBD           |
-| 9             | Stacked models & AutoML              | TBD           | TBD           | TBD           | TBD           |
-| 10            | Case study.                          | TBD           | TBD           | TBD           | TBD           |
+| 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | TBD  | TBD   |
+| 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | TBD  | TBD   |
+| 3             | Feature and target engineering       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html)  | TBD  | TBD   |
+| 4             | Linear & logistic regression         | [Notebook]()  | TBD  | TBD   |
+| 5             | Regularized regression               | [Notebook]()  | TBD  | TBD   |
+| 6             | Multivariate adaptive regression splines | [Notebook]()  | TBD  | TBD   |
+| 7             | K-nearest neighbors                  | [Notebook]()  | TBD  | TBD   |
+| 8             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
+| 9             | Random forests                       | [Notebook]()  | TBD  | TBD   |
+| 10            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
+| 11            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
+| 12            | Case study.                          | [Notebook]()  | TBD  | TBD   |
 
 
 ## Extras

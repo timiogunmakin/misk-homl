@@ -17,7 +17,7 @@ Machine learning (ML) continues to grow in importance for many organizations acr
 
 In essence, these tasks all seek to learn from data.  To address each scenario, we can use a given set of _features_ to train an algorithm and extract insights. These algorithms, or _learners_, can be classified according to the amount and type of supervision needed during training.  The two main groups this book focuses on are: ___supervised learners___ which construct predictive models, and ___unsupervised learners___ which build descriptive models. Which type you will need to use depends on the learning task you hope to accomplish.
 
-## Supervised learning
+# Supervised learning
 
 A ___predictive model___ is used for tasks that involve the prediction of a given output (or target) using other variables (or features) in the data set. The learning algorithm in a predictive model attempts to discover and model the relationships among the <font color="red">target</font> variable (the variable being predicted) and the other <font color="blue">features</font> (aka predictor variables). Examples of predictive modeling include:
 
@@ -41,7 +41,7 @@ The predictive modeling examples above describe what is known as _supervised lea
 
 Most supervised learning problems can be bucketed into one of two categories, _regression_\index{regression} or _classification_\index{classification}, which we discuss next.
 
-### Regression problems
+## Regression problems
 
 When the objective of our supervised learning is to predict a numeric outcome, we refer to this as a ___regression problem___ (not to be confused with linear regression modeling).  Regression problems revolve around predicting output that falls on a continuum. In the examples above, predicting home sales prices and time to market reflect a regression problem because the output is numeric and continuous.  This means, given the combination of predictor values, the response value could fall anywhere along some continuous spectrum (e.g., the predicted sales price of a particular home could be between \$80,000 and \$755,000).  The figure below illustrates average home sales prices as a function of two home features: year built and total square footage. Depending on the combination of these two features, the expected home sales price could fall anywhere along a plane.
 
@@ -78,7 +78,7 @@ plot_ly(x = as.vector(x), y = as.vector(y), z = z, showscale = FALSE) %>%
 ```
 
 
-### Classification problems
+## Classification problems
 
 When the objective of our supervised learning is to predict a categorical outcome, we refer to this as a ___classification problem___.  Classification problems most commonly revolve around predicting a binary or multinomial response measure such as:
 
@@ -113,7 +113,7 @@ However, when we apply machine learning models for classification problems, rath
 Although there are machine learning algorithms that can be applied to regression problems but not classification and vice versa, most of the supervised learning algorithms we cover in this book can be applied to both.  These algorithms have become the most popular machine learning applications in recent years. 
 
 
-## Unsupervised learning
+# Unsupervised learning
 
 ___Unsupervised learning___\index{unsupervised learning}, in contrast to supervised learning, includes a set of statistical tools to better understand and describe your data, but performs the analysis without a target variable.  In essence, unsupervised learning is concerned with identifying groups in a data set. The groups may be defined by the rows (i.e., *clustering*) or the columns (i.e., *dimension reduction*); however, the motive in each case is quite different.
 
@@ -131,7 +131,7 @@ These questions, and many more, can be addressed with unsupervised learning.  Mo
 
 
 
-## Roadmap
+# Roadmap
 
 The goal of this course is to provide effective tools for uncovering relevant and useful patterns in your data by using R's ML stack with a focus on supervised learning. We begin by providing an overview of the ML modeling process and discussing fundamental concepts that will carry through the rest of the course. These include feature engineering, data splitting, model validation and tuning, and performance measurement.
 
@@ -140,7 +140,7 @@ We'll then start to focus on common supervised learners ranging from simpler lin
 Then we'll delve into more advanced approaches to maximize effectiveness, efficiency, and interpretation of your ML models.  We discuss how to combine multiple models to create a stacked model (aka _super learner_\index{super learner}), which allows you to combine the strengths from each base learner and further maximize predictive accuracy. We then illustrate how to make the training and validation process more efficient with automated ML (aka AutoML). Finally, we illustrate many ways to extract insight from your "black box" models with various ML interpretation techniques.
 
 
-## The data sets {#data}
+# The data sets {#data}
 
 The data sets chosen for this course allow us to illustrate the different features of the presented machine learning algorithms.  Since the goal of this course is to demonstrate how to implement R's ML stack, we make the assumption that you have already spent significant time cleaning and getting to know your data via EDA. This would allow you to perform many necessary tasks prior to the ML tasks outlined in this course such as:
 
@@ -211,7 +211,7 @@ head(mnist$train$labels)
 ```   
 
 
-## Exercises
+# Exercises
 
 1. Identify four real-life applications of supervised and unsupervised problems.
    - Explain what makes these problems supervised versus unsupervised.
@@ -240,4 +240,4 @@ head(mnist$train$labels)
 4. Identify examples of misuse of machine learning in society. What was the
    ethical concern?
 
-## References
+# References
