@@ -57,7 +57,7 @@ More info TBD.
 | 5             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
 | 6             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
 | 7             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | TBD  | TBD   |
-| 8             | K-nearest neighbors                  | [Notebook]()  | TBD  | TBD   |
+| 8             | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
 | 9             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
 | 10            | Random forests                       | [Notebook]()  | TBD  | TBD   |
 | 11            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
