@@ -1,0 +1,305 @@
+---
+title: "Bagging"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: true
+bibliography: [references.bib, packages.bib]
+---
+
+```{r setup, include=FALSE}
+# Set global R options
+options(scipen = 999)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(
+  warning = FALSE, 
+  message = FALSE
+)
+```
+
+In an earlier module we learned about [bootstrapping as a resampling procedure](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html#bootstrapping), which creates *b* new bootstrap samples by drawing samples with replacement of the original training data. This module illustrates how we can use bootstrapping to create an *ensemble* of predictions. Bootstrap aggregating, also called *bagging*, is one of the first ensemble algorithms^[Also commonly referred to as a meta-algorithm.] machine learning practitioners learn and is designed to improve the stability and accuracy of regression and classification algorithms. By model averaging, bagging helps to reduce variance and minimize overfitting. Although it is usually applied to decision tree methods, it can be used with any type of method.
+
+# Prerequisites
+
+In this module we'll make use of the following packages:
+
+```{r}
+# Helper packages
+library(dplyr)       # for data wrangling
+library(ggplot2)     # for awesome plotting
+library(doParallel)  # for parallel backend to foreach
+library(foreach)     # for parallel processing with for loops
+
+# Modeling packages
+library(rsample)     # data splitting
+library(caret)       # for general model fitting
+library(rpart)       # for fitting decision trees
+library(ipred)       # for fitting bagged decision trees
+```
+
+We'll continue to illustrate the main concepts with the `ames_train` data set.
+
+```{r 08-ames-train}
+# create Ames training data
+ames <- AmesHousing::make_ames()
+set.seed(123)
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test  <- testing(split)
+```
+
+# Why and when bagging works {#why-bag}
+
+_Bootstrap aggregating_ (bagging) prediction models is a general method for fitting multiple versions of a prediction model and then combining (or ensembling) them into an aggregated prediction [@breiman1996bagging]. Bagging is a fairly straight forward algorithm in which _b_ bootstrap copies of the original training data are created, the regression or classification algorithm (commonly referred to as the *base learner*) is applied to each bootstrap sample and, in the regression context, new predictions are made by averaging the predictions together from the individual base learners.  When dealing with a classification problem, the base learner predictions are combined using plurality vote or by averaging the estimated class probabilities together. This is represented in the below equation where $X$ is the record for which we want to generate a prediction, $\widehat{f_{bag}}$ is the bagged prediction, and $\widehat{f_1}\left(X\right), \widehat{f_2}\left(X\right), \dots, \widehat{f_b}\left(X\right)$ are the predictions from the individual base learners.
+
+\begin{equation}
+  \widehat{f_{bag}} = \widehat{f_1}\left(X\right) + \widehat{f_2}\left(X\right) + \cdots + \widehat{f_b}\left(X\right)
+\end{equation}
+
+Because of the aggregation process, bagging effectively reduces the variance of an individual base learner (i.e., averaging reduces variance); however, bagging does not always improve upon an individual base learner. As discussed in our [bias vs variance discussion](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html#bias_variance_trade-off), some models have larger variance than others. Bagging works especially well for unstable, high variance base learners---algorithms whose predicted output undergoes major changes in response to small changes in the training data [@dietterich2000ensemble; @dietterich2000experimental]. This includes algorithms such as decision trees and KNN (when _k_ is sufficiently small). However, for algorithms that are more stable or have high bias, bagging offers less improvement on predicted outputs since there is less variability (e.g., bagging a linear regression model will effectively just return the original predictions for large enough $b$). 
+
+> ___Note:___ _The general idea behind bagging is referred to as the "wisdom of the crowd" effect and was popularized by @surowiecki2005wisdom. It essentially means that the aggregation of information in large diverse groups results in decisions that are often better than could have been made by any single member of the group. The more diverse the group members are then the more diverse their perspectives and predictions will be, which often leads to better aggregated information. Think of estimating the number of jelly beans in a jar at a carinival. While any individual guess is likely to be way off, you'll often find that the averaged guesses tends to be a lot closer to the true number._
+
+This is illustrated in the below plot, which compares bagging $b = 100$ polynomial regression models, MARS models, and CART decision trees. You can see that the low variance base learner (polynomial regression) gains very little from bagging while the higher variance learner (decision trees) gains significantly more.  Not only does bagging help minimize the high variability (instability) of single trees, but it also helps to smooth out the prediction surface.
+
+```{r bagging-multiple-models, echo=FALSE, fig.width=10, fig.height=3.5}
+# Simulate some nonlinear monotonic data
+set.seed(123)  # for reproducibility
+x <- seq(from = 0, to = 2 * pi, length = 500)
+y <- sin(x) + rnorm(length(x), sd = 0.3)
+df <- data.frame(x, y) %>%
+  filter(x < 4.5)
+
+# bootstrapped polynomial model fit
+bootstrap_n <- 100
+bootstrap_results <- NULL
+for(i in seq_len(bootstrap_n)) {
+  # reproducible sampled data frames
+  set.seed(i)
+  index <- sample(seq_len(nrow(df)), nrow(df), replace = TRUE)
+  df_sim <- df[index, ]
+  
+  # fit model and add predictions to results data frame
+  fit <- lm(y ~ I(x^3), data = df_sim)
+  df_sim$predictions <- predict(fit, df_sim)
+  df_sim$model <- paste0("model", i)
+  df_sim$ob <- index
+  bootstrap_results <- rbind(bootstrap_results, df_sim)
+}
+
+p1 <- ggplot(bootstrap_results, aes(x, predictions)) +
+  geom_point(data = df, aes(x, y), alpha = .25) +
+  geom_line(aes(group = model), show.legend = FALSE, size = .5, alpha = .2) +
+  stat_summary(fun.y = "mean", colour = "red", size = 1, geom = "line") +
+  scale_y_continuous("Response", limits = c(-2, 2), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 5), expand = c(0, 0)) +
+  ggtitle("A) Polynomial regression")
+
+# bootstrapped MARS model fit
+bootstrap_n <- 100
+bootstrap_results <- NULL
+for(i in seq_len(bootstrap_n)) {
+  # reproducible sampled data frames
+  set.seed(i)
+  index <- sample(seq_len(nrow(df)), nrow(df), replace = TRUE)
+  df_sim <- df[index, ]
+  
+  # fit model and add predictions to results data frame
+  fit <- earth::earth(y ~ x, data = df_sim)
+  df_sim$predictions <- predict(fit, df_sim)
+  df_sim$model <- paste0("model", i)
+  df_sim$ob <- index
+  bootstrap_results <- rbind(bootstrap_results, df_sim)
+}
+
+p2 <- ggplot(bootstrap_results, aes(x, predictions)) +
+  geom_point(data = df, aes(x, y), alpha = .25) +
+  geom_line(aes(group = model), show.legend = FALSE, size = .5, alpha = .2) +
+  stat_summary(fun.y = "mean", colour = "red", size = 1, geom = "line") +
+  scale_y_continuous(NULL, limits = c(-2, 2), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 5), expand = c(0, 0)) +
+  ggtitle("B) MARS")
+
+# bootstrapped decision trees fit
+bootstrap_n <- 100
+bootstrap_results <- NULL
+for(i in seq_len(bootstrap_n)) {
+  # reproducible sampled data frames
+  set.seed(i)
+  index <- sample(seq_len(nrow(df)), nrow(df), replace = TRUE)
+  df_sim <- df[index, ]
+  
+  # fit model and add predictions to results data frame
+  fit <- rpart::rpart(y ~ x, data = df_sim)
+  df_sim$predictions <- predict(fit, df_sim)
+  df_sim$model <- paste0("model", i)
+  df_sim$ob <- index
+  bootstrap_results <- rbind(bootstrap_results, df_sim)
+}
+
+p3 <- ggplot(bootstrap_results, aes(x, predictions)) +
+  geom_point(data = df, aes(x, y), alpha = .25) +
+  geom_line(aes(group = model), show.legend = FALSE, size = .5, alpha = .2) +
+  stat_summary(fun.y = "mean", colour = "red", size = 1, geom = "line") +
+  scale_y_continuous(NULL, limits = c(-2, 2), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 5), expand = c(0, 0)) +
+  ggtitle("C) Decision trees")
+
+gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+```
+
+Optimal performance is often found by bagging 50--500 trees. Data sets that have a few strong predictors typically require less trees; whereas data sets with lots of noise or multiple strong predictors may need more. Using too many trees will not lead to overfitting. However, it's important to realize that since multiple models are being run, the more iterations you perform the more computational and time requirements you will have. As these demands increase, performing _k_-fold CV can become computationally burdensome.
+
+A benefit to creating ensembles via bagging, which is based on resampling with replacement, is that it can provide its own internal estimate of predictive performance with the out-of-bag (OOB) sample. The OOB sample can be used to test predictive performance and the results usually compare well compared to _k_-fold CV assuming your data set is sufficiently large (say $n \geq 1,000$). Consequently, as your data sets become larger and your bagging iterations increase, it is common to use the OOB error estimate as a proxy for predictive performance. 
+
+> ___Note:___: _Think of the OOB estimate of generalization performance as an unstructured, but free CV statistic._
+
+# Implementation
+
+In the [decision trees module](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html), we saw how decision trees performed in predicting the sales price for the Ames housing data. Performance was subpar compared to the MARS and KNN models we fit, even after tuning to find the optimal pruned tree. Rather than use a single pruned decision tree, we can use, say, 100 bagged unpruned trees (by not pruning the trees we're keeping bias low and variance high which is when bagging will have the biggest effect). As the below code chunk illustrates, we gain significant improvement over our individual (pruned) decision tree (RMSE of 27,767 for bagged trees vs. 41,019 for the single decision tree).
+
+> ___Pro Tip:___ _The `bagging()` function comes from the **ipred** package and we use `nbagg` to control how many iterations to include in the bagged model and `coob = TRUE` indicates to use the OOB error rate. By default, `bagging()` uses `rpart::rpart()` for decision tree base learners but other base learners are available. Since bagging just aggregates a base learner, we can tune the base learner parameters as normal. Here, we pass parameters to `rpart()` with the `control` parameter and we build deep trees (no pruning) that require just two observations in a node to split._
+
+```{r first-bagged-ames-model}
+# make bootstrapping reproducible
+set.seed(123)
+
+# train bagged model
+ames_bag1 <- bagging(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  nbagg = 100,  
+  coob = TRUE,
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+
+ames_bag1
+```
+
+One thing to note is that typically, the more trees the better. As we add more trees we're averaging over more high variance decision trees. Early on, we see a dramatic reduction in variance (and hence our error) but eventually the error will typically flatline and stabilize signaling that a  suitable number of trees has been reached. Often, we need only 50--100 trees to stabilize the error (in other cases we may need 500 or more). For the Ames data we see that the error is stabilizing with just over 100 trees so we'll likely not gain much improvement by simply bagging more trees.
+
+> ___Note:___ _Unfortunately, `bagging()` does not provide the RMSE by tree so to produce this error curve we iterated over `nbagg` values of 1--200 and applied the same `bagging()` function above._
+
+```{r n-bags, echo=FALSE}
+# # assess 10-200 bagged trees
+# ntree <- seq(10, 200, by = 2)
+#
+# # create empty vector to store OOB RMSE values
+# rmse <- vector(mode = "numeric", length = length(ntree))
+#
+# for (i in seq_along(ntree)) {
+#   # reproducibility
+#   set.seed(123)
+#   # perform bagged model
+#   model <- bagging(
+#   formula = Sale_Price ~ .,
+#   data    = ames_train,
+#   coob    = TRUE,
+#   control = rpart.control(minsplit = 2, cp = 0),
+#   nbagg   = ntree[i]
+# )
+#   # get OOB error
+#   rmse[i] <- model$err
+# }
+#
+# bagging_errors <- data.frame(ntree, rmse)
+# write.csv(bagging_errors, file = "data/bagging_errors.csv")
+
+# using ranger to do the same as above.  Will allow for bagging under 10 trees
+# and is much faster!
+ntree <- seq(1, 200, by = 2)
+# create empty vector to store OOB RMSE values
+rmse <- vector(mode = "numeric", length = length(ntree))
+
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  # perform bagged model
+  model <- ranger::ranger(
+  formula = Sale_Price ~ .,
+  data    = ames_train,
+  num.trees = i,
+  mtry = ncol(ames_train) - 1,
+  min.node.size = 1
+)
+  # get OOB error
+  rmse[i] <- sqrt(model$prediction.error)
+}
+
+bagging_errors <- data.frame(ntree, rmse)
+```
+
+```{r n-bags-plot, echo=FALSE}
+ggplot(bagging_errors, aes(ntree, rmse)) +
+  geom_line() +
+  geom_hline(yintercept = 41019, lty = "dashed", color = "grey50") +
+  annotate("text", x = 100, y = 41385, label = "Best individual pruned tree", vjust = 0, hjust = 0, color = "grey50") +
+  annotate("text", x = 100, y = 26750, label = "Bagged trees", vjust = 0, hjust = 0) +
+  ylab("RMSE") +
+  xlab("Number of trees")
+```
+
+We can also apply bagging within __caret__ and use 10-fold CV to see how well our ensemble will generalize.  We see that the cross-validated RMSE for 200 trees is similar to the OOB estimate (difference of 495). However, using the OOB error took 58 seconds to compute whereas performing the following 10-fold CV took roughly 26 minutes on our machine!
+
+```{r ames-bag-with-caret}
+ames_bag2 <- train(
+  Sale_Price ~ .,
+  data = ames_train,
+  method = "treebag",
+  trControl = trainControl(method = "cv", number = 10),
+  nbagg = 200,  
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+ames_bag2
+```
+
+# Feature interpretation {#bagging-vip}
+
+Unfortunately, due to the bagging process, models that are normally perceived as interpretable are no longer so. However, we can still make inferences about how features are influencing our model. Recall in the [decision tree module](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html) that we measure feature importance based on the sum of the reduction in the loss function (e.g., SSE) attributed to each variable at each split in a given tree. 
+
+For bagged decision trees, this process is similar.  For each tree, we compute the sum of the reduction of the loss function across all splits.  We then aggregate this measure across all trees for each feature. The features with the largest average decrease in SSE (for regression) are considered most important. Unfortunately, the __ipred__ package does not capture the required information for computing variable importance but the __caret__ package does. In the code chunk below, we use __vip__ to construct a variable importance plot (VIP) of the top 40 features in the `ames_bag2` model.
+
+> ___Note:___ _With a single decision tree, we saw that many non-informative features were not used in the tree. However, with bagging, since we use many trees built on bootstrapped samples, we are likely to see many more features used for splits. Consequently, we tend to have many more features involved but with lower levels of importance._
+
+
+```{r bag-vip, fig.height=5.75, fig.cap="Variable importance for 200 bagged trees for the Ames Housing data."}
+vip::vip(ames_bag2, num_features = 40, bar = FALSE)
+```
+
+Understanding the relationship between a feature and predicted response for bagged models follows the same procedure we've seen in previous chapters.  PDPs tell us visually how each feature influences the predicted output, on average. Although the averaging effect of bagging diminishes the ability to interpret the final ensemble, PDPs and other interpretability methods help us to interpret any "black box" model. The plots below highlight the unique, and sometimes non-linear, non-monotonic relationships that may exist between a feature and response.
+
+```{r bag-pdp, fig.width=10, fig.cap="Partial dependence plots to understand the relationship between sales price and the lot area and frontage size features."}
+# Construct partial dependence plots
+p1 <- pdp::partial(
+  ames_bag2, 
+  pred.var = "Lot_Area",
+  grid.resolution = 20
+  ) %>% 
+  autoplot()
+
+p2 <- pdp::partial(
+  ames_bag2, 
+  pred.var = "Lot_Frontage", 
+  grid.resolution = 20
+  ) %>% 
+  autoplot()
+
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+# Exercises
+
+Use the same regression and/or classification dataset you've been using in the decision tree module exercises:
+
+1. Apply a bagged decision tree model with all features.
+2. How many trees are required before the loss function stabilizes?
+3. Adjust different parameters such as `minsplit`, `minbucket`, `cp`, `maxdepth` and assess how performance changes.
+4. How does the model performance compare to your previous models?
+5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+6. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+
+# References

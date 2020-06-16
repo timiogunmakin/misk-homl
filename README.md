@@ -58,11 +58,12 @@ More info TBD.
 | 6             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
 | 7             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | TBD  | TBD   |
 | 8             | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
-| 9             | Decision trees and bagging           | [Notebook]()  | TBD  | TBD   |
-| 10            | Random forests                       | [Notebook]()  | TBD  | TBD   |
-| 11            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
-| 12            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
-| 13            | Case study.                          | [Notebook]()  | TBD  | TBD   |
+| 9             | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | TBD  | TBD   |
+| 10            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | TBD  | TBD   |
+| 11            | Random forests                       | [Notebook]()  | TBD  | TBD   |
+| 12            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
+| 13            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
+| 14            | Case study.                          | [Notebook]()  | TBD  | TBD   |
 
 
 ## Extras
