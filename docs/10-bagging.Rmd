@@ -291,6 +291,46 @@ p2 <- pdp::partial(
 gridExtra::grid.arrange(p1, p2, nrow = 1)
 ```
 
+# Final thoughts {#bagging-thoughts}
+
+Bagging improves the prediction accuracy for high variance (and low bias) models at the expense of interpretability and computational speed. However, using various interpretability algorithms such as VIPs and PDPs, we can still make inferences about how our bagged model leverages feature information.  Also, since bagging consists of independent processes, the algorithm is easily parallelizable.
+
+However, when bagging trees, a problem still exists. Although the model building steps are independent, the trees in bagging are not completely independent of each other since all the original features are considered at every split of every tree. Rather, trees from different bootstrap samples typically have similar structure to each other (especially at the top of the tree) due to any underlying strong relationships.
+
+For example, if we create six decision trees with different bootstrapped samples of the Boston housing data [@harrison1978hedonic], we see a similar structure as the top of the trees.  Although there are 15 predictor variables to split on, all six trees have both `lstat` and `rm` variables driving the first few splits.  
+
+> ___Note:___ _We use the Boston housing data in this example because it has fewer features and shorter names than the Ames housing data. Consequently, it is easier to compare multiple trees side-by-side; however, the same tree correlation problem exists in the Ames bagged model._
+
+```{r tree-correlation, message=FALSE, warning=FALSE, fig.align='center', fig.cap="Six decision trees based on different bootstrap samples.", echo=FALSE}
+library(caret)
+library(randomForest)
+iter = 6
+par(mfrow = c(3, 3))
+for(i in 1:iter){
+  set.seed(i+30)
+  # create train/test sets
+  train_index <- caret::createDataPartition(pdp::boston$cmedv, p = .6333,
+                                     list = FALSE,
+                                     times = 1)
+  
+  train_DF <- pdp::boston[train_index,]
+  validate_DF <- pdp::boston[-train_index,]
+  
+  train_y <- train_DF$cmedv
+  train_x <- train_DF[, setdiff(names(train_DF), "cmedv")]
+  
+  validate_y <- validate_DF$cmedv
+  validate_x <- validate_DF[, setdiff(names(validate_DF), "cmedv")]
+  
+  d_tree <- rpart::rpart(cmedv ~ ., train_DF)
+  
+  # graphs
+  
+  rpart.plot::rpart.plot(d_tree, main = paste0("Decision Tree ", i), type = 0, extra = 0) 
+  
+}
+```
+
 # Exercises
 
 Use the same regression and/or classification dataset you've been using in the decision tree module exercises:
