@@ -36,6 +36,7 @@ library(tidyverse) # general data munging
 # Modeling packages
 library(glmnet)   # for implementing regularized regression
 library(caret)    # for automating the tuning process
+library(rsample)  # for sampling
 
 # Model interpretability packages
 library(vip)      # for variable importance
@@ -44,7 +45,6 @@ library(vip)      # for variable importance
 To illustrate various regularization concepts we'll continue working with the `ames_train` and `ames_test` data sets created in Section \@ref(put-process-together); however, at the end of the chapter we'll also apply regularized regression to the employee attrition data.
 
 ```{r 06-ames-train}
-library(rsample)
 # Stratified sampling with the rsample package
 ames <- AmesHousing::make_ames()
 set.seed(123)  # for reproducibility
