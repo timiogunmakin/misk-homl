@@ -1,4 +1,4 @@
-Hands-on machine learning for predictive analytics with R &amp; Python
+Hands-on machine learning for predictive analytics with R
 ================
 
 ### Misk Academy
@@ -26,7 +26,7 @@ Students will learn many of the most common machine learning methods to include:
 -	Stacking / super learners 
 -	And more!
 
-This module will teach students how to build and tune these various models with R and Python packages that have been tested and approved due to their ability to scale well (i.e. Scikit-Learn, xgboost, h2o). However, the motivation in almost every case is to describe the techniques in a way that helps develop intuition for its strengths and weaknesses. 
+This module will teach students how to build and tune these various models with R packages that have been tested and approved due to their ability to scale well (i.e. glmnet, ranger, xgboost, h2o). However, the motivation in almost every case is to describe the techniques in a way that helps develop intuition for its strengths and weaknesses. 
 
 ## Learning Objectives
 

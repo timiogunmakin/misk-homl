@@ -414,7 +414,7 @@ image(matrix(imp$imp, 28, 28), col = gray(seq(0, 1, 0.05)),
       xaxt="n", yaxt="n")
 ```
 
-We can look at a few of our correct (left) and incorrect (right) predictions in the plot below.  When looking at the incorrect predictions, we can rationalize some of the errors (e.g., the actual 4 where we predicted a 1 has a strong vertical stroke compared to the rest of the number's features, the actual 2 where we predicted a 0 is blurry and not well defined.)
+We can look at a few of our correct (left) and incorrect (right) predictions in the plot below.  When looking at the incorrect predictions, we can rationalize some of the errors (e.g., the actual 6 where we predicted a 1 has a strong vertical stroke compared to the rest of the number's features, the actual 5 where we predicted a 6 has an ill-defined lower part.)
 
 ```{r correct-vs-incorrect, fig.height=12, fig.width=8, fig.cap="Actual images from the MNIST data set along with our KNN model's predictions.  Left column illustrates a few accurate predictions and the right column illustrates a few inaccurate predictions."}
 # Get a few accurate predictions
