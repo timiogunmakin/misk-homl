@@ -1,0 +1,789 @@
+---
+title: "Gradient Boosting"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: true
+bibliography: [references.bib, packages.bib]
+---
+
+```{r setup, include=FALSE}
+# Set global R options
+options(scipen = 999)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(
+  cache = TRUE,
+  warning = FALSE, 
+  message = FALSE
+)
+
+## WORKAROUND: https://github.com/rstudio/rstudio/issues/6692
+## Revert to 'sequential' setup of PSOCK cluster in RStudio Console on macOS and R 4.0.0
+if (Sys.getenv("RSTUDIO") == "1" && !nzchar(Sys.getenv("RSTUDIO_TERM")) && 
+    Sys.info()["sysname"] == "Darwin" && getRversion() == "4.0.0") {
+  parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
+}
+```
+
+Gradient boosting machines (GBMs) are an extremely popular machine learning algorithm that have proven successful across many domains and is one of the leading methods for winning Kaggle competitions. Whereas random forests build an ensemble of deep independent trees, GBMs build an ensemble of shallow trees in sequence with each tree learning and improving on the previous one. Although shallow trees by themselves are rather weak predictive models, they can be "boosted" to produce a powerful "committee" that, when appropriately tuned, is often hard to beat with other algorithms. This module will cover the fundamentals to understanding and implementing some popular implementations of GBMs.
+
+# Prerequisites
+
+This module leverages the following packages. Some of these packages play a supporting role; however, our focus is on demonstrating how to implement GBMs with the __gbm__ [@gbm-pkg], __xgboost__ [@xgboost-pkg], and __h2o__ packages. 
+
+```{r gbm-pkg-req}
+# Helper packages
+library(dplyr)    # for general data wrangling needs
+
+# Modeling packages
+library(gbm)      # for original implementation of regular and stochastic GBMs
+library(h2o)      # for a java-based implementation of GBM variants
+library(xgboost)  # for fitting extreme gradient boosting
+library(rsample)  # sampling procedure
+```
+
+We'll continue working with the `ames_train` data set to illustrate the main concepts. We'll also demonstrate __h2o__ functionality using the same setup as we saw in the random forest module.
+
+```{r gbm-ames-train}
+# create Ames training data
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+
+# H2O
+h2o.init(max_mem_size = "10g")
+
+train_h2o <- as.h2o(ames_train)
+response <- "Sale_Price"
+predictors <- setdiff(colnames(ames_train), response)
+```
+
+# How boosting works
+
+Several supervised machine learning algorithms are based on a single predictive model, for example: ordinary linear regression, penalized regression models, single decision trees, and support vector machines. Bagging and random forests, on the other hand, work by combining multiple models together into an overall ensemble. New predictions are made by combining the predictions from the individual base models that make up the ensemble (e.g., by averaging in regression). Since averaging reduces variance, bagging (and hence, random forests) are most effectively applied to models with low bias and high variance (e.g., an overgrown decision tree). While boosting is a general algorithm for building an ensemble out of simpler models (typically decision trees), it is more effectively applied to models with high bias and low variance! Although boosting, like bagging, can be applied to any type of model, it is often most effectively applied to decision trees (which we'll assume from this point on).
+
+
+## A sequential ensemble approach
+
+The main idea of boosting is to add new models to the ensemble ___sequentially___. In essence, boosting attacks the bias-variance-tradeoff by starting with a _weak_ model (e.g., a decision tree with only a few splits) and sequentially _boosts_ its performance by continuing to build new trees, where each new tree in the sequence tries to fix up where the previous one made the biggest mistakes (i.e., each new tree in the sequence will focus on the training rows where the previous tree had the largest prediction errors); see the image below. 
+
+```{r sequential-fig, echo=FALSE, fig.align='center', fig.cap="Sequential ensemble approach.", out.height="75%", out.width="75%"}
+
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+Let's discuss the important components of boosting in closer detail.
+
+__The base learners__:  Boosting is a framework that iteratively improves _any_ weak learning model.  Many gradient boosting applications allow you to "plug in" various classes of weak learners at your disposal. In practice however, boosted algorithms almost always use decision trees as the base-learner. Consequently, this module will discuss boosting in the context of decision trees.
+
+__Training weak models__: A weak model is one whose error rate is only slightly better than random guessing.  The idea behind boosting is that each model in the sequence slightly improves upon the performance of the previous one (essentially, by focusing on the rows of the training data where the previous tree had the largest errors or residuals).  With regards to decision trees, shallow trees (i.e., trees with relatively few splits) represent a weak learner.  In boosting, trees with 1--6 splits are most common. 
+
+__Sequential training with respect to errors__: Boosted trees are grown sequentially; each tree is grown using information from previously grown trees to improve performance. This is illustrated in the following algorithm for boosting regression trees. By fitting each tree in the sequence to the previous tree's residuals, we're allowing each new tree in the sequence to focus on the previous tree's mistakes:
+
+1. Fit a decision tree to the data: $F_1\left(x\right) = y$,
+2. We then fit the next decision tree to the residuals of the previous: $h_1\left(x\right) = y - F_1\left(x\right)$,
+3. Add this new tree to our algorithm: $F_2\left(x\right) = F_1\left(x\right) + h_1\left(x\right)$,
+4. Fit the next decision tree to the residuals of $F_2$: $h_2\left(x\right) = y - F_2\left(x\right)$,
+5. Add this new tree to our algorithm: $F_3\left(x\right) = F_2\left(x\right) + h_2\left(x\right)$,
+6. Continue this process until some mechanism (i.e. cross validation) tells us to stop.
+
+The final model here is a stagewise additive model of *b* individual trees:
+
+$$ f\left(x\right) =  \sum^B_{b=1}f^b\left(x\right) \tag{1} $$
+
+The figure below illustrates with a simple example where a single predictor ($x$) has a true underlying sine wave relationship (blue line) with *y* along with some irreducible error.  The first tree fit in the series is a single decision stump (i.e., a tree with a single split). Each successive decision stump thereafter is fit to the previous one's residuals. Initially there are large errors, but each additional decision stump in the sequence makes a small improvement in different areas across the feature space where errors still remain. 
+
+```{r boosting-in-action, fig.height=6, fig.width=10, echo=FALSE, fig.cap="Boosted regression decision stumps as 0-1024 successive trees are added."}
+# Load required packages
+library(tidyr)
+library(dplyr)
+library(rpart)
+library(ggplot2)
+
+# Simulate sine wave data
+set.seed(1112)  # for reproducibility
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 1000),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+# Function to boost `rpart::rpart()` trees
+rpartBoost <- function(x, y, data, num_trees = 100, learn_rate = 0.1, tree_depth = 6) {
+  x <- data[[deparse(substitute(x))]]
+  y <- data[[deparse(substitute(y))]]
+  G_b_hat <- matrix(0, nrow = length(y), ncol = num_trees + 1)
+  r <- y
+  for(tree in seq_len(num_trees)) {
+    g_b_tilde <- rpart(r ~ x, control = list(cp = 0, maxdepth = tree_depth))
+    g_b_hat <- learn_rate * predict(g_b_tilde)
+    G_b_hat[, tree + 1] <- G_b_hat[, tree] + matrix(g_b_hat)
+    r <- r - g_b_hat
+    colnames(G_b_hat) <- paste0("tree_", c(0, seq_len(num_trees)))
+  }
+  cbind(df, as.data.frame(G_b_hat)) %>%
+    gather(tree, prediction, starts_with("tree")) %>%
+    mutate(tree = stringr::str_extract(tree, "\\d+") %>% as.numeric())
+}
+
+# Plot boosted tree sequence
+rpartBoost(x, y, data = df, num_trees = 2^10, learn_rate = 0.05, tree_depth = 1) %>%
+  filter(tree %in% c(0, 2^c(0:10))) %>%
+  ggplot(aes(x, prediction)) +
+    ylab("y") +
+    geom_point(data = df, aes(x, y), alpha = .1) +
+    geom_line(data = df, aes(x, truth), color = "blue") +
+    geom_line(colour = "red", size = 1) +
+    facet_wrap(~ tree, nrow = 3)
+```
+
+
+## Gradient descent {#gbm-gradient}
+
+Many algorithms in regression, including decision trees, focus on minimizing some function of the residuals; most typically the SSE loss function, or equivalently, the MSE or RMSE (this is accomplished through simple calculus and is the approach taken with least squares).  The boosting algorithm for regression discussed in the previous section outlines the approach of sequentially fitting regression trees to the residuals from the previous tree.  This specific approach is how gradient boosting minimizes the mean squared error (SSE) loss function (for SSE loss, the gradient is nothing more than the residual error).  However, we often wish to focus on other loss functions such as mean absolute error (MAE)---which is less sensitive to outliers---or to be able to apply the method to a classification problem with a loss function such as deviance, or log loss. The name ___gradient___ boosting machine comes from the fact that this procedure can be generalized to loss functions other than SSE.
+
+Gradient boosting is considered a ___gradient descent___ algorithm. Gradient descent is a very generic optimization algorithm capable of finding optimal solutions to a wide range of problems. The general idea of gradient descent is to tweak parameter(s) iteratively in order to minimize a cost function. Suppose you are a downhill skier racing your friend.  A good strategy to beat your friend to the bottom is to take the path with the steepest slope. This is exactly what gradient descent does---it measures the local gradient of the loss (cost) function for a given set of parameters ($\Theta$) and takes steps in the direction of the descending gradient. As the below figure illustrates, once the gradient is zero, we have reached a minimum.
+
+
+```{r gradient-descent-fig, echo=FALSE, fig.height=3, fig.width=5, fig.cap="Gradient descent is the process of gradually decreasing the cost function (i.e. MSE) by tweaking parameter(s) iteratively until you have reached a minimum."}
+
+# create data to plot
+x <- seq(-5, 5, by = .05)
+y <- x^2 + 3
+df <- data.frame(x, y)
+step <- 5
+step_size <- .2
+for(i in seq_len(18)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+steps <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y)) %>%
+  dplyr::slice(1:18)
+# plot
+ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = df[c(5, which.min(df$y)), ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = filter(df, y == min(y)), aes(x, y), size = 4, shape = 21, fill = "yellow") +
+  geom_point(data = steps, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = steps, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Initial value", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[which.min(df$y), "x"], y = 1, label = "Minimium", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[5, "x"], y = df[5, "y"], label = "Learning step", hjust = -.8, vjust = 0)
+```
+
+Gradient descent can be performed on any loss function that is differentiable.  Consequently, this allows GBMs to optimize different loss functions as desired (see @esl, p. 360 for common loss functions). An important parameter in gradient descent is the size of the steps which is controlled by the _learning rate_. If the learning rate is too small, then the algorithm will take many iterations (steps) to find the minimum. On the other hand, if the learning rate is too high, you might jump across the minimum and end up further away than when you started. 
+
+```{r learning-rate-fig, echo=FALSE, fig.width=10, fig.height=3.5, fig.cap="A learning rate that is too small will require many iterations to find the minimum. A learning rate too big may jump over the minimum."}
+
+# create too small of a learning rate
+step <- 5
+step_size <- .05
+for(i in seq_len(10)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+too_small <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+# plot
+p1 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_small[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_small, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_small, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("b) too small")
+# create too large of a learning rate
+too_large <- df[round(which.min(df$y) * (1 + c(-.9, -.6, -.2, .3)), 0), ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+# plot
+p2 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_large[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_large, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_large, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = too_large[1, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("a) too big")
+gridExtra::grid.arrange(p2, p1, nrow = 1)
+```
+
+Moreover, not all cost functions are _convex_ (i.e., bowl shaped). There may be local minimas, plateaus, and other irregular terrain of the loss function that makes finding the global minimum difficult.  ___Stochastic gradient descent___ can help us address this problem by sampling a fraction of the training observations (typically without replacement) and growing the next tree using that subsample.  This makes the algorithm faster but the stochastic nature of random sampling also adds some random nature in descending the loss function's gradient.  Although this randomness does not allow the algorithm to find the absolute global minimum, it can actually help the algorithm jump out of local minima and off plateaus to get sufficiently near the global minimum. 
+
+```{r stochastic-gradient-descent-fig, echo=FALSE, fig.align='center', fig.cap="Stochastic gradient descent will often find a near-optimal solution by jumping out of local minimas and off plateaus."}
+
+# create random walk data
+set.seed(123)
+x <- sample(seq(3, 5, by = .05), 10, replace = TRUE)
+set.seed(123)
+y <- seq(2, 28, length.out = 10)
+
+random_walk <- data.frame(
+  x = x,
+  y = y[order(y, decreasing = TRUE)]
+)
+
+optimal <- data.frame(x = 0, y = 0)
+
+# plot
+ggplot(df, aes(x, y)) + 
+  coord_polar() +
+  theme_minimal() +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  xlab(expression(theta[1])) +
+  ylab(expression(theta[2])) +
+  geom_point(data = random_walk, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) + 
+  geom_point(data = optimal, aes(x, y), size = 2, shape = 21, fill = "yellow") + 
+  geom_path(data = random_walk, aes(x, y), lty = "dotted") +
+  annotate("text", x = random_walk[1, "x"], y = random_walk[1, "y"], label = "Start", hjust = 1, vjust = -1) +
+  annotate("text", x = optimal[1, "x"], y = optimal[1, "y"], label = "Minimum", hjust = -.2, vjust = 1) +
+  ylim(c(0, 28)) + 
+  xlim(-5, 5)
+```
+
+As we'll see in the sections that follow, there are several hyperparameter tuning options available in stochastic gradient boosting (some control the gradient descent and others control the tree growing process). If properly tuned (e.g., with _k_-fold CV) GBMs can lead to some of the most flexible and accurate predictive models you can build!
+
+# Basic GBM
+
+There are multiple variants of boosting algorithms with the original focused on classification problems [@apm]. Throughout the 1990's many approaches were developed with the most successful being the AdaBoost algorithm [@freund1999adaptive]. In 2000, Friedman related AdaBoost to important statistical concepts (e.g., loss functions and additive modeling), which allowed him to generalize the boosting framework to regression problems and multiple loss functions [@friedman2001greedy]. This led to the typical GBM model that we think of today and that most modern implementations are built on.
+
+## Hyperparameters {#hyper-gbm1}
+
+A simple GBM model contains two categories of hyperparameters: _boosting hyperparameters_ and _tree-specific hyperparameters_.   The two main boosting hyperparameters include:
+
+* __Number of trees__: The total number of trees in the sequence or ensemble. The averaging of independently grown trees in bagging and random forests makes it very difficult to overfit with too many trees.  However, GBMs function differently as each tree is grown in sequence to fix up the past tree's mistakes.  For example, in regression, GBMs will chase residuals as long as you allow them to. Also, depending on the values of the other hyperparameters, GBMs often require many trees (it is not uncommon to have many thousands of trees) but since they can easily overfit we must find the optimal number of trees that minimize the loss function of interest with cross validation.
+* __Learning rate__: Determines the contribution of each tree on the final outcome and controls how quickly the algorithm proceeds down the gradient descent (learns). Values range from 0--1 with typical values between 0.001--0.3. Smaller values make the model robust to the specific characteristics of each individual tree, thus allowing it to generalize well. Smaller values also make it easier to stop prior to overfitting; however, they increase the risk of not reaching the optimum with a fixed number of trees and are more computationally demanding. This hyperparameter is also called _shrinkage_. Generally, the smaller this value, the more accurate the model can be but also will require more trees in the sequence.
+
+The two main tree hyperparameters in a simple GBM model include:
+
+* __Tree depth__: Controls the depth of the individual trees. Typical values range from a depth of 3--8 but it is not uncommon to see a tree depth of 1 [@esl]. Smaller depth trees such as decision stumps are computationally efficient (but require more trees); however, higher depth trees allow the algorithm to capture unique interactions but also increase the risk of over-fitting. Note that larger $n$ or $p$ training data sets are more tolerable to deeper trees.
+* __Minimum number of observations in terminal nodes__: Also, controls the complexity of each tree. Since we tend to use shorter trees this rarely has a large impact on performance. Typical values range from 5--15 where higher values help prevent a model from learning relationships which might be highly specific to the particular sample selected for a tree (overfitting) but smaller values can help with imbalanced target classes in classification problems.
+
+## Implementation
+
+There are many packages that implement GBMs and GBM variants. You can find a fairly comprehensive list at the CRAN Machine Learning Task View: https://cran.r-project.org/web/views/MachineLearning.html. However, the most popular original R implementation of Friedman's GBM algorithm [@friedman2001greedy; @friedman2002stochastic] is the __gbm__ package.  
+
+__gbm__ has two training functions: `gbm::gbm()` and `gbm::gbm.fit()`. The primary difference is that `gbm::gbm()` uses the formula interface to specify your model whereas `gbm::gbm.fit()` requires the separated `x` and `y` matrices; `gbm::gbm.fit()` is more efficient and recommended for advanced users. 
+
+The default settings in __gbm__ include a learning rate (`shrinkage`) of 0.001. This is a very small learning rate and typically requires a large number of trees to sufficiently minimize the loss function. However, __gbm__ uses a default number of trees of 100, which is rarely sufficient. Consequently, we start with a learning rate of 0.1 and increase the number of trees to train. The default depth of each tree (`interaction.depth`) is 1, which means we are ensembling a bunch of decision stumps (i.e., we are not able to capture any interaction effects). For the Ames housing data set, we increase the tree depth to 3 and use the default value for minimum number of observations required in the trees terminal nodes (`n.minobsinnode`). Lastly, we set `cv.folds = 10` to perform a 10-fold CV.
+
+> ___Warning:___ _This model takes a little over 2 minutes to run._
+
+```{r basic-gbm}
+# run a basic GBM model
+set.seed(123)  # for reproducibility
+ames_gbm1 <- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian",  # SSE loss function
+  n.trees = 5000,
+  shrinkage = 0.1,
+  interaction.depth = 3,
+  n.minobsinnode = 10,
+  cv.folds = 10
+)
+
+# find index for number trees with minimum CV error
+best <- which.min(ames_gbm1$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm1$cv.error[best])
+```
+
+Our results show a cross-validated SSE of `r as.character(round(sqrt(ames_gbm1$cv.error[best]), 0))` which was achieved with `r which.min(ames_gbm1$cv.error)` trees.
+
+```{r basic-gbm-error-curve, fig.cap="Training and cross-validated MSE as n trees are added to the GBM algorithm.", fig.height=4, fig.width=5}
+# plot error curve
+gbm.perf(ames_gbm1, method = "cv")
+```
+
+## General tuning strategy {#tuning-strategy}
+
+Unlike random forests, GBMs can have high variability in accuracy dependent on their hyperparameter settings [@probst2018tunability]. So tuning can require much more strategy than a random forest model. Often, a good approach is to:
+
+1. Choose a relatively high learning rate. Generally the default value of 0.1 works but somewhere between 0.05--0.2 should work across a wide range of problems.  
+2. Determine the optimum number of trees for this learning rate.  
+3. Fix tree hyperparameters and tune learning rate and assess speed vs. performance.  
+4. Tune tree-specific parameters for decided learning rate.  
+5. Once tree-specific parameters have been found, lower the learning rate to assess for any improvements in accuracy.  
+6. Use final hyperparameter settings and increase CV procedures to get more robust estimates. Often, the above steps are performed with a simple validation procedure or 5-fold CV due to computational constraints. If you used _k_-fold CV throughout steps 1--5 then this step is not necessary.  
+
+We already did (1)--(2) in the Ames example above with our first GBM model. Next, we'll do (3) and asses the performance of various learning rate values between 0.005--0.3. Our results indicate that a learning rate of 0.05 sufficiently minimizes our loss function and requires 2375 trees. All our models take a little over 2 minutes to train so we don't see any significant impacts in training time based on the learning rate.
+
+> ___Warning:___ _The following grid search took us about 10 minutes._
+
+```{r learning-rate-search}
+# create grid search
+hyper_grid <- expand.grid(
+  learning_rate = c(0.3, 0.1, 0.05, 0.01, 0.005),
+  RMSE = NA,
+  trees = NA,
+  time = NA
+)
+
+# execute grid search
+for(i in seq_len(nrow(hyper_grid))) {
+
+  # fit gbm
+  set.seed(123)  # for reproducibility
+  train_time <- system.time({
+    m <- gbm(
+      formula = Sale_Price ~ .,
+      data = ames_train,
+      distribution = "gaussian",
+      n.trees = 5000, 
+      shrinkage = hyper_grid$learning_rate[i], 
+      interaction.depth = 3, 
+      n.minobsinnode = 10,
+      cv.folds = 10 
+   )
+  })
+  
+  # add SSE, trees, and training time to results
+  hyper_grid$RMSE[i]  <- sqrt(min(m$cv.error))
+  hyper_grid$trees[i] <- which.min(m$cv.error)
+  hyper_grid$Time[i]  <- train_time[["elapsed"]]
+
+}
+
+# results
+arrange(hyper_grid, RMSE)
+```
+
+Next, we'll set our learning rate at the optimal level (0.05) and tune the tree specific hyperparameters (`interaction.depth` and `n.minobsinnode`). Adjusting the tree-specific parameters provides us with an additional 500 reduction in RMSE.
+
+> ___Warning:___ _This grid search takes about 30 minutes._
+
+```{r tree-hyperparameter-search}
+# search grid
+hyper_grid <- expand.grid(
+  n.trees = 6000,
+  shrinkage = 0.05,
+  interaction.depth = c(3, 5, 7),
+  n.minobsinnode = c(5, 10, 15)
+)
+
+# create model fit function
+model_fit <- function(n.trees, shrinkage, interaction.depth, n.minobsinnode) {
+  set.seed(123)
+  m <- gbm(
+    formula = Sale_Price ~ .,
+    data = ames_train,
+    distribution = "gaussian",
+    n.trees = n.trees,
+    shrinkage = shrinkage,
+    interaction.depth = interaction.depth,
+    n.minobsinnode = n.minobsinnode,
+    cv.folds = 10
+  )
+  # compute RMSE
+  sqrt(min(m$cv.error))
+}
+
+# perform search grid with functional programming
+hyper_grid$rmse <- purrr::pmap_dbl(
+  hyper_grid,
+  ~ model_fit(
+    n.trees = ..1,
+    shrinkage = ..2,
+    interaction.depth = ..3,
+    n.minobsinnode = ..4
+    )
+)
+
+# results
+arrange(hyper_grid, rmse)
+```
+
+After this procedure, we took our top model's hyperparameter settings, reduced the learning rate to 0.005, and increased the number of trees (8000) to see if we got any additional improvement in accuracy.  We experienced no improvement in our RMSE and our training time increased to nearly 6 minutes. 
+
+# Stochastic GBMs
+
+An important insight made by Breiman (@breiman1996bagging; @breiman2001random) in developing his bagging and random forest algorithms was that training the algorithm on a random subsample of the training data set offered additional reduction in tree correlation and, therefore, improvement in prediction accuracy. @friedman2002stochastic used this same logic and updated the boosting algorithm accordingly. This procedure is known as _stochastic gradient boosting_\index{stochastic gradient boosting} and helps reduce the chances of getting stuck in local minimas, plateaus, and other irregular terrain of the loss function so that we may find a near global optimum.
+
+## Stochastic hyperparameters {#hyper-gbm2}
+
+There are a few variants of stochastic gradient boosting that can be used, all of which have additional hyperparameters: 
+
+* Subsample rows before creating each tree (available in __gbm__, __h2o__, & __xgboost__)
+* Subsample columns before creating each tree (__h2o__ & __xgboost__)
+* Subsample columns before considering each split in each tree (__h2o__ & __xgboost__)
+
+Generally, aggressive subsampling of rows, such as selecting only 50% or less of the training data, has shown to be beneficial and typical values range between 0.5--0.8. Subsampling of columns and the impact to performance largely depends on the nature of the data and if there is strong multicollinearity or a lot of noisy features. Similar to the $m_{try}$ parameter in random forests, if there are fewer relevant predictors (more noisy data) higher values of column subsampling tends to perform better because it makes it more likely to select those features with the strongest signal. When there are many relevant predictors, a lower values of column subsampling tends to perform well.
+
+When adding in a stochastic procedure, you can either include it in step 4) in the general tuning strategy discussed in the previous section, or once you've found the optimal basic model (after 6)). In our experience, we have not seen strong interactions between the stochastic hyperparameters and the other boosting and tree-specific hyperparameters.
+
+## Implementation {#stochastic-gbm-h2o}
+
+The following uses __h2o__ to implement a stochastic GBM.  We use the optimal hyperparameters found in the previous section and build onto this by assessing a range of values for subsampling rows and columns before each tree is built, and subsampling columns before each split. To speed up training we use early stopping for the individual GBM modeling process and also add a stochastic search criteria.
+
+> ___Warning:___ _This grid search ran for the entire 60 minutes and evaluated 18 of the possible 27 models._
+
+```{r stochastic-gbm}
+# refined hyperparameter grid
+hyper_grid <- list(
+  sample_rate = c(0.5, 0.75, 1),              # row subsampling
+  col_sample_rate = c(0.5, 0.75, 1),          # col subsampling for each split
+  col_sample_rate_per_tree = c(0.5, 0.75, 1)  # col subsampling for each tree
+)
+
+# random grid search strategy
+search_criteria <- list(
+  strategy = "RandomDiscrete",
+  stopping_metric = "mse",
+  stopping_tolerance = 0.001,   
+  stopping_rounds = 10,         
+  max_runtime_secs = 60*60      
+)
+
+# perform grid search 
+grid <- h2o.grid(
+  algorithm = "gbm",
+  grid_id = "gbm_grid",
+  x = predictors, 
+  y = response,
+  training_frame = train_h2o,
+  hyper_params = hyper_grid,
+  ntrees = 6000,
+  learn_rate = 0.01,
+  max_depth = 7,
+  min_rows = 5,
+  nfolds = 10,
+  stopping_rounds = 10,
+  stopping_tolerance = 0,
+  search_criteria = search_criteria,
+  seed = 123
+)
+
+# collect the results and sort by our model performance metric of choice
+grid_perf <- h2o.getGrid(
+  grid_id = "gbm_grid", 
+  sort_by = "mse", 
+  decreasing = FALSE
+)
+```
+
+Our grid search highlights some important results.  Random sampling from the rows and features for each tree appears to positively impact performance.  It is not definitive if randomly sampling features before each split has an impact. Furthermore, the best sampling values are very low (0.5); a further grid search may be beneficial to evaluate even lower values.
+
+```{r}
+grid_perf
+```
+
+
+The below code chunk extracts the best performing model. In this particular case, we see an additional 1,000 reduction in our 10-fold CV RMSE over the best non-stochastic GBM model.
+
+```{r h2o-gbm-best-mod}
+# Grab the model_id for the top model, chosen by cross validation error
+best_model_id <- grid_perf@model_ids[[1]]
+best_model <- h2o.getModel(best_model_id)
+
+# Now let’s get performance metrics on the best model
+h2o.performance(model = best_model, xval = TRUE)
+```
+
+# XGBoost
+
+Extreme gradient boosting (XGBoost) is an optimized distributed gradient boosting library that is designed to be efficient, flexible, and portable across multiple languages [@xgboost-paper]. Although XGBoost provides the same boosting and tree-based hyperparameter options illustrated in the previous sections, it also provides a few advantages over traditional boosting such as:
+
+- __Regularization__: XGBoost offers additional regularization hyperparameters, which we will discuss shortly, that provides added protection against overfitting.
+- __Early stopping__: Similar to __h2o__, XGBoost implements early stopping so that we can stop model assessment when additional trees offer no improvement.
+- __Parallel Processing__: Since gradient boosting is sequential in nature it is extremely difficult to parallelize. XGBoost has implemented procedures to support GPU and Spark compatibility which allows you to fit gradient boosting using powerful distributed processing engines.
+- __Loss functions__: XGBoost allows users to define and optimize gradient boosting models using custom objective and evaluation criteria.
+- __Continue with existing model__: A user can train an XGBoost model, save the results, and later on return to that model and continue building onto the results. Whether you shut down for the day, wanted to review intermediate results, or came up with additional hyperparameter settings to evaluate, this allows you to continue training your model without starting from scratch.
+- __Different base learners__: Most GBM implementations are built with decision trees but XGBoost also provides boosted generalized linear models.
+- __Multiple languages__: XGBoost offers implementations in R, Python, Julia, Scala, Java, and C++.
+
+In addition to being offered across multiple languages, XGboost can be implemented multiple ways within R.  The main R implementation is the __xgboost__ package; however, as illustrated throughout many modules one can also use __caret__ as a meta engine to implement XGBoost. The __h2o__ package also offers an implementation of XGBoost. In this module we'll demonstrate the __xgboost__ package.
+
+
+## XGBoost hyperparameters
+
+As previously mentioned, __xgboost__ provides the traditional boosting and tree-based hyperparameters we discussed in the [basic GBM](#hyper-gbm1) and [stochastic GBM](#hyper-gbm2) sections. However, __xgboost__ also provides additional hyperparameters that can help reduce the chances of overfitting, leading to less prediction variability and, therefore, improved accuracy.
+
+### Regularization {#xgb-regularization}
+
+__xgboost__ provides multiple regularization parameters to help reduce model complexity and guard against overfitting.  The first, `gamma`, is a pseudo-regularization hyperparameter known as a Lagrangian multiplier and controls the complexity of a given tree. `gamma` specifies a minimum loss reduction required to make a further partition on a leaf node of the tree. When `gamma` is specified, __xgboost__ will grow the tree to the max depth specified but then prune the tree to find and remove splits that do not meet the specified `gamma`. `gamma` tends to be worth exploring as your trees in your GBM become deeper and when you see a significant difference between the train and test CV error.  The value of `gamma` ranges from $0-\infty$ (0 means no constraint while large numbers mean a higher regularization). What quantifies as a large `gamma` value is dependent on the loss function but generally lower values between 1--20 will do if `gamma` is influential.
+
+Two more traditional regularization parameters include `alpha` and `lambda`. `alpha` provides an $L_1$ regularization (reference [lass](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html#lasso_penalty)) and `lambda` provides an $L_2$ regularization (reference [ridge](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html#ridge_penalty)). Setting both of these to greater than 0 results in an elastic net regularization; similar to `gamma`, these parameters can range from $0-\infty$. These regularization parameters limits how extreme the weights (or influence) of the leaves in a tree can become. 
+
+All three hyperparameters (`gamma`, `alpha`, `lambda`) work to constrain model complexity and reduce overfitting. Although `gamma` is more commonly implemented, your tuning strategy should explore the impact of all three. Below illustrates how regularization can make an overfit model more conservative on the training data which, in some circumstances, can result in improvements to the validation error.
+
+```{r xgboost-learning-curve, echo=FALSE, fig.width=6, fig.cap="When a GBM model significantly overfits to the training data (blue), adding regularization (dotted line) causes the model to be more conservative on the training data, which can improve the cross-validated test error (red)."}
+library(tidyr)
+library(ggplot2)
+library(recipes)
+
+library(rsample)
+# create Ames training data
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+
+xgb_prep <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_integer(all_nominal()) %>%
+  prep(training = ames_train, retain = TRUE) %>%
+  juice()
+
+X <- as.matrix(xgb_prep[setdiff(names(xgb_prep), "Sale_Price")])
+Y <- xgb_prep$Sale_Price
+
+set.seed(123)
+without_reg <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 150,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  params = list(
+    eta = 0.1,
+    max_depth = 32,
+    min_child_weight = 1),
+  verbose = 0,
+)  
+
+set.seed(123)
+with_reg <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 150,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  params = list(
+    eta = 0.1,
+    max_depth = 128,
+    lambda = 10,
+    max_depth = 3,
+    min_child_weight = 3,
+    subsample = 0.5,
+    colsample_bytree = 0.5,
+    min_child_weight = 1),
+  verbose = 0,
+)  
+
+df1 <- without_reg$evaluation_log %>%
+  select(iter, `train error` = train_rmse_mean, `test error` = test_rmse_mean) %>%
+  mutate(Regularization = FALSE)
+
+df2 <- with_reg$evaluation_log %>%
+  select(iter, `train error` = train_rmse_mean, `test error` = test_rmse_mean) %>%
+  mutate(Regularization = TRUE)
+  
+df1 %>% 
+  rbind(df2) %>%
+  gather(`Validation set`, rmse, `train error`, `test error`) %>%
+  mutate(rmse = (rmse - min(rmse)) / (max(rmse) - min(rmse))) %>%
+  ggplot(aes(iter, rmse, color = `Validation set`, lty = Regularization)) +
+  geom_line() +
+  scale_y_continuous("Normalized RMSE", limits = c(0, 0.25)) +
+  scale_x_continuous("Iteration", limits = c(0, max(df2$iter)))
+```
+
+### Dropout
+
+Dropout is an alternative approach to reduce overfitting and can loosely be described as regularization. The dropout approach developed by @JMLR:v15:srivastava14a has been widely employed in deep learnings to prevent deep neural networks from overfitting. Dropout can also be used to address overfitting in GBMs. When constructing a GBM, the first few trees added at the beginning of the ensemble typically dominate the model performance while trees added later typically improve the prediction for only a small subset of the feature space.  This often increases the risk of overfitting and the idea of dropout is to build an ensemble by randomly dropping trees in the boosting sequence. This is commonly referred to as DART [@rashmi2015dart] since it was initially explored in the context of _Mutliple Additive Regression Trees_ (MART); DART refers to _Dropout Additive Regression Trees_. The percentage of dropouts is another regularization parameter.
+
+Typically, when `gamma`, `alpha`, or `lambda` cannot help to control overfitting, exploring DART hyperparameters would be the next best option.^[See the DART booster documentation on the XGBoost website for details: https://xgboost.readthedocs.io/en/latest/tutorials/dart.html.]
+
+## Tuning strategy {#xgb-tuning-strategy}
+
+The general tuning strategy for exploring __xgboost__ hyperparameters builds onto the basic and stochastic GBM tuning strategies:
+
+1. Crank up the number of trees and tune learning rate with early stopping
+2. Tune tree-specific hyperparameters
+3. Explore stochastic GBM attributes
+4. If substantial overfitting occurs (e.g., large differences between train and CV error) explore regularization hyperparameters
+5. If you find hyperparameter values that are substantially different from default settings, be sure to retune the learning rate
+6. Obtain final "optimal" model 
+
+Running an XGBoost model with __xgboost__ requires some additional data preparation.  __xgboost__ requires a matrix input for the features and the response to be a vector.  Consequently, to provide a matrix input of the features we need to encode our categorical variables numerically (i.e. one-hot encoding, label encoding). The following numerically label encodes all categorical features and converts the training data frame to a matrix.
+
+```{r xgb-prep}
+library(recipes)
+xgb_prep <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_integer(all_nominal()) %>%
+  prep(training = ames_train, retain = TRUE) %>%
+  juice()
+
+X <- as.matrix(xgb_prep[setdiff(names(xgb_prep), "Sale_Price")])
+Y <- xgb_prep$Sale_Price
+```
+
+
+> ___Pro Tip:___ _**xgboost** will except three different kinds of matrices for the features: ordinary R matrix, sparse matrices from the **Matrix** package, or **xgboost**'s internal `xgb.DMatrix` objects. See `?xgboost::xgboost` for details._
+
+
+Next, we went through a series of grid searches similar to the previous sections and found the below model hyperparameters (provided via the `params` argument) to perform quite well.
+
+```{r xgb-mod1, warning=FALSE, message=FALSE}
+set.seed(123)
+ames_xgb <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 6000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  params = list(
+    eta = 0.05,
+    max_depth = 3,
+    min_child_weight = 3,
+    subsample = 0.8,
+    colsample_bytree = 0.5),
+  verbose = 0
+)  
+
+# minimum test CV RMSE
+min(ames_xgb$evaluation_log$test_rmse_mean)
+```
+
+Next, we assess if overfitting is limiting our model's performance by performing a grid search that examines various regularization parameters (`gamma`, `lambda`, and `alpha`). 
+
+> ___Warning:___ _Due to the low learning rate (`eta`), this cartesian grid search takes over 2 hours._
+
+```{r perform-xgb-grid-search, warning=FALSE, message=FALSE}
+# hyperparameter grid
+hyper_grid <- expand.grid(
+  eta = 0.05,
+  max_depth = 3, 
+  min_child_weight = 3,
+  subsample = 0.8, 
+  colsample_bytree = 0.5,
+  gamma = c(0, 1, 10, 100, 1000),
+  lambda = c(0, 1e-2, 0.1, 1, 100, 1000, 10000),
+  alpha = c(0, 1e-2, 0.1, 1, 100, 1000, 10000),
+  rmse = 0,          # a place to dump RMSE results
+  trees = 0          # a place to dump required number of trees
+)
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m <- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 4000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+    params = list( 
+      eta = hyper_grid$eta[i], 
+      max_depth = hyper_grid$max_depth[i],
+      min_child_weight = hyper_grid$min_child_weight[i],
+      subsample = hyper_grid$subsample[i],
+      colsample_bytree = hyper_grid$colsample_bytree[i],
+      gamma = hyper_grid$gamma[i], 
+      lambda = hyper_grid$lambda[i], 
+      alpha = hyper_grid$alpha[i]
+    ) 
+  )
+  hyper_grid$rmse[i] <- min(m$evaluation_log$test_rmse_mean)
+  hyper_grid$trees[i] <- m$best_iteration
+}
+```
+
+Our results indicate that the best performing models use `lambda` equal to 1 and it doesn't appear that `alpha` or `gamma` have any consistent patterns. However, even when `lambda` equals 1, our CV RMSE has no improvement over our previous XGBoost model.
+
+```{r}
+hyper_grid %>%
+  arrange(rmse)
+```
+
+
+Once you’ve found the optimal hyperparameters, fit the final model with `xgb.train` or `xgboost`. Be sure to use the optimal number of trees found during cross validation. In our example, adding regularization provides no improvement so we exclude them in our final model.
+
+```{r final-xgb}
+# optimal parameter list
+params <- list(
+  eta = 0.05,
+  max_depth = 3,
+  min_child_weight = 3,
+  subsample = 0.8,
+  colsample_bytree = 0.5,
+  lambda = 1,
+  alpha = 10000
+)
+
+# train final model
+xgb.fit.final <- xgboost(
+  params = params,
+  data = X,
+  label = Y,
+  nrounds = 1350,
+  objective = "reg:linear",
+  verbose = 0
+)
+```
+
+# Feature interpretation
+
+Measuring GBM feature importance and effects follows the same construct as random forests. Similar to random forests, the __gbm__ and __h2o__ packages offer an impurity-based feature importance. __xgboost__ actually provides three built-in measures for feature importance:
+
+1. __Gain__: This is equivalent to the [impurity measure in random forests](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html#rf-vip) and is the most common model-centric metric to use.
+2. __Coverage__: The Coverage metric quantifies the relative number of observations influenced by this feature. For example, if you have 100 observations, 4 features and 3 trees, and suppose $x_1$ is used to decide the leaf node for 10, 5, and 2 observations in $tree_1$, $tree_2$ and $tree_3$ respectively; then the metric will count cover for this feature as $10+5+2 = 17$ observations. This will be calculated for all the 4 features and expressed as a percentage.
+3. __Frequency__: The percentage representing the relative number of times a particular feature occurs in the trees of the model. In the above example, if $x_1$ was used for 2 splits, 1 split and 3 splits in each of  $tree_1$, $tree_2$ and $tree_3$ respectively; then the weightage for $x_1$ will be $2+1+3=6$. The frequency for $x_1$ is calculated as its percentage weight over weights of all $x_p$ features.
+
+If we examine the top 10 influential features in our final model using the impurity (gain) metric, we see very similar results as we saw with our [random forest model](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html#rf-vip). The primary difference is we no longer see `Neighborhood` as a top influential feature, which is likely a result of how we label encoded the categorical features.
+
+> ___Pro Tip:___ _By default, `vip::vip()` uses the gain method for feature importance but you can assess the other types using the `type` argument. You can also use `xgboost::xgb.ggplot.importance()` to plot the various feature importance measures but you need to first run `xgb.importance()` on the final model._
+
+```{r xgb-feature-importance, fig.cap="Top 10 most important variables based on the impurity (gain) metric."}
+# variable importance plot
+vip::vip(xgb.fit.final) 
+```
+
+# Final thoughts
+
+GBMs are one of the most powerful ensemble algorithms that are often first-in-class with predictive accuracy. Although they are less intuitive and more computationally demanding than many other machine learning algorithms, they are essential to have in your toolbox. 
+
+Although we discussed the most popular GBM algorithms, realize there are alternative algorithms not covered here. For example LightGBM [@ke2017lightgbm] is a gradient boosting framework that focuses on _leaf-wise_ tree growth versus the traditional level-wise tree growth. This means as a tree is grown deeper, it focuses on extending a single branch versus growing multiple branches. CatBoost [@dorogush2018catboost] is another gradient boosting framework that focuses on using efficient methods for encoding categorical features during the gradient boosting process. Both frameworks are available in R.
+
+# Exercises
+
+Using the same regression and/or classification dataset you've been using in the tree-based module exercises:
+
+1. Apply a basic GBM model with the same features you used in the random forest module. 
+   - Apply the default hyperparameter settings with a learning rate set to 0.10. How does model performance compare to the random forest module?
+   - How many trees were applied? Was this enough to stabilize the loss function or do you need to add more?
+   - Tune the hyperparameters using the suggested tuning strategy for basic GBMs. Did your model performance improve?
+2. Apply a stochastic GBM model. Tune the hyperparameters using the suggested tuning strategy for stochastic GBMs. Did your model performance improve?
+3. Apply an XGBoost model. Tune the hyperparameters using the suggested tuning strategy for XGBoost models. 
+   - Did your model performance improve?
+   - Did regularization help?
+4. Pick your best GBM model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+5. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+
+# References

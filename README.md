@@ -61,7 +61,7 @@ More info TBD.
 | 9             | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | TBD  | TBD   |
 | 10            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | TBD  | TBD   |
 | 11            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | TBD  | TBD   |
-| 12            | Gradient boosting                    | [Notebook]()  | TBD  | TBD   |
+| 12            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | TBD  | TBD   |
 | 13            | Stacked models & AutoML              | [Notebook]()  | TBD  | TBD   |
 | 14            | Case study.                          | [Notebook]()  | TBD  | TBD   |
 
