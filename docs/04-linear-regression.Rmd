@@ -133,7 +133,7 @@ One drawback of the LS procedure in linear regression is that it only provides e
 
 where $r_i = \left(Y_i - \widehat{Y}_i\right)$ is referred to as the $i$th residual (i.e., the difference between the $i$th observed and predicted response value). The quantity $\widehat{\sigma}^2$ is also referred to as the _mean square error_\index{mean square error} (MSE) and its square root is denoted RMSE (see [here](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html#model_evaluation) for discussion on these metrics). In R, the RMSE of a linear model can be extracted using the `sigma()` function:
 
-> ___Note___: _Typically, these error metrics are computed on a separate validation set or using cross-validation as discussed in Section 2.4; however, they can also be computed on the same training data the model was trained on as illustrated here._
+> ___Note___: _Typically, these error metrics are computed on a separate validation set or using cross-validation; however, they can also be computed on the same training data the model was trained on as illustrated here._
 
 ```{r model1-sigma}
 # RMSE
