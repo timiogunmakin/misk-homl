@@ -457,6 +457,8 @@ Although KNNs rarely provide the best predictive performance, they have many ben
 
 Other alternatives to traditional KNNs such as using invariant metrics, tangent distance metrics, and adaptive nearest neighbor methods are also discussed in @esl and are worth exploring.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Use the same regression and/or classification dataset you've been using in the previous module exercises:

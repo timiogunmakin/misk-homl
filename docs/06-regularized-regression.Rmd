@@ -554,6 +554,8 @@ Regularized regression provides many great benefits over traditional GLMs when a
 
 However, regularized regression does require some feature preprocessing.  Notably, all inputs must be numeric; however, some packages (e.g., __caret__ and __h2o__) automate this process.  They cannot automatically handle missing data, which requires you to remove or impute them prior to modeling.  Similar to GLMs, they are also not robust to outliers in both the feature and target.  Lastly, regularized regression models still assume a monotonic linear relationship (always increasing or decreasing in a linear fashion). It is also up to the analyst whether or not to include specific interaction effects.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using the same dataset as you used in the [feature engineering](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html#exercises) and [linear regression](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html#exercises) exercises:

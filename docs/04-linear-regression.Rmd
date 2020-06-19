@@ -575,6 +575,8 @@ grid.arrange(p1, p2, p3, p4, nrow = 2)
 
 Linear regression is usually the first supervised learning algorithm you will learn. The approach provides a solid fundamental understanding of the supervised learning task; however, as we've discussed there are several concerns that result from the assumptions required. Although extensions of linear regression that integrate dimension reduction steps into the algorithm can help address some of the problems with linear regression, more advanced supervised algorithms typically provide greater flexibility and improved accuracy. Nonetheless, understanding linear regression provides a foundation that will serve you well in learning these more advanced methods.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using the same dataset as you used in the previous module's [exercise](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html#exercises):

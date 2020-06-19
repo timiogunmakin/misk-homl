@@ -347,6 +347,8 @@ grid.arrange(p1, p2, p3, p4, nrow = 2)
 
 Logistic regression provides an alternative to linear regression for binary classification problems. However, similar to linear regression, logistic regression suffers from the many assumptions involved in the algorithm (i.e. linear relationship of the coefficient, multicollinearity). Moreover, often we have more than two classes to predict which is commonly referred to as multinomial classification. Although multinomial extensions of logistic regression exist, the assumptions made only increase and, often, the stability of the coefficient estimates (and therefore the accuracy) decrease. Future modules will discuss more advanced algorithms that provide a more natural and trustworthy approach to binary and multinomial classification prediction.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using one of the classification datasets identified in module 1's [exercise](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#exercises):

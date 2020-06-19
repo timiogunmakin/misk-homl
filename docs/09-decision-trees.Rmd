@@ -352,6 +352,8 @@ Missing values often cause problems with statistical models and analyses. Most p
 
 However, individual decision trees generally do not often achieve state-of-the-art predictive accuracy. In this module, we saw that the best pruned decision tree, although it performed better than linear regression, had a very poor RMSE (\$41,019) compared to some of the other models we've built.  This is driven by the fact that decision trees are composed of simple yes-or-no rules that create rigid non-smooth decision boundaries.  Furthermore, we saw that deep trees tend to have high variance (and low bias) and shallow trees tend to be overly bias (but low variance). In the modules that follow, we'll see how we can combine multiple trees together into very powerful prediction models called *ensembles*.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Use the same regression and/or classification dataset you've been using in the previous module exercises:

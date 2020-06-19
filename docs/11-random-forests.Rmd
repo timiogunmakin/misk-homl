@@ -505,6 +505,8 @@ gridExtra::grid.arrange(p1, p2, nrow = 1)
 
 Random forests provide a very powerful out-of-the-box algorithm that often has great predictive accuracy. They come with all the benefits of decision trees (with the exception of surrogate splits) and bagging but greatly reduce instability and between-tree correlation. And due to the added split variable selection attribute, random forests are also faster than bagging as they have a smaller feature search space at each tree split. However, random forests will still suffer from slow computational speed as your data sets get larger but, similar to bagging, the algorithm is built upon independent steps, and most modern implementations (e.g., __ranger__, __h2o__) allow for parallelization to improve training time.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using the same regression and/or classification dataset you've been using in the bagging module exercises:

@@ -662,6 +662,8 @@ ggplot(knn_fit)
 
 The question remains: "Is this the best predictive model we can find?"  We may have identified the  optimal _k_-nearest neighbor model for our given data set, but this doesn't mean we've found the best possible overall model.  Nor have we considered potential feature and target engineering options.  The remainder of this course will walk you through the journey of identifying alternative solutions and, hopefully, a much more optimal model.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 1. Load the Boston housing data set from the [pdp package](https://cran.r-project.org/package=pdp). These data come from a [classic paper](https://www.sciencedirect.com/science/article/abs/pii/0095069678900062) that analyzed the relationship between several characteristics (e.g., crime rate, average rooms per dwelling, property tax value) and the median value of homes within a census tract (`cmedv`). See `?pdp::boston` for details and further references.

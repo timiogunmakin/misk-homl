@@ -455,6 +455,8 @@ There are several advantages to MARS.  First, MARS naturally handles mixed types
 
 However, one disadvantage to MARS models is that they're typically slower to train.  Since the algorithm scans each value of each predictor for potential cutpoints, computational performance can suffer as both $n$ and $p$ increase.  Also, although correlated predictors do not necessarily impede model performance, they can make model interpretation difficult. When two features are nearly perfectly correlated, the algorithm will essentially select the first one it happens to come across when scanning the features.  Then, since it randomly selected one, the correlated feature will likely not be included as it adds no additional explanatory power.  
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Use the same regression and/or classification dataset you've been using in the previous module exercises:

@@ -771,6 +771,8 @@ GBMs are one of the most powerful ensemble algorithms that are often first-in-cl
 
 Although we discussed the most popular GBM algorithms, realize there are alternative algorithms not covered here. For example LightGBM [@ke2017lightgbm] is a gradient boosting framework that focuses on _leaf-wise_ tree growth versus the traditional level-wise tree growth. This means as a tree is grown deeper, it focuses on extending a single branch versus growing multiple branches. CatBoost [@dorogush2018catboost] is another gradient boosting framework that focuses on using efficient methods for encoding categorical features during the gradient boosting process. Both frameworks are available in R.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using the same regression and/or classification dataset you've been using in the tree-based module exercises:

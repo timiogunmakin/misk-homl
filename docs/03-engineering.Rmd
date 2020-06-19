@@ -720,6 +720,8 @@ knn_fit2
 ggplot(knn_fit2)
 ```
 
+[🏠](https://github.com/misk-data-science/misk-homl)
+
 # Exercises
 
 Using one of the open source datasets you found during module 1's [exercise](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#exercises):
