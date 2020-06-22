@@ -423,7 +423,7 @@ a, a > code {
 
     .remark-slide-content {
       background-color: #FFFFFF;
-        border-top: 80px solid #23373B;
+        border-top: 80px solid #2D2A55;
       font-size: 20px;
       font-weight: 300;
       line-height: 1.5;
@@ -450,7 +450,7 @@ a, a > code {
   }
 
   .inverse {
-    background-color: #23373B;
+    background-color: #2D2A55;
       text-shadow: none;
   }
   .inverse h1, .inverse h2, .inverse h3 {
