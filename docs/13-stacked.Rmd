@@ -1,0 +1,330 @@
+---
+title: "Stacked Models"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: true
+bibliography: [references.bib, packages.bib]
+---
+
+```{r setup, include=FALSE}
+# Set global R options
+options(scipen = 999)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(
+  cache = TRUE,
+  warning = FALSE, 
+  message = FALSE
+)
+```
+
+
+In the previous modules, you've learned how to train individual learners, which in the context of this module will be referred to as _base learners_. ___Stacking___ (sometimes called "stacked generalization") involves training a new learning algorithm to combine the predictions of several base learners. First, the base learners are trained using the available training data, then a combiner or meta algorithm, called the _super learner_, is trained to make a final prediction based on the predictions of the base learners. Such stacked ensembles tend to outperform any of the individual base learners (e.g., a single RF or GBM) and have been shown to represent an asymptotically optimal system for learning [@super-laan-2003].
+
+# Prerequisites {#h20-prereqs}
+
+This module leverages the following packages, with the emphasis on __h2o__:
+
+```{r pkg-req-12}
+# Helper packages
+library(rsample)   # for creating our train-test splits
+library(recipes)   # for minor feature engineering tasks
+
+# Modeling packages
+library(h2o)       # for fitting stacked models
+h2o.no_progress()
+h2o.init()
+```
+
+To illustrate key concepts we continue with the Ames housing example from previous modules:
+
+```{r data-req-12}
+# Load and split the Ames housing data
+ames <- AmesHousing::make_ames()
+set.seed(123)  # for reproducibility
+split <- initial_split(ames, strata = "Sale_Price")
+ames_train <- training(split)
+ames_test <- testing(split)
+
+# Make sure we have consistent categorical levels
+blueprint <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_other(all_nominal(), threshold = 0.005)
+
+# Create training & test sets for h2o
+train_h2o <- prep(blueprint, training = ames_train, retain = TRUE) %>%
+  juice() %>%
+  as.h2o()
+test_h2o <- prep(blueprint, training = ames_train) %>%
+  bake(new_data = ames_test) %>%
+  as.h2o()
+
+# Get response and feature names
+Y <- "Sale_Price"
+X <- setdiff(names(ames_train), Y)
+```
+
+# The Idea
+
+Leo Breiman, known for his work on classification and regression trees and random forests, formalized stacking in his 1996 paper on _Stacked Regressions_ [@breiman1996stacked]. Although the idea originated in [@stacked-wolpert-1992] under the name "Stacked Generalizations", the modern form of stacking that uses internal k-fold CV was Breiman's contribution.
+
+However, it wasn’t until 2007 that the theoretical background for stacking was developed, and also when the algorithm took on the cooler name, ___Super Learner___ [@van2007super]. Moreover, the authors illustrated that super learners will learn an optimal combination of the base learner predictions and will typically perform as well as or better than any of the individual models that make up the stacked ensemble. Until this time, the mathematical reasons for why stacking worked were unknown and stacking was considered a black art. 
+
+
+## Common ensemble methods
+
+Ensemble machine learning methods use multiple learning algorithms to obtain better predictive performance than could be obtained from any of the constituent learning algorithms.  The idea of combining multiple models rather than selecting the single best is well-known and has been around for a long time. In fact, many of the popular modern machine learning algorithms (including ones in previous chapters) are actually ensemble methods.  
+
+For example, [bagging](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html) and [random forests](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html) are ensemble approaches that average the predictions from many decision trees to reduce prediction variance and are robust to outliers and noisy data; ultimately leading to greater predictive accuracy.  [Boosted decision trees](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html) are another ensemble approach that slowly learns unique patterns in the data by sequentially combining individual, shallow trees.
+
+Stacking, on the other hand, is designed to ensemble a _diverse group of strong learners_.
+
+
+## Super learner algorithm
+
+The super learner algorithm consists of three phases:
+
+1. Set up the ensemble
+    - Specify a list of $L$ base learners (with a specific set of model parameters).
+    - Specify a meta learning algorithm. This can be any one of the algorithms discussed in the previous modules but most often is some form of regularized regression.
+2. Train the ensemble
+    - Train each of the $L$ base learners on the training set.
+    - Perform _k_-fold CV on each of the base learners and collect the cross-validated predictions from each (the same _k_-folds must be used for each base learner). These predicted values represent $p_1, \dots, p_L$ in the equation below.
+    - The $N$ cross-validated predicted values from each of the $L$ algorithms can be combined to form a new $N \times L$ feature matrix (represented by $Z$ in the following equation). This matrix, along with the original response vector ($y$), are called the "level-one" data. ($N =$ number of rows in the training set.)
+    
+    \begin{equation}
+    n \Bigg \{ \Bigg [ p_1 \Bigg ] \cdots \Bigg [ p_L \Bigg ] \Bigg [ y \Bigg ] \rightarrow n \Bigg \{ \overbrace{\Bigg [ \quad Z \quad \Bigg ]}^L \Bigg [ y \Bigg ]
+    \end{equation}
+    - Train the meta learning algorithm on the level-one data ($y = f\left(Z\right)$). The "ensemble model" consists of the $L$ base learning models and the meta learning model, which can then be used to generate predictions on new data.
+
+3. Predict on new data.
+    - To generate ensemble predictions, first generate predictions from the base learners.
+    - Feed those predictions into the meta learner to generate the ensemble prediction.
+    
+    
+> ___Pro Tip:___ _Stacking never does worse than selecting the single best base learner on the training data (but not necessarily the validation or test data). The biggest gains are usually produced when stacking base learners that have high variability, and uncorrelated, predicted values. The more similar the predicted values are between the base learners, the less advantage there is to combining them._
+
+
+## Available packages
+
+There are a few package implementations for model stacking in the R ecosystem.  __SuperLearner__ [@R-SuperLearner] provides the original Super Learner and includes a clean interface to 30+ algorithms. Package __subsemble__ [@R-subsemble] also provides stacking via the super learner algorithm discussed above; however, it also offers improved parallelization over the __SuperLearner__ package and implements the subsemble algorithm [@sapp2014subsemble].^[The subsemble algorithm is a general subset ensemble prediction method, which can be used for small, moderate, or large data sets. Subsemble partitions the full data set into subsets of observations, fits a specified underlying algorithm on each subset, and uses a unique form of _k_-fold CV to output a prediction function that combines the subset-specific fits.] Unfortunately, __subsemble__ is currently only available via GitHub and is primarily maintained for backward compatibility rather than forward development.  A third package, __caretEnsemble__ [@R-caretEnsemble], also provides an approach for stacking, but it implements a bootsrapped (rather than cross-validated) version of stacking. The bootstrapped version will train faster since bootsrapping (with a train/test set) requires a fraction of the work of _k_-fold CV; however, the the ensemble performance often suffers as a result of this shortcut.
+
+This module focuses on the use of __h2o__ for model stacking. __h2o__ provides an efficient implementation of stacking and allows you to stack existing base learners, stack a grid search, and also implements an automated machine learning search with stacked results. All three approaches will be discussed. 
+
+# Stacking existing models {#stacking-existing}
+
+The first approach to stacking is to train individual base learner models separately and then stack them together.  For example, say we found the optimal hyperparameters that provided the best predictive accuracy for the following algorithms:
+
+1. Regularized regression base learner.
+2. Random forest base learner.
+3. GBM base learner.
+4. XGBoost base learner.
+
+We can train each of these models individually (see the code chunk below).  However, to stack them later we need to do a few specific things: 
+
+1. All models must be trained on the same training set.
+2. All models must be trained with the same number of CV folds.
+3. All models must use the same fold assignment to ensure the same observations are used (we can do this by using `fold_assignment = "Modulo"`).
+4. The cross-validated predictions from all of the models must be preserved by setting `keep_cross_validation_predictions = TRUE`. This is the data which is used to train the meta learner algorithm in the ensemble.
+
+```{r}
+# Train & cross-validate a GLM model
+best_glm <- h2o.glm(
+  x = X, y = Y, training_frame = train_h2o, alpha = 0.1,
+  remove_collinear_columns = TRUE, nfolds = 10, fold_assignment = "Modulo",
+  keep_cross_validation_predictions = TRUE, seed = 123
+)
+
+# Train & cross-validate a RF model
+best_rf <- h2o.randomForest(
+  x = X, y = Y, training_frame = train_h2o, ntrees = 1000, mtries = 20,
+  max_depth = 30, min_rows = 1, sample_rate = 0.8, nfolds = 10,
+  fold_assignment = "Modulo", keep_cross_validation_predictions = TRUE,
+  seed = 123, stopping_rounds = 50, stopping_metric = "RMSE",
+  stopping_tolerance = 0
+)
+
+# Train & cross-validate a GBM model
+best_gbm <- h2o.gbm(
+  x = X, y = Y, training_frame = train_h2o, ntrees = 5000, learn_rate = 0.01,
+  max_depth = 7, min_rows = 5, sample_rate = 0.8, nfolds = 10,
+  fold_assignment = "Modulo", keep_cross_validation_predictions = TRUE,
+  seed = 123, stopping_rounds = 50, stopping_metric = "RMSE",
+  stopping_tolerance = 0
+)
+
+# Train & cross-validate an XGBoost model
+best_xgb <- h2o.xgboost(
+  x = X, y = Y, training_frame = train_h2o, ntrees = 5000, learn_rate = 0.05,
+  max_depth = 3, min_rows = 3, sample_rate = 0.8, categorical_encoding = "Enum",
+  nfolds = 10, fold_assignment = "Modulo", 
+  keep_cross_validation_predictions = TRUE, seed = 123, stopping_rounds = 50,
+  stopping_metric = "RMSE", stopping_tolerance = 0
+)
+```
+
+We can now use `h2o.stackedEnsemble()` to stack these models.  Note how we feed the base learner models into the `base_models = list()` argument.  Here, we apply a random forest model as the metalearning algorithm. However, you could also apply regularized regression, GBM, or a neural network as the metalearner (see `?h2o.stackedEnsemble` for details).  
+
+```{r}
+# Train a stacked tree ensemble
+ensemble_tree <- h2o.stackedEnsemble(
+  x = X, y = Y, training_frame = train_h2o, model_id = "my_tree_ensemble",
+  base_models = list(best_glm, best_rf, best_gbm, best_xgb),
+  metalearner_algorithm = "drf"
+)
+```
+
+Since our ensemble is built on the CV results of the base learners, but has no cross-validation results of its own, we'll use the test data to compare our results. If we assess the performance of our base learners on the test data we see that the stochastic GBM base learner has the lowest RMSE of 19323.95. The stacked model achieves similar performance results with an RMSE of 19554.55.
+
+```{r}
+# Get results from base learners
+get_rmse <- function(model) {
+  results <- h2o.performance(model, newdata = test_h2o)
+  results@metrics$RMSE
+}
+list(best_glm, best_rf, best_gbm, best_xgb) %>%
+  purrr::map_dbl(get_rmse)
+
+# Stacked results
+h2o.performance(ensemble_tree, newdata = test_h2o)@metrics$RMSE
+```
+
+We previously stated that the biggest gains are usually produced when we are stacking base learners that have high variability, and uncorrelated, predicted values. If we assess the correlation of the CV predictions we can see strong correlation across the base learners, especially with three tree-based learners. Consequentley, stacking provides less advantage in this situation since the base learners have highly correlated predictions.
+
+```{r}
+data.frame(
+  GLM_pred = as.vector(h2o.getFrame(best_glm@model$cross_validation_holdout_predictions_frame_id$name)),
+  RF_pred = as.vector(h2o.getFrame(best_rf@model$cross_validation_holdout_predictions_frame_id$name)),
+  GBM_pred = as.vector(h2o.getFrame(best_gbm@model$cross_validation_holdout_predictions_frame_id$name)),
+  XGB_pred = as.vector(h2o.getFrame(best_xgb@model$cross_validation_holdout_predictions_frame_id$name))
+) %>% cor()
+```
+
+
+# Stacking a grid search
+
+An alternative ensemble approach focuses on stacking multiple models generated from the same base learner.  In each of the previous modules, you learned how to perform grid searches to automate the tuning process.  Often we simply select the best performing model in the grid search but we can also apply the concept of stacking to this process.  
+
+Many times, certain tuning parameters allow us to find unique patterns within the data.  By stacking the results of a grid search, we can capitalize on the benefits of each of the models in our grid search to create a meta model.  For example, the following performs a random grid search across a wide range of GBM hyperparameter settings.  We set the search to stop after 25 models have run.
+
+```{r}
+# Define GBM hyperparameter grid
+hyper_grid <- list(
+  max_depth = c(1, 3, 5),
+  min_rows = c(1, 5, 10),
+  learn_rate = c(0.01, 0.05, 0.1),
+  learn_rate_annealing = c(0.99, 1),
+  sample_rate = c(0.5, 0.75, 1),
+  col_sample_rate = c(0.8, 0.9, 1)
+)
+
+# Define random grid search criteria
+search_criteria <- list(
+  strategy = "RandomDiscrete",
+  max_models = 25
+)
+
+# Build random grid search 
+random_grid <- h2o.grid(
+  algorithm = "gbm", grid_id = "gbm_grid", x = X, y = Y,
+  training_frame = train_h2o, hyper_params = hyper_grid,
+  search_criteria = search_criteria, ntrees = 5000, stopping_metric = "RMSE",     
+  stopping_rounds = 10, stopping_tolerance = 0, nfolds = 10, 
+  fold_assignment = "Modulo", keep_cross_validation_predictions = TRUE,
+  seed = 123
+)
+```
+
+If we look at the grid search models we see that the cross-validated RMSE ranges from 22690--57229.
+
+```{r}
+# Sort results by RMSE
+h2o.getGrid(
+  grid_id = "gbm_grid", 
+  sort_by = "rmse"
+)
+```
+
+If we apply the best performing model to our test set, we achieve an RMSE of 17680.9.
+
+```{r}
+# Grab the model_id for the top model, chosen by validation error
+best_model_id <- random_grid@model_ids[[1]]
+best_model <- h2o.getModel(best_model_id)
+h2o.performance(best_model, newdata = test_h2o)
+```
+
+Rather than use the single best model, we can combine all the models in our grid search using a super learner. In this example, our super learner does not provide any performance gains because the hyperparameter settings of the leading models have low variance which results in predictions that are highly correlated. However, in cases where you see high variability across hyperparameter settings for your leading models, stacking the grid search or even the leaders in the grid search can provide significant performance gains. 
+
+> ___Pro Tip:___ _Stacking a grid search provides the greatest benefit when leading models from the base learner have high variance in their hyperparameter settings._
+
+```{r}
+# Train a stacked ensemble using the GBM grid
+ensemble <- h2o.stackedEnsemble(
+  x = X, y = Y, training_frame = train_h2o, model_id = "ensemble_gbm_grid",
+  base_models = random_grid@model_ids, metalearner_algorithm = "gbm"
+)
+
+# Eval ensemble performance on a test set
+h2o.performance(ensemble, newdata = test_h2o)
+```
+
+# Automated machine learning
+
+Our final topic to discuss involves performing an automated search across multiple base learners and then stack the resulting models (this is sometimes referred to as _automated machine learning_ or AutoML).  This is very much like the grid searches that we have been performing for base learners and discussed in previous modules; however, rather than search across a variety of parameters for a _single base learner_, we want to perform a search across a variety of hyperparameter settings for many _different base learners_.
+
+There are several competitors that provide licensed software that help automate the end-to-end machine learning process to include feature engineering, model validation procedures, model selection, hyperparameter optimization, and more. Open source applications are more limited and tend to focus on automating the model building, hyperparameter configurations, and comparison of model performance. 
+
+> ___Warning:___ _Although AutoML has made it easy for non-experts to experiment with machine learning, there is still a significant amount of knowledge and background in data science that is required to produce high-performing machine learning models. AutoML is more about freeing up your time (which is quite valuable). The machine learning process is often long, iterative, and repetitive and AutoML can also be a helpful tool for the advanced user, by simplifying the process of performing a large number of modeling-related tasks that would typically require hours/days writing many lines of code. This can free up the user's time to focus on other tasks in the data science pipeline such as data-preprocessing, feature engineering, model interpretability, and model deployment._
+
+__h2o__ provides an open source implementation of AutoML with the `h2o.automl()` function.  The current version of `h2o.automl()` trains and cross-validates a random forest, an _extremely-randomized forest_, a random grid of GBMs, a random grid of DNNs, and then trains a stacked ensemble using all of the models; see `?h2o::h2o.automl` for details.
+
+___Warning:___ _By default, `h2o.automl()` will search for 1 hour but you can control how long it searches by adjusting a variety of stopping arguments (e.g., `max_runtime_secs`, `max_models`, and `stopping_tolerance`)._
+
+The following performs an automated search for two hours, which ended up assessing 80 models.  `h2o.automl()` will automatically use the same folds for stacking so you do not need to specify `fold_assignment = "Modulo"`. This allows for consistent model comparison across the same CV sets. We see that most of the leading models are GBM variants and achieve an RMSE in the 23000--24000 range. As you probably noticed, this was not as good as some of our best models we found using our own GBM grid searches. However, we could start this AutoML procedure and then spend our two hours performing other tasks while __h2o__ automatically assesses these 80 models. The AutoML procedure then provides us direction for further analysis. In this case, we could start by further assessing the hyperparameter settings in the top five GBM models to see if there were common attributes that could point us to additional grid searches worth exploring.
+
+```{r}
+# Use AutoML to find a list of candidate models (i.e., leaderboard)
+auto_ml <- h2o.automl(
+  x = X, y = Y, training_frame = train_h2o, nfolds = 5, 
+  max_runtime_secs = 60 * 120, max_models = 50,
+  keep_cross_validation_predictions = TRUE, sort_metric = "RMSE", seed = 123,
+  stopping_rounds = 50, stopping_metric = "RMSE", stopping_tolerance = 0
+)
+```
+
+```{r}
+# Assess the leader board; the following truncates the results to show the top 
+# and bottom 15 models. You can get the top model with auto_ml@leader
+auto_ml@leaderboard %>% 
+  as.data.frame() %>%
+  dplyr::select(model_id, rmse) %>%
+  dplyr::slice(1:25)
+```
+
+[🏠](https://github.com/misk-data-science/misk-homl)
+
+# Exercises
+
+Using the same regression and/or classification dataset you've been using in the tree-based module exercises:
+
+1. Using H2O, build and assess the following models:
+   - regularized regression base learner, 
+   - random forest base learner.
+   - GBM and/or XGBoost base learner.
+2. Using `h2o.stackedEnsemble()`, stack these three models.
+   - Does your stacked model performance improve over and above the individual learners?
+   - Explain your reasoning why or why not performance improves.
+3. Perform a stacked grid search with an H2O GBM or XGBoost model.
+   - What was your best performing model?
+   - Do you notice any patterns in the hyperparameter settings for the top 5-10 models?
+4. Perform an AutoML search across multiple types of learners.
+   - Which types of base learners are in the top 10?
+   - What model provides the optimal performance?
+   - Apply this model to the test set. How does the test loss function compare to the training cross-validated RMSE?
+
+
+# References
