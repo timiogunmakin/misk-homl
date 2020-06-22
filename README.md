@@ -51,7 +51,7 @@ More info TBD.
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
 | 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | TBD  | TBD   |
-| 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | TBD  | TBD   |
+| 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process-slides.nb.html)  | TBD   |
 | 3             | Feature and target engineering       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html)  | TBD  | TBD   |
 | 4             | Linear regression                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | TBD  | TBD   |
 | 5             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
