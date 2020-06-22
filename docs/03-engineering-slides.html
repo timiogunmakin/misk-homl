@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Feature &amp; Target Engineering</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: clear, center, middle
+
+background-image: url(images/engineering-icon.jpg)
+background-position: center
+background-size: cover
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.font200.bold.white[Feature &amp; Target Engineering]
+
+---
+# Introduction
+
+Data pre-processing and engineering techniques generally refer to the .blue[___addition, deletion, or transformation of data___].
+
+.pull-left[
+
+.center.bold.font120[Thoughts]
+
+- Substantial time commitment
+- 1 hr module doesn't do justice
+- Not a "sexy" area to study but well worth your time
+- Additional resources to start with:
+   - [Feature Engineering and Selection: A Practical Approach for Predictive Models](http://www.feat.engineering/)
+   - [Feature Engineering for Machine Learning: Principles and Techniques for Data Scientists](https://www.amazon.com/Feature-Engineering-Machine-Learning-Principles/dp/1491953241)
+
+]
+
+--
+
+.pull-right[
+
+.center.bold.font120[Overview]
+
+- Target engineering
+- Missingness
+- Feature filtering
+- Numeric feature engineering
+- Categorical feature engineering
+- Dimension reduction
+- Proper implementation
+
+]
+
+---
+# Prereqs .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 1]
+
+.pull-left[
+
+.center.bold.font120[Packages]
+
+
+```r
+library(dplyr)
+library(ggplot2)
+library(rsample)
+library(recipes)
+library(caret)
+```
+
+
+]
+
+.pull-right[
+
+.center.bold.font120[Data]
+
+
+```r
+# ames data
+ames &lt;- AmesHousing::make_ames()
+# split data
+set.seed(123)
+split &lt;- initial_split(ames, strata = "Sale_Price")
+ames_train &lt;- training(split)
+ames_test &lt;- testing(split)
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Target Engineering]
+
+---
+# Normality correction
+
+.pull-left[
+
+Not a requirement but...
+
+- can improve predictive accuracy for parametric &amp; distance-based models
+- can correct for residual assumption violations
+- minimizes effects of outliers
+
+plus...
+
+- sometimes used to for shaping the business problem as well
+
+.center[_“taking logs means that errors in predicting expensive houses and cheap houses will affect the result equally.”_]
+
+]
+
+.pull-right[
+
+&lt;br&gt;&lt;br&gt;
+
+&lt;center&gt;
+`\(\texttt{Sale_Price} = \beta_0 + \beta_1\texttt{Year_Built} + \epsilon\)`
+&lt;/center&gt;
+
+&lt;img src="03-engineering-slides_files/figure-html/skewed-residuals-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# Transformation options
+
+.pull-left[
+
+- log (or log with offset)
+
+- Box-Cox: automates process of finding proper transformation
+
+$$
+ \begin{equation} 
+ y(\lambda) =
+`\begin{cases}
+   \frac{y^\lambda-1}{\lambda}, &amp; \text{if}\ \lambda \neq 0 \\
+   \log y, &amp; \text{if}\ \lambda = 0.
+\end{cases}`
+\end{equation}`
+$$
+
+- Yeo-Johnson: modified Box-Cox for non-strictly positive values
+
+]
+
+.pull-right[
+
+We'll put these pieces together later
+
+
+```r
+step_log()
+step_BoxCox()
+step_YeoJohnson()
+```
+
+
+]
+
+&lt;img src="03-engineering-slides_files/figure-html/distribution-comparison-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+class: center, middle, inverse
+
+.font300.white[Missingness]
+
+.white[_Many models cannot cope with missing data so imputation strategies may be necessary._]
+
+---
+# Visualizing .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 2]
+
+An uncleaned version of Ames housing data:
+
+
+```r
+sum(is.na(AmesHousing::ames_raw))
+## [1] 13997
+```
+
+.pull-left[
+
+
+```r
+AmesHousing::ames_raw %&gt;%
+  is.na() %&gt;%
+  reshape2::melt() %&gt;%
+  ggplot(aes(Var2, Var1, fill=value)) + 
+    geom_raster() + 
+    coord_flip() +
+    scale_y_continuous(NULL, expand = c(0, 0)) +
+    scale_fill_grey(name = "", labels = c("Present", "Missing")) +
+    xlab("Observation") +
+    theme(axis.text.y  = element_text(size = 4))
+```
+
+
+]
+
+.pull-right[
+
+&lt;img src="03-engineering-slides_files/figure-html/missing-distribution-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Visualizing .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 3]
+
+An uncleaned version of Ames housing data:
+
+
+```r
+sum(is.na(AmesHousing::ames_raw))
+## [1] 13997
+```
+
+.pull-left[
+
+
+```r
+visdat::vis_miss(AmesHousing::ames_raw, cluster = TRUE)
+```
+
+
+]
+
+.pull-right[
+
+&lt;img src="03-engineering-slides_files/figure-html/missing-distribution-plot2-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Structural vs random .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 4]
+
+.pull-left[
+
+Missing values can be a result of many different reasons; however, these reasons are usually lumped into two categories: 
+
+* informative missingess
+
+* missingness at random
+
+
+]
+
+.pull-right[
+
+
+```r
+AmesHousing::ames_raw %&gt;% 
+  filter(is.na(`Garage Type`)) %&gt;% 
+  select(`Garage Type`, `Garage Cars`, `Garage Area`)
+## # A tibble: 157 x 3
+##    `Garage Type` `Garage Cars` `Garage Area`
+##    &lt;chr&gt;                 &lt;int&gt;         &lt;int&gt;
+##  1 &lt;NA&gt;                      0             0
+##  2 &lt;NA&gt;                      0             0
+##  3 &lt;NA&gt;                      0             0
+##  4 &lt;NA&gt;                      0             0
+##  5 &lt;NA&gt;                      0             0
+##  6 &lt;NA&gt;                      0             0
+##  7 &lt;NA&gt;                      0             0
+##  8 &lt;NA&gt;                      0             0
+##  9 &lt;NA&gt;                      0             0
+## 10 &lt;NA&gt;                      0             0
+## # … with 147 more rows
+```
+
+]
+
+&lt;br&gt;
+
+.center.bold[Determines how you will, and if you can/should, impute.]
+
+---
+# Imputation
+
+.pull-left[
+
+Primary methods:
+
+- Estimated statistic (i.e. mean, median, mode)
+
+- K-nearest neighbor
+
+- Tree-based (bagged trees)
+
+]
+
+.pull-right[
+
+.center.font80[.red[Actual values] vs .blue[imputed values]]
+
+&lt;img src="03-engineering-slides_files/figure-html/imputation-examples-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# Imputation
+
+.pull-left[
+
+Primary methods:
+
+- Estimated statistic (i.e. mean, median, mode)
+
+- K-nearest neighbor
+
+- Tree-based (bagged trees)
+
+]
+
+.pull-right[
+
+We'll put these pieces together later
+
+
+```r
+step_meanimpute()
+step_medianimpute()
+step_modeimpute()
+step_knnimpute()
+step_bagimpute()
+```
+
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Feature Filtering]
+
+---
+# More is not always better!
+
+Excessive noisy variables can...
+
+.font120.bold[reduce accuracy]
+
+&lt;img src="images/accuracy-comparison-1.png" width="2560" style="display: block; margin: auto;" /&gt;
+
+
+---
+# More is not always better!
+
+Excessive noisy variables can...
+
+.font120.bold[increase computation time]
+
+&lt;img src="images/impact-on-time-1.png" width="2560" style="display: block; margin: auto;" /&gt;
+
+---
+# Options for filtering .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 5]
+
+.pull-left[
+Filtering options include:
+
+- removing 
+   - zero variance features
+   - near-zero variance features
+   - highly correlated features (better to do dimension reduction)
+
+- Feature selection
+   - beyond scope of module
+   - see [Applied Predictive Modeling, ch. 19](http://appliedpredictivemodeling.com/)
+]
+
+.pull-right[
+
+
+```r
+caret::nearZeroVar(ames_train, saveMetrics= TRUE) %&gt;% 
+  rownames_to_column() %&gt;% 
+  filter(nzv)
+##               rowname  freqRatio percentUnique zeroVar  nzv
+## 1              Street  273.87500    0.09095043   FALSE TRUE
+## 2               Alley   20.40000    0.13642565   FALSE TRUE
+## 3        Land_Contour   22.14607    0.18190086   FALSE TRUE
+## 4           Utilities 1098.50000    0.09095043   FALSE TRUE
+## 5          Land_Slope   21.77083    0.13642565   FALSE TRUE
+## 6         Condition_2  217.70000    0.31832651   FALSE TRUE
+## 7           Roof_Matl  120.33333    0.27285130   FALSE TRUE
+## 8           Bsmt_Cond   20.87234    0.27285130   FALSE TRUE
+## 9      BsmtFin_Type_2   24.35065    0.31832651   FALSE TRUE
+## 10       BsmtFin_SF_2  386.60000    9.95907231   FALSE TRUE
+## 11            Heating  103.14286    0.22737608   FALSE TRUE
+## 12    Low_Qual_Fin_SF 1087.00000    1.09140518   FALSE TRUE
+## 13      Kitchen_AbvGr   23.66292    0.18190086   FALSE TRUE
+## 14         Functional   39.38462    0.31832651   FALSE TRUE
+## 15     Enclosed_Porch  102.94444    6.86675762   FALSE TRUE
+## 16 Three_season_porch  723.33333    1.09140518   FALSE TRUE
+## 17       Screen_Porch  224.00000    4.36562074   FALSE TRUE
+## 18          Pool_Area 2190.00000    0.45475216   FALSE TRUE
+## 19            Pool_QC  730.00000    0.22737608   FALSE TRUE
+## 20       Misc_Feature   32.19697    0.22737608   FALSE TRUE
+## 21           Misc_Val  151.92857    1.36425648   FALSE TRUE
+```
+
+]
+
+---
+# Options for filtering
+
+.pull-left[
+Filtering options include:
+
+- removing 
+   - zero variance features
+   - near-zero variance features
+   - highly correlated features (better to do dimension reduction)
+
+- Feature selection
+   - beyond scope of module
+   - see [Applied Predictive Modeling, ch. 19](http://appliedpredictivemodeling.com/)
+]
+
+.pull-right[
+
+We'll put these pieces together later
+
+
+```r
+step_zv()
+step_nzv()
+step_corr()
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Numeric Feature Engineering]
+
+---
+# Transformations
+
+.pull-left[
+* skewness
+   - parametric models that have distributional assumptions (i.e. GLMs, regularized models)
+   - log
+   - Box-Cox or Yeo-Johnson
+   
+* standardization
+   - Models that incorporate linear functions (GLM, NN) and distance functions (i.e. KNN, clustering) of input features are sensitive to the scale of the inputs 
+   - centering _and_ scaling so that numeric variables have `\(\mu = 0; \sigma = 1\)` 
+]   
+ 
+.pull-right[
+
+&lt;img src="03-engineering-slides_files/figure-html/standardizing-1.png" style="display: block; margin: auto;" /&gt;
+] 
+
+   
+---
+# Transformations
+
+.pull-left[
+* skewness
+   - parametric models that have distributional assumptions (i.e. GLMs, regularized models)
+   - log
+   - Box-Cox or Yeo-Johnson
+   
+* standardization
+   - Models that incorporate linear functions (GLM, NN) and distance functions (i.e. KNN, clustering) of input features are sensitive to the scale of the inputs 
+   - centering _and_ scaling so that numeric variables have `\(\mu = 0; \sigma = 1\)` 
+] 
+
+.pull-right[
+
+We'll put these pieces together later
+
+
+```r
+step_log()
+step_BoxCox()
+step_YeoJohnson()
+step_center()
+step_scale()
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Categorical Feature Engineering]
+
+---
+# One-hot &amp; Dummy encoding
+
+.pull-left[
+
+Many models require all predictor variables to be numeric (i.e. GLMs, SVMs, NNets)
+
+&lt;table class="table table-striped" style="margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; x &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; c &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; c &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; c &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; b &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+   
+Two most common approaches include...
+
+]
+
+.pull-right[
+
+.bold.center[Dummy encoding]
+
+&lt;table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; id &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; xc &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+.bold.center[One-hot encoding]
+
+&lt;table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; id &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; xb &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; xc &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Label encoding .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 6]
+
+.pull-left[
+* One-hot and dummy encoding are not good when:
+   - you have a lot of categorical features
+   - with high cardinality
+   - or you have ordinal features
+
+* Label encoding:
+   - pure numeric conversion of the levels of a categorical variable
+   - most common: ordinal encoding
+]
+
+.pull-right[
+
+.center.bold[Quality variables with natural ordering]
+
+
+```r
+ames_train %&gt;% select(matches("Qual|QC|Qu"))
+## # A tibble: 2,199 x 9
+##    Overall_Qual Exter_Qual Bsmt_Qual Heating_QC Low_Qual_Fin_SF Kitchen_Qual
+##    &lt;fct&gt;        &lt;fct&gt;      &lt;fct&gt;     &lt;fct&gt;                &lt;int&gt; &lt;fct&gt;       
+##  1 Above_Avera… Typical    Typical   Fair                     0 Typical     
+##  2 Average      Typical    Typical   Typical                  0 Typical     
+##  3 Above_Avera… Typical    Typical   Typical                  0 Good        
+##  4 Average      Typical    Good      Good                     0 Typical     
+##  5 Above_Avera… Typical    Typical   Excellent                0 Good        
+##  6 Very_Good    Good       Good      Excellent                0 Good        
+##  7 Very_Good    Good       Good      Excellent                0 Good        
+##  8 Very_Good    Good       Good      Excellent                0 Good        
+##  9 Above_Avera… Typical    Good      Good                     0 Typical     
+## 10 Above_Avera… Typical    Good      Good                     0 Typical     
+## # … with 2,189 more rows, and 3 more variables: Fireplace_Qu &lt;fct&gt;,
+## #   Garage_Qual &lt;fct&gt;, Pool_QC &lt;fct&gt;
+```
+
+]
+
+---
+# Label encoding .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 7]
+
+.pull-left[
+* One-hot and dummy encoding are not good when:
+   - you have a lot of categorical features
+   - with high cardinality
+   - or you have ordinal features
+
+* Label encoding:
+   - pure numeric conversion of the levels of a categorical variable
+   - most common: ordinal encoding
+]
+
+.pull-right[
+
+.center.bold[Original encoding for `Overall_Qual`]
+
+
+```r
+count(ames_train, Overall_Qual)
+## # A tibble: 10 x 2
+##    Overall_Qual       n
+##    &lt;fct&gt;          &lt;int&gt;
+##  1 Very_Poor          4
+##  2 Poor               9
+##  3 Fair              31
+##  4 Below_Average    175
+##  5 Average          602
+##  6 Above_Average    560
+##  7 Good             437
+##  8 Very_Good        275
+##  9 Excellent         85
+## 10 Very_Excellent    21
+```
+
+]
+
+---
+# Label encoding .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 8]
+
+.pull-left[
+* One-hot and dummy encoding are not good when:
+   - you have a lot of categorical features
+   - with high cardinality
+   - or you have ordinal features
+
+* Label encoding:
+   - pure numeric conversion of the levels of a categorical variable
+   - most common: ordinal encoding
+]
+
+.pull-right[
+
+.center.bold[Label/ordinal encoding for `Overall_Qual`]
+
+
+```r
+recipe(Sale_Price ~ ., data = ames_train) %&gt;%
+  step_integer(Overall_Qual) %&gt;%
+  prep(ames_train) %&gt;%
+  bake(ames_train) %&gt;%
+  count(Overall_Qual)
+## # A tibble: 10 x 2
+##    Overall_Qual     n
+##           &lt;dbl&gt; &lt;int&gt;
+##  1            1     4
+##  2            2     9
+##  3            3    31
+##  4            4   175
+##  5            5   602
+##  6            6   560
+##  7            7   437
+##  8            8   275
+##  9            9    85
+## 10           10    21
+```
+
+]
+
+---
+# Common categorical encodings
+
+We'll put these pieces together later
+
+
+```r
+step_dummy()
+step_dummy(one_hot = TRUE)
+step_integer()
+step_ordinalscore()
+```
+
+---
+class: center, middle, inverse
+
+.font300.white[Dimension Reduction]
+
+---
+# PCA
+
+.pull-left[
+* We can use PCA for downstream modeling
+
+* In the Ames data, there are potential clusters of highly correlated variables:
+
+   - proxies for size: `Lot_Area`, `Gr_Liv_Area`, `First_Flr_SF`, `Bsmt_Unf_SF`, etc.
+   - quality fields: `Overall_Qual`, `Garage_Qual`, `Kitchen_Qual`, `Exter_Qual`, etc.
+
+* It would be nice if we could combine/amalgamate the variables in these clusters into a single variable that represents them.
+
+* In fact, we can explain 95% of the variance in our numeric features with 38 PCs
+
+]
+
+.pull-right[
+
+&lt;img src="03-engineering-slides_files/figure-html/pca-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# PCA
+
+.pull-left[
+* We can use PCA for downstream modeling
+
+* In the Ames data, there are potential clusters of highly correlated variables:
+
+   - proxies for size: `Lot_Area`, `Gr_Liv_Area`, `First_Flr_SF`, `Bsmt_Unf_SF`, etc.
+   - quality fields: `Overall_Qual`, `Garage_Qual`, `Kitchen_Qual`, `Exter_Qual`, etc.
+
+* It would be nice if we could combine/amalgamate the variables in these clusters into a single variable that represents them.
+
+* In fact, we can explain 95% of the variance in our numeric features with 38 PCs
+
+]
+
+.pull-right[
+
+We'll put these pieces together later
+
+
+```r
+step_pca()
+step_kpca()
+step_pls()
+step_spatialsign()
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Blueprints]
+
+---
+# Sequential steps
+
+.pull-left[
+
+.bold.center.font120[Some thoughts to consider]
+
+- If using a log or Box-Cox transformation, don’t center the data first or do any operations that might make the data non-positive. 
+- Standardize your numeric features prior to one-hot/dummy encoding.
+- If you are lumping infrequently categories together, do so before one-hot/dummy encoding.
+- Although you can perform dimension reduction procedures on categorical features, it is common to primarily do so on numeric features when doing so for feature engineering purposes.
+
+]
+
+--
+
+.pull-right[
+
+.bold.center.font120[Suggested ordering]
+
+1. Filter out zero or near-zero variance features
+2. Perform imputation if required
+3. Normalize to resolve numeric feature skewness
+4. Standardize (center and scale) numeric features
+5. Perform dimension reduction (i.e. PCA) on numeric features
+6. Create one-hot or dummy encoded features
+
+]
+
+---
+# Data leakage
+
+___Data leakage___ is when information from outside the training dataset is used to create the model.
+
+- Often occurs when doing feature engineering
+- Feature engineering should be done in isolation of each resampling iteration
+
+&lt;img src="images/data-leakage.png" width="80%" height="80%" style="display: block; margin: auto;" /&gt;
+
+
+---
+# Putting the process together
+
+.pull-left[
+.font120[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+]
+]
+
+.pull-right[
+
+&lt;img src="https://raw.githubusercontent.com/rstudio/hex-stickers/master/PNG/recipes.png" width="70%" height="70%" style="display: block; margin: auto;" /&gt;
+
+]
+
+.center.bold.font120[https://tidymodels.github.io/recipes/index.html]
+
+---
+# Putting the process together
+
+.pull-left[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+* 3 main components to consider
+   1. recipe: define your pre-processing blueprint
+   2. prepare: estimate parameters based on training data
+   3. bake/juice: apply blueprint to new data
+
+]
+
+---
+# Putting the process together .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 9]
+
+.pull-left[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+* 3 main components to consider
+   1. .bold[recipe: define your pre-processing blueprint]
+   2. prepare: estimate parameters based on training data
+   3. bake/juice: apply blueprint to new data
+
+&lt;br&gt;
+
+.center.blue[Check out all the available `step_xxx()` functions at http://bit.ly/step_functions]
+
+]
+
+.pull-right[
+
+
+```r
+blueprint &lt;- recipe(Sale_Price ~ ., data = ames_train) %&gt;%
+  step_nzv(all_nominal()) %&gt;%
+  step_center(all_numeric(), -all_outcomes()) %&gt;%
+  step_scale(all_numeric(), -all_outcomes()) %&gt;%
+  step_integer(matches("Qual|Cond|QC|Qu"))
+blueprint
+## Data Recipe
+## 
+## Inputs:
+## 
+##       role #variables
+##    outcome          1
+##  predictor         80
+## 
+## Operations:
+## 
+## Sparse, unbalanced variable filter on all_nominal
+## Centering for all_numeric, -, all_outcomes()
+## Scaling for all_numeric, -, all_outcomes()
+## Integer encoding for matches, Qual|Cond|QC|Qu
+```
+
+]
+
+---
+# Putting the process together .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 10]
+
+.pull-left[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+* 3 main components to consider
+   1. recipe: define your pre-processing blueprint
+   2. .bold[prepare: estimate parameters based on training data]
+   3. bake/juice: apply blueprint to new data
+
+]
+
+.pull-right[
+
+
+```r
+prepare &lt;- prep(blueprint, training = ames_train)
+prepare
+## Data Recipe
+## 
+## Inputs:
+## 
+##       role #variables
+##    outcome          1
+##  predictor         80
+## 
+## Training data contained 2199 data points and no missing data.
+## 
+## Operations:
+## 
+## Sparse, unbalanced variable filter removed Street, Alley, Land_Contour, ... [trained]
+## Centering for Lot_Frontage, Lot_Area, ... [trained]
+## Scaling for Lot_Frontage, Lot_Area, ... [trained]
+## Integer encoding for Condition_1, Overall_Qual, Overall_Cond, ... [trained]
+```
+
+]
+
+---
+# Putting the process together .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 11]
+
+.scrollable90[
+.pull-left[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+* 3 main components to consider
+   1. recipe: define your pre-processing blueprint
+   2. prepare: estimate parameters based on training data
+   3. .bold[bake: apply blueprint to new data]
+
+]
+
+.pull-right[
+
+
+```r
+baked_train &lt;- bake(prepare, new_data = ames_train)
+baked_test &lt;- bake(prepare, new_data = ames_test)
+baked_train
+## # A tibble: 2,199 x 68
+##    MS_SubClass MS_Zoning Lot_Frontage Lot_Area Lot_Shape Lot_Config Neighborhood
+##    &lt;fct&gt;       &lt;fct&gt;            &lt;dbl&gt;    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;      &lt;fct&gt;       
+##  1 One_Story_… Resident…        2.54    2.51   Slightly… Corner     North_Ames  
+##  2 One_Story_… Resident…        0.678   0.165  Regular   Inside     North_Ames  
+##  3 One_Story_… Resident…        0.709   0.472  Slightly… Corner     North_Ames  
+##  4 Two_Story_… Resident…        0.495   0.421  Slightly… Inside     Gilbert     
+##  5 Two_Story_… Resident…        0.617  -0.0267 Slightly… Inside     Gilbert     
+##  6 One_Story_… Resident…       -0.510  -0.615  Regular   Inside     Stone_Brook 
+##  7 One_Story_… Resident…       -0.449  -0.605  Slightly… Inside     Stone_Brook 
+##  8 One_Story_… Resident…       -0.571  -0.560  Slightly… Inside     Stone_Brook 
+##  9 Two_Story_… Resident…        0.526  -0.0241 Slightly… Corner     Gilbert     
+## 10 Two_Story_… Resident…        0.160  -0.210  Slightly… Inside     Gilbert     
+## # … with 2,189 more rows, and 61 more variables: Condition_1 &lt;dbl&gt;,
+## #   Bldg_Type &lt;fct&gt;, House_Style &lt;fct&gt;, Overall_Qual &lt;dbl&gt;, Overall_Cond &lt;dbl&gt;,
+## #   Year_Built &lt;dbl&gt;, Year_Remod_Add &lt;dbl&gt;, Roof_Style &lt;fct&gt;,
+## #   Exterior_1st &lt;fct&gt;, Exterior_2nd &lt;fct&gt;, Mas_Vnr_Type &lt;fct&gt;,
+## #   Mas_Vnr_Area &lt;dbl&gt;, Exter_Qual &lt;dbl&gt;, Exter_Cond &lt;dbl&gt;, Foundation &lt;fct&gt;,
+## #   Bsmt_Qual &lt;dbl&gt;, Bsmt_Exposure &lt;fct&gt;, BsmtFin_Type_1 &lt;fct&gt;,
+## #   BsmtFin_SF_1 &lt;dbl&gt;, BsmtFin_SF_2 &lt;dbl&gt;, Bsmt_Unf_SF &lt;dbl&gt;,
+## #   Total_Bsmt_SF &lt;dbl&gt;, Heating_QC &lt;dbl&gt;, Central_Air &lt;fct&gt;, Electrical &lt;fct&gt;,
+## #   First_Flr_SF &lt;dbl&gt;, Second_Flr_SF &lt;dbl&gt;, Low_Qual_Fin_SF &lt;dbl&gt;,
+## #   Gr_Liv_Area &lt;dbl&gt;, Bsmt_Full_Bath &lt;dbl&gt;, Bsmt_Half_Bath &lt;dbl&gt;,
+## #   Full_Bath &lt;dbl&gt;, Half_Bath &lt;dbl&gt;, Bedroom_AbvGr &lt;dbl&gt;, Kitchen_AbvGr &lt;dbl&gt;,
+## #   Kitchen_Qual &lt;dbl&gt;, TotRms_AbvGrd &lt;dbl&gt;, Fireplaces &lt;dbl&gt;,
+## #   Fireplace_Qu &lt;dbl&gt;, Garage_Type &lt;fct&gt;, Garage_Finish &lt;fct&gt;,
+## #   Garage_Cars &lt;dbl&gt;, Garage_Area &lt;dbl&gt;, Garage_Qual &lt;dbl&gt;, Garage_Cond &lt;dbl&gt;,
+## #   Paved_Drive &lt;fct&gt;, Wood_Deck_SF &lt;dbl&gt;, Open_Porch_SF &lt;dbl&gt;,
+## #   Enclosed_Porch &lt;dbl&gt;, Three_season_porch &lt;dbl&gt;, Screen_Porch &lt;dbl&gt;,
+## #   Pool_Area &lt;dbl&gt;, Fence &lt;fct&gt;, Misc_Val &lt;dbl&gt;, Mo_Sold &lt;dbl&gt;,
+## #   Year_Sold &lt;dbl&gt;, Sale_Type &lt;fct&gt;, Sale_Condition &lt;dbl&gt;, Longitude &lt;dbl&gt;,
+## #   Latitude &lt;dbl&gt;, Sale_Price &lt;int&gt;
+```
+
+]
+]
+
+---
+# Simplifying with __caret__
+
+.pull-left[
+
+* __recipes__ provides a convenient way to create feature engineering blueprints
+
+* 3 main components to consider
+   1. recipe: define your pre-processing blueprint
+   2. prepare: estimate parameters based on training data
+   3. bake: apply blueprint to new data
+   
+* Luckily, __caret__ simplifies this process for us.
+   1. We supply __caret__ a recipe
+   2. __caret__ will prepare &amp; bake within each resample 
+
+]
+
+.pull-right[
+
+&lt;br&gt;
+
+&lt;img src="https://media1.tenor.com/images/6358cb41e076a3c517e5a9988b1dc888/tenor.gif?itemid=5711499" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# Putting the process together .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 12]
+
+.scrollable90[
+.pull-left[
+Let's add a blueprint to our modeling process for analyzing the Ames housing data:
+
+1. Split into training vs testing data
+
+2. .blue[Create feature engineering blueprint]
+
+3. Specify a resampling procedure
+
+4. Create our hyperparameter grid
+
+5. Execute grid search
+
+6. Evaluate performance
+]
+
+.pull-right[
+
+.center.bold[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~8 min <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+# 1. stratified sampling with the rsample package
+set.seed(123)
+split  &lt;- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  &lt;- training(split)
+ames_test   &lt;- testing(split)
+# 2. Feature engineering
+blueprint &lt;- recipe(Sale_Price ~ ., data = ames_train) %&gt;%
+  step_nzv(all_nominal()) %&gt;%
+  step_integer(matches("Qual|Cond|QC|Qu")) %&gt;%
+  step_center(all_numeric(), -all_outcomes()) %&gt;%
+  step_scale(all_numeric(), -all_outcomes()) %&gt;%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+# 3. create a resampling method
+cv &lt;- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+  )
+# 4. create a hyperparameter grid search
+hyper_grid &lt;- expand.grid(k = seq(2, 25, by = 1))
+# 5. execute grid search with knn model
+#    use RMSE as preferred metric
+knn_fit &lt;- train(
+  blueprint, 
+  data = ames_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+# 6. evaluate results
+# print model results
+knn_fit
+## k-Nearest Neighbors 
+## 
+## 2053 samples
+##   80 predictor
+## 
+## Recipe steps: nzv, integer, center, scale, dummy 
+## Resampling: Cross-Validated (10 fold, repeated 5 times) 
+## Summary of sample sizes: 1847, 1847, 1849, 1847, 1847, 1849, ... 
+## Resampling results across tuning parameters:
+## 
+##   k   RMSE      Rsquared   MAE     
+##    2  36157.20  0.8021972  22517.39
+##    3  35146.27  0.8150895  21605.78
+##    4  34894.07  0.8192975  21391.95
+##    5  34345.23  0.8275098  20991.58
+##    6  34019.05  0.8326574  20900.86
+##    7  33617.98  0.8395995  20751.00
+##    8  33546.98  0.8421721  20718.21
+##    9  33404.00  0.8449132  20676.68
+##   10  33249.63  0.8474507  20654.95
+##   11  33136.92  0.8498865  20619.54
+##   12  33086.33  0.8516700  20636.61
+##   13  33115.58  0.8524821  20685.93
+##   14  33158.91  0.8531012  20723.65
+##   15  33218.85  0.8538323  20795.80
+##   16  33239.91  0.8544183  20832.18
+##   17  33301.91  0.8543697  20944.86
+##   18  33356.75  0.8545305  21023.53
+##   19  33384.70  0.8548460  21082.04
+##   20  33425.16  0.8549638  21143.45
+##   21  33509.65  0.8546262  21232.24
+##   22  33571.28  0.8543670  21280.19
+##   23  33596.00  0.8542518  21324.64
+##   24  33671.68  0.8541201  21385.34
+##   25  33730.53  0.8540286  21419.32
+## 
+## RMSE was used to select the optimal model using the smallest value.
+## The final value used for the model was k = 12.
+# plot cross validation results
+ggplot(knn_fit$results, aes(k, RMSE)) + 
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::dollar)
+```
+
+&lt;img src="03-engineering-slides_files/figure-html/example-blue-print-application-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+# Putting the process together
+
+.center.bold.font120[Feature engineering alone reduced our error by $10,000!]
+
+&lt;img src="https://media1.tenor.com/images/2b6d0826f02a9ba7c9d4384a740013e9/tenor.gif?itemid=5531028" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

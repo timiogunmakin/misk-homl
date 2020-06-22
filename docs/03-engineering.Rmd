@@ -46,7 +46,7 @@ library(recipes)  # for feature engineering tasks
 
 We'll also continue working with the `ames_train` data set:
 
-```{r engineering-ames-train, echo=FALSE}
+```{r engineering-ames-train}
 # Load and split the Ames housing data using stratified sampling
 ames <- AmesHousing::make_ames()
 set.seed(123)  # for reproducibility
