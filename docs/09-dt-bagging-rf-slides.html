@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Decision Trees, Bagging, &amp; Random Forests</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <link href="libs/academicons/css/academicons.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: clear, center, middle
+
+background-image: url(images/rf-icon.jpg)
+background-position: center
+background-size: cover
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.font300.white[Decision Trees, Bagging, &lt;br&gt;&amp; Random Forests]
+
+---
+# Introduction
+
+.pull-left[
+
+.center.bold.font120[Thoughts]
+
+Random forests are an ensemble method that:
+
+* provide competitive accuracy
+
+* provide good _out-of-the-box_ performance
+
+* capture non-linear, non-monotonic relationships
+
+* automatically capture interactions
+
+* easy to tune (relatively speaking)
+
+* require minimal, if any, pre-processing
+
+]
+
+--
+
+.pull-right[
+
+.center.bold.font120[Overview]
+
+* Provide solid understanding of:
+   1. decision trees
+   2. bagging
+   3. random forests
+   
+* Apply a random forest model   
+
+]
+
+---
+class: clear, center, middle
+
+background-image: url(images/single-tree.gif)
+background-size: cover
+
+.font300.white[Decision Trees]
+
+???
+
+Image credit: [giphy](https://giphy.com/gifs/tree-U85Z0lxOwDoys?utm_source=media-link&amp;utm_medium=landing&amp;utm_campaign=Media%20Links&amp;utm_term=)
+
+---
+
+# Basic Idea
+
+
+&lt;img src="images/dt-01.png" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+
+.center[.content-box-gray[.bold[Will a customer redeem a coupon]]]
+
+---
+
+# A .red[ruleset] model
+
+&lt;img src="images/dt-03.png" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+
+.font90[`if Loyal Customer = Yes and Household income &gt;= $150K and Shopping mode = store then coupon redemption = Yes`]
+
+
+---
+
+# Terminology
+
+&lt;img src="images/dt-02.png" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Growing the tree
+
+.pull-left[
+
+### Algorithms
+
+- ID3 (Iterative Dichotomiser 3)
+- C4.5 (successor of ID3)
+- CART (Classification And Regression Tree)
+- CHAID (CHi-squared Automatic Interaction Detector)
+- MARS: (Multivariate Adaptive Regression Splines)
+- Conditional Inference Trees
+- and more...
+
+]
+
+---
+
+# Growing the tree
+
+.pull-left[
+
+### Algorithms
+
+- ID3 (Iterative Dichotomiser 3)
+- C4.5 (successor of ID3)
+- .bold.blue[CART (Classification And Regression Tree)]
+- CHAID (CHi-squared Automatic Interaction Detector)
+- MARS: (Multivariate Adaptive Regression Splines)
+- Conditional Inference Trees
+- and more...
+
+]
+
+.pull-right[
+
+### CART Features <span>&lt;i class="fas  fa-shopping-cart faa-passing animated faa-slow "&gt;&lt;/i&gt;</span>
+
+- Classification and regression trees
+- Continuous and discrete features
+- Partitioning
+   - Greedy top-down
+   - Strictly binary splits (tends to produce tall/deep trees)
+   - Variance reduction in regression trees
+   - Gini impurity in classification trees
+- Cost complexity pruning 
+- [<span>&lt;i class="ai  ai-google-scholar faa-tada animated-hover "&gt;&lt;/i&gt;(Breiman, 1984)</span>](https://www.taylorfrancis.com/books/9781351460491)
+
+]
+
+&lt;br&gt;
+.center[.content-box-gray[.bold[Most common decision tree algorithm]]]
+
+---
+# Best .red[<span class=" faa-pulse animated " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">Binary</span>] Partitioning
+
+.pull-left[
+
+.center.font130.bold[Regression tree]
+
+&lt;img src="images/regression-partition.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+]
+
+.pull-right[
+
+.center.font130.bold[Classification tree]
+
+&lt;img src="images/classification-partition.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+]
+
+&lt;br&gt;
+.center[.content-box-gray[.bold[Objective: Minimize disimilarity in terminal nodes]]]
+
+---
+
+# Best .red[Binary] Partitioning
+
+
+.pull-left[
+&lt;br&gt;
+- __Numeric feature__: Numeric split to minimize loss function
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+- __Binary feature__: Category split to minimize loss function
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+- __Multiclass feature__: Order feature classes based on mean target variable (regression) or class proportion (classification) and choose split to minimize loss function ([<span>&lt;i class="ai  ai-google-scholar faa-tada animated-hover "&gt;&lt;/i&gt;See ESL, section 9.2.4 for details</span>](https://web.stanford.edu/~hastie/ElemStatLearn/)).
+
+]
+
+.pull-right[
+
+&lt;img src="images/splitting-rules.png" width="55%" height="55%" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+
+# How deep to grow a tree?
+
+Say we have the given data generated from the underlying .blue["truth"] function
+
+&lt;br&gt;&lt;br&gt;
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-7-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Depth = 1 (decision .red[stump] <span class=" faa-pulse animated-hover " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="images/stump.png" style="height:1em; width:auto; "/&gt;</span>)
+
+.scrollable90[
+.pull-left[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-8-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+```
+## 
+## Model formula:
+## y ~ x
+## 
+## Fitted party:
+## [1] root
+## |   [2] x &gt;= 3.07863: -0.665 (n = 255, err = 95.5)
+## |   [3] x &lt; 3.07863: 0.640 (n = 245, err = 75.9)
+## 
+## Number of inner nodes:    1
+## Number of terminal nodes: 2
+```
+
+
+]
+
+.pull-right[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-9-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+
+# Depth = 3 <span class=" faa-pulse animated-hover " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="images/small-tree-icon.png" style="height:1em; width:auto; "/&gt;</span>
+
+.scrollable90[
+.pull-left[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /&gt;
+
+```
+## 
+## Model formula:
+## y ~ x
+## 
+## Fitted party:
+## [1] root
+## |   [2] x &gt;= 3.07863
+## |   |   [3] x &gt;= 3.65785
+## |   |   |   [4] x &lt; 5.53399: -0.948 (n = 149, err = 40.0)
+## |   |   |   [5] x &gt;= 5.53399: -0.316 (n = 60, err = 15.6)
+## |   |   [6] x &lt; 3.65785
+## |   |   |   [7] x &lt; 3.20455: -0.476 (n = 10, err = 0.9)
+## |   |   |   [8] x &gt;= 3.20455: -0.130 (n = 36, err = 9.0)
+## |   [9] x &lt; 3.07863
+## |   |   [10] x &lt; 0.52255
+## |   |   |   [11] x &lt; 0.28331: 0.142 (n = 23, err = 4.8)
+## |   |   |   [12] x &gt;= 0.28331: 0.390 (n = 19, err = 5.1)
+## |   |   [13] x &gt;= 0.52255
+## |   |   |   [14] x &gt;= 2.26018: 0.440 (n = 65, err = 13.7)
+## |   |   |   [15] x &lt; 2.26018: 0.852 (n = 138, err = 36.6)
+## 
+## Number of inner nodes:    7
+## Number of terminal nodes: 8
+```
+
+
+]
+
+.pull-right[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-11-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+
+# Depth = 20 (.red[complex tree]  <span class=" faa-pulse animated-hover " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="images/large-tree-icon.png" style="height:1em; width:auto; "/&gt;</span>)
+
+.scrollable90[
+.pull-left[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-12-1.png" height="100%" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+.pull-right[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-13-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+
+# .red[Two Predictor] Decision Boundaries
+
+.pull-left[
+
+### Classification problem: Iris data
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-14-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+
+
+---
+
+# .red[Two Predictor] Decision Boundaries
+
+.pull-left[
+
+### Classification problem: Iris data
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-15-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+.pull-right[
+
+### Classification tree
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-16-1.png" height="100%" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+
+# Minimize overfitting
+
+.pull-left[
+
+.font110[Must balance the depth and complexity of the tree to .bold[generalize] to unseen data]
+
+2 main options:
+
+* Early stopping 
+   * Restrict tree depth
+   * Restrict node size
+
+* Pruning
+
+]
+
+.pull-right[
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/unnamed-chunk-17-1.png" style="display: block; margin: auto;" /&gt;
+
+.center[.content-box-gray[.bold[Trees have a tendency to overfit]]]
+
+]
+
+---
+
+# Minimize overfitting: Early stopping <span>&lt;i class="fas  fa-stop-circle faa-tada animated-hover " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue[Limit tree depth]: Stop splitting after a certain depth
+
+
+```
+## 
+Frame 1 (1%)
+Frame 2 (2%)
+Frame 3 (3%)
+Frame 4 (4%)
+Frame 5 (5%)
+Frame 6 (6%)
+Frame 7 (7%)
+Frame 8 (8%)
+Frame 9 (9%)
+Frame 10 (10%)
+Frame 11 (11%)
+Frame 12 (12%)
+Frame 13 (13%)
+Frame 14 (14%)
+Frame 15 (15%)
+Frame 16 (16%)
+Frame 17 (17%)
+Frame 18 (18%)
+Frame 19 (19%)
+Frame 20 (20%)
+Frame 21 (21%)
+Frame 22 (22%)
+Frame 23 (23%)
+Frame 24 (24%)
+Frame 25 (25%)
+Frame 26 (26%)
+Frame 27 (27%)
+Frame 28 (28%)
+Frame 29 (29%)
+Frame 30 (30%)
+Frame 31 (31%)
+Frame 32 (32%)
+Frame 33 (33%)
+Frame 34 (34%)
+Frame 35 (35%)
+Frame 36 (36%)
+Frame 37 (37%)
+Frame 38 (38%)
+Frame 39 (39%)
+Frame 40 (40%)
+Frame 41 (41%)
+Frame 42 (42%)
+Frame 43 (43%)
+Frame 44 (44%)
+Frame 45 (45%)
+Frame 46 (46%)
+Frame 47 (47%)
+Frame 48 (48%)
+Frame 49 (49%)
+Frame 50 (50%)
+Frame 51 (51%)
+Frame 52 (52%)
+Frame 53 (53%)
+Frame 54 (54%)
+Frame 55 (55%)
+Frame 56 (56%)
+Frame 57 (57%)
+Frame 58 (58%)
+Frame 59 (59%)
+Frame 60 (60%)
+Frame 61 (61%)
+Frame 62 (62%)
+Frame 63 (63%)
+Frame 64 (64%)
+Frame 65 (65%)
+Frame 66 (66%)
+Frame 67 (67%)
+Frame 68 (68%)
+Frame 69 (69%)
+Frame 70 (70%)
+Frame 71 (71%)
+Frame 72 (72%)
+Frame 73 (73%)
+Frame 74 (74%)
+Frame 75 (75%)
+Frame 76 (76%)
+Frame 77 (77%)
+Frame 78 (78%)
+Frame 79 (79%)
+Frame 80 (80%)
+Frame 81 (81%)
+Frame 82 (82%)
+Frame 83 (83%)
+Frame 84 (84%)
+Frame 85 (85%)
+Frame 86 (86%)
+Frame 87 (87%)
+Frame 88 (88%)
+Frame 89 (89%)
+Frame 90 (90%)
+Frame 91 (91%)
+Frame 92 (92%)
+Frame 93 (93%)
+Frame 94 (94%)
+Frame 95 (95%)
+Frame 96 (96%)
+Frame 97 (97%)
+Frame 98 (98%)
+Frame 99 (99%)
+Frame 100 (100%)
+## Finalizing encoding... done!
+```
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/maxdepth-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+
+--
+
+.pull-right[
+
+.blue[Minimum node “size”]: Do not split intermediate node which contains too few data points
+
+
+```
+## 
+Frame 1 (1%)
+Frame 2 (2%)
+Frame 3 (3%)
+Frame 4 (4%)
+Frame 5 (5%)
+Frame 6 (6%)
+Frame 7 (7%)
+Frame 8 (8%)
+Frame 9 (9%)
+Frame 10 (10%)
+Frame 11 (11%)
+Frame 12 (12%)
+Frame 13 (13%)
+Frame 14 (14%)
+Frame 15 (15%)
+Frame 16 (16%)
+Frame 17 (17%)
+Frame 18 (18%)
+Frame 19 (19%)
+Frame 20 (20%)
+Frame 21 (21%)
+Frame 22 (22%)
+Frame 23 (23%)
+Frame 24 (24%)
+Frame 25 (25%)
+Frame 26 (26%)
+Frame 27 (27%)
+Frame 28 (28%)
+Frame 29 (29%)
+Frame 30 (30%)
+Frame 31 (31%)
+Frame 32 (32%)
+Frame 33 (33%)
+Frame 34 (34%)
+Frame 35 (35%)
+Frame 36 (36%)
+Frame 37 (37%)
+Frame 38 (38%)
+Frame 39 (39%)
+Frame 40 (40%)
+Frame 41 (41%)
+Frame 42 (42%)
+Frame 43 (43%)
+Frame 44 (44%)
+Frame 45 (45%)
+Frame 46 (46%)
+Frame 47 (47%)
+Frame 48 (48%)
+Frame 49 (49%)
+Frame 50 (50%)
+Frame 51 (51%)
+Frame 52 (52%)
+Frame 53 (53%)
+Frame 54 (54%)
+Frame 55 (55%)
+Frame 56 (56%)
+Frame 57 (57%)
+Frame 58 (58%)
+Frame 59 (59%)
+Frame 60 (60%)
+Frame 61 (61%)
+Frame 62 (62%)
+Frame 63 (63%)
+Frame 64 (64%)
+Frame 65 (65%)
+Frame 66 (66%)
+Frame 67 (67%)
+Frame 68 (68%)
+Frame 69 (69%)
+Frame 70 (70%)
+Frame 71 (71%)
+Frame 72 (72%)
+Frame 73 (73%)
+Frame 74 (74%)
+Frame 75 (75%)
+Frame 76 (76%)
+Frame 77 (77%)
+Frame 78 (78%)
+Frame 79 (79%)
+Frame 80 (80%)
+Frame 81 (81%)
+Frame 82 (82%)
+Frame 83 (83%)
+Frame 84 (84%)
+Frame 85 (85%)
+Frame 86 (86%)
+Frame 87 (87%)
+Frame 88 (88%)
+Frame 89 (89%)
+Frame 90 (90%)
+Frame 91 (91%)
+Frame 92 (92%)
+Frame 93 (93%)
+Frame 94 (94%)
+Frame 95 (95%)
+Frame 96 (96%)
+Frame 97 (97%)
+Frame 98 (98%)
+Frame 99 (99%)
+Frame 100 (100%)
+## Finalizing encoding... done!
+```
+
+&lt;img src="09-dt-bagging-rf-slides_files/figure-html/minbucket-1.gif" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
