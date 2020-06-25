@@ -26,3 +26,5 @@ rpart.plot
 libcoin
 mvtnorm
 partykit
+h2o
+pdp
