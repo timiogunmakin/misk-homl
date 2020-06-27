@@ -61,7 +61,7 @@ More info TBD.
 | 9             | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  | NA   |
 | 10            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  | NA   |
 | 11            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |
-| 12            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/012-gbm-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
+| 12            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/12-gbm-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
 | 13            | Stacked models & AutoML              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/13-stacked.nb.html)  | TBD  | TBD   |
 | 14            | Case study.                          | [Notebook]()  | TBD  | TBD   |
 
