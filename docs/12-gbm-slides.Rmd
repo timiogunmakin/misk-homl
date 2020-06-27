@@ -1,0 +1,2025 @@
+---
+title: "Gradient Boosting Machines"
+author: "Misk Academy"
+date: "2020-6-26"
+output:
+  xaringan::moon_reader:
+    css: ["custom.css"]
+    self_contained: false
+    lib_dir: libs
+    chakra: libs/remark-latest.min.js
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false  
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+# Set global R options
+options(htmltools.dir.version = FALSE, servr.daemon = TRUE)
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(
+  fig.align = "center", 
+  cache = TRUE,
+  error = FALSE,
+  message = FALSE, 
+  warning = FALSE, 
+  collapse = TRUE 
+)
+
+library(tidyverse)
+
+# set ggplot to black and white theme
+library(ggplot2)
+theme_set(theme_bw())
+
+if (Sys.getenv("RSTUDIO") == "1" && !nzchar(Sys.getenv("RSTUDIO_TERM")) && 
+    Sys.info()["sysname"] == "Darwin" && getRversion() == "4.0.0") {
+  parallel:::setDefaultClusterOptions(setup_strategy = "sequential")
+}
+```
+
+class: clear, center, middle
+
+background-image: url(images/gbm-icon.jpg)
+background-position: center
+background-size: cover
+
+<br><br><br>
+.font300.white[Gradient Boosting Machines]
+
+---
+# Introduction
+
+.pull-left[
+
+.center.bold.font120[Thoughts]
+
+- Extremely popular
+
+- One of the leading methods in prediction competitions
+
+- Boosted trees `r anicon::faa("arrow-right", animate = FALSE, color = "red")` similar to, but quite different than, RFs `r anicon::cia("images/headpound_bunny.gif", animate = FALSE, size = 1.5)`
+
+- Math isn't that complicated until you want to generalize to all loss functions
+
+]
+
+--
+
+.pull-right[
+
+.center.bold.font120[Overview]
+
+- Fundamental differences between RFs and GBMs
+
+- Basic GBM
+
+- Stochastic GBM
+
+- XGBoost
+
+]
+
+---
+# Prereqs .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 1]
+
+.pull-left[
+
+.center.bold.font120[Packages]
+
+```{r prereqs-pks}
+library(gbm)
+library(xgboost)
+library(vip)
+library(pdp)
+```
+
+]
+
+.pull-right[
+
+.center.bold.font120[Data]
+
+```{r prereqs-data}
+# ames data
+ames <- AmesHousing::make_ames()
+
+# split data
+set.seed(123)
+split <- rsample::initial_split(ames, strata = "Sale_Price")
+ames_train <- rsample::training(split)
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Technicalities]
+
+---
+# Decision Trees
+
+.pull-left[
+
+* Many benefits `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870", animate = FALSE)`
+   - .green[minimal preprocessing]
+   - .green[can handle any data type]
+   - .green[automatically captures interactions]
+   - .green[scales well to large data]
+   - .green[(can be) easy to interpret]
+   
+* A few significant weaknesses `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885", animate = FALSE)`   
+   - .red[large trees hard to interpret]
+   - .red[trees are step functions] (i.e., binary splits)
+   - .red[single trees typically have poor predictive accuracy]
+   - .red[single trees have high variance] (easy to overfit to training data)
+
+]
+
+.pull-right[
+
+```{r dt-deep, echo=FALSE}
+library(rpart)
+set.seed(1112)  # for reproducibility
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 500),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+# fit single tree
+ctrl <- list(cp = 0, minbucket = 2, maxdepth = 30)
+fit <- rpart(y ~ x, data = df, control = ctrl)
+df %>%
+  mutate(pred = predict(fit, df)) %>%
+  ggplot(aes(x, y)) +
+  geom_point(alpha = .3, size = 2) +
+  geom_line(aes(x, y = truth), color = "blue", size = 1) +
+  geom_line(aes(y = pred), color = "red", size = 1)
+```
+
+]
+
+---
+# Bagging
+
+.pull-left[
+
+* Benefits `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870", animate = FALSE)`
+   - .green[takes advantage of a deep, single tree's high variance]
+   - .green[wisdom of the crowd reduces prediction error]
+   - .green[fast (typically only requires 50-100 trees)]
+
+* Weaknesses `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885", animate = FALSE)`  
+   - .red[tree correlation]
+   - .red[minimizes tree diversity and, therefore,]
+   - .red[limited prediction error improvement ]
+
+]
+
+.pull-right[
+
+```{r bagging-gif, include=FALSE}
+library(gganimate)
+
+bootstrap_n <- 100
+bootstrap_results <- NULL
+ctrl <- list(cp = 0, minbucket = 5, maxdepth = 30)
+
+for(i in seq_len(bootstrap_n)) {
+  # reproducible sampled data frames
+  set.seed(i)
+  index <- sample(seq_len(nrow(df)), nrow(df), replace = TRUE)
+  df_sim <- df[index, ]
+  
+  # fit model and add predictions to results data frame
+  fit <- rpart(y ~ x, data = df_sim, control = ctrl)
+  df_sim$predictions <- predict(fit, df_sim)
+  df_sim$tree <- i
+  df_sim$ob <- index
+  bootstrap_results <- rbind(bootstrap_results, df_sim)
+   
+}
+
+p <- ggplot(bootstrap_results, aes(x, predictions)) +
+  geom_point(data = df, aes(x, y), alpha = .1, size = 2) +
+  geom_line(data = df, aes(x, y = sin(x)), color = "blue", size = 1) +
+  geom_line(aes(group = tree), color = "red", size = 1, alpha = .1) +
+  transition_reveal(id = tree, along = tree)
+animate_p <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+animate_p
+```
+
+]
+
+---
+# Random Forests
+
+.pull-left[
+
+* Many benefits `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870", animate = FALSE)`
+   - .green[all the benefits of individual trees and bagging plus...]
+   - .green[split-variable randomization reduces tree correlation]
+   - .green[typically results in reduced prediction error compared to bagging]
+   - .green[good out-of-box performance]
+   
+* Weaknesses `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885", animate = FALSE)` 
+   - .red[Although accurate, often cannot compete with the accuracy of advanced boosting algorithms.]
+   - .red[Can become slow on large data sets.]
+
+]
+
+.pull-right[
+
+```{r bagging-vs-random-forest, include=FALSE}
+set.seed(1112)
+data(spam, package = "kernlab")
+split <- rsample::initial_split(spam)
+train <- rsample::training(split)
+test <- rsample::testing(split)
+
+# fit bagging model
+set.seed(8451)  # reproducibility
+spam_bag <- randomForest::randomForest(
+  type ~ ., 
+  data = train, 
+  ntree = 1000,
+  mtry = ncol(train)-1,  
+  xtest = subset(test, select = -type),
+  ytest = test$type,
+  keep.forest = TRUE
+)
+
+# fit random forest model
+set.seed(8451)  # reproducibility
+spam_rf <- randomForest::randomForest(
+  type ~ ., 
+  data = train, 
+  ntree = 1000,
+  mtry = floor(sqrt(ncol(train))),
+  xtest = subset(test, select = -type),
+  ytest = test$type,
+  keep.forest = TRUE
+)
+
+bag_df <- data.frame(
+  model = "Bagging",
+  trees = 1:length(spam_bag$err.rate[,"OOB"]),
+  error = spam_bag$err.rate[,"OOB"]
+)
+
+rf_df <- data.frame(
+  model = "Random Forest",
+  trees = 1:length(spam_rf$err.rate[,"OOB"]),
+  error = spam_rf$err.rate[,"OOB"]
+)
+
+p <- rbind(bag_df, rf_df) %>%
+  ggplot(aes(trees, error, color = model)) +
+  geom_line() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.9, 0.9)
+    ) +
+  transition_reveal(id = model, along = trees)
+animate_p <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+animate_p
+```
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, base-learner model is trained with respect to the error of the whole ensemble learnt so far.
+
+```{r boosting-process, echo=FALSE}
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+
+]
+
+--
+
+.pull-right[
+
+```{r please-explain, echo=FALSE}
+knitr::include_graphics("https://media.giphy.com/media/3o84UeTqecxpcQJGOA/giphy.gif")
+```
+
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new .blue.bold[weak], base-learner model is trained with respect to the error of the whole ensemble learnt so far.
+
+```{r boosting-process2, echo=FALSE}
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+]
+
+.pull-right[
+
+A weak model:
+
+* one whose error rate is only slightly better than random guessing
+
+* each step slightly improves the remaining errors
+
+* commonly, trees with only 1-6 splits are used
+
+* Benefits of weak models
+   - speed
+   - accuracy improvement
+   - can avoid overfitting
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, .blue.bold[base-learner model] is trained with respect to the error of the whole ensemble learnt so far.
+
+```{r boosting-process3, echo=FALSE}
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+]
+
+.pull-right[
+
+Base-learning models:
+
+* boosting is a framework that iteratively improves any weak learning model
+
+* many gradient boosting applications allow you to “plug in” various classes of weak learners at your disposal
+
+* in practice however, boosted algorithms almost always use decision trees as the base-learner
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, base-learner model is .blue.bold[trained with respect to the error] of the whole ensemble learnt so far.
+
+```{r boosting-process4, echo=FALSE}
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+]
+
+.pull-right[
+
+Sequential training with respect to errors:
+
+* boosted trees are grown sequentially; each tree is grown using information from previously grown trees. 
+
+   1. Fit a decision tree to the data: $F_1(x) = y$,
+   2. We then fit the next decision tree to the residuals of the previous: $h_1(x) = y - F_1(x)$,
+   3. Add this new tree to our algorithm: $F_2(x) = F_1(x) + h_1(x)$,
+   4. Fit the next decision tree to the residuals of $F_2$: $h_2(x) = y - F_2(x)$,
+   5. Add this new tree to our algorithm: $F_3(x) = F_2(x) + h_1(x)$,
+   6. Continue this process until some mechanism (i.e. cross validation) tells us to stop.
+
+]
+
+---
+# How boosting works
+
+We call this sequential training .blue.bold[additive model ensembling] where each iteration gradually nudges our predicted values closer to the target.
+
+.pull-left[
+
+$$
+\begin{aligned}
+ \hat y & = f_0(x) + \triangle_1(x) + \triangle_2(x) + \cdots + \triangle_M(x)  \\
+        & = f_0(x) + \sum^M_{m=1} \triangle_m(x) \\
+        & = F_m(x)
+\end{aligned}
+$$
+
+Also written as...
+
+$$
+\begin{aligned}
+ F_0(x) & = f_0(x) \\
+ F_m(x) & = F_{m-1}(x) + \triangle_m(x)
+\end{aligned}
+$$
+
+]
+
+.pull-right[
+
+```{r golfer, echo=FALSE}
+knitr::include_graphics("images/golf-dir-vector.png")
+```
+
+.font60.right[Image: [Terence Parr & Jeremy Howard](https://explained.ai/gradient-boosting/L2-loss.html)]
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+```{r gbm-illustration, include=FALSE}
+set.seed(1111)
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 1000),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+rpartBoost <- function(x, y, data, num_trees = 100, learn_rate = 0.1, tree_depth = 6) {
+  x <- data[[deparse(substitute(x))]]
+  y <- data[[deparse(substitute(y))]]
+  G_b_hat <- matrix(0, nrow = length(y), ncol = num_trees + 1)
+  r <- y
+
+  for(tree in seq_len(num_trees)) {
+
+    g_b_tilde <- rpart(r ~ x, control = list(cp = 0, maxdepth = tree_depth))
+    g_b_hat <- learn_rate * predict(g_b_tilde)
+    G_b_hat[, tree + 1] <- G_b_hat[, tree] + matrix(g_b_hat)
+    r <- r - g_b_hat
+    colnames(G_b_hat) <- paste0("tree_", c(0, seq_len(num_trees)))
+  }
+  cbind(df, as.data.frame(G_b_hat)) %>%
+    gather(tree, prediction, starts_with("tree")) %>%
+    mutate(tree = stringr::str_extract(tree, "\\d+") %>% as.numeric())
+}
+  
+p <- rpartBoost(x, y, data = df, num_trees = 750, learn_rate = 0.05, tree_depth = 1) %>%
+  ggplot(aes(x, prediction)) +
+  ylab("y") +
+  geom_point(data = df, aes(x, y), alpha = .1) +
+  geom_line(data = df, aes(x, truth), color = "blue") +
+  geom_line(colour = "red", size = 1) +
+  transition_manual(tree) +
+  labs(title = 'Number of trees (depth = 1): {frame}')
+
+animate_p <- animate(p, renderer = gifski_renderer(), device = "png")
+
+```
+
+```{r, echo=FALSE}
+animate_p
+```
+
+
+]
+
+.pull-right[
+
+```{r gbm-residual-illustration, include=FALSE}
+resids <- rpartBoost(x, y, data = df, num_trees = 750, learn_rate = 0.05, tree_depth = 1) %>%
+  mutate(residuals = abs(y - prediction))
+
+avg_resids <- resids %>%
+  group_by(tree) %>%
+  summarize(avg = mean(residuals))
+
+r <- ggplot(resids, aes(x, residuals)) +
+  ylab("absolute(residuals)") +
+  geom_segment(aes(x = x, xend = x, y = 0, yend = residuals), colour = "red", size = .5, alpha = .5) +
+  geom_point(colour = "red", size = 1) +
+  geom_text(data = avg_resids, aes(x = 4, y = 2.5, label = paste("Mean abs(residual):", round(avg, 4))), hjust = 0) +
+  transition_manual(tree) +
+  labs(title = 'Number of trees (depth = 1): {frame}')
+
+animate_p <- animate(r, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+animate_p
+```
+
+]
+
+---
+# Boosting > Random Forest > Bagging > Single Tree
+
+.pull-left[
+
+<br><br>
+
+.center.font120.blue[Typically, this allows us to eek out additional predictive performance!]
+
+]
+
+.pull-right[
+```{r bagging-vs-random-forest-vs-boosting, include=FALSE}
+set.seed(1112)
+data(spam, package = "kernlab")
+split <- rsample::initial_split(spam)
+train <- rsample::training(split)
+test <- rsample::testing(split)
+
+# fit bagging model
+set.seed(8451)  # reproducibility
+spam_bag <- randomForest::randomForest(
+  type ~ ., 
+  data = train, 
+  ntree = 1000,
+  mtry = ncol(train)-1,  
+  xtest = subset(test, select = -type),
+  ytest = test$type,
+  keep.forest = TRUE
+)
+
+# fit random forest model
+set.seed(8451)  # reproducibility
+spam_rf <- randomForest::randomForest(
+  type ~ ., 
+  data = train, 
+  ntree = 1000,
+  mtry = floor(sqrt(ncol(train))),
+  xtest = subset(test, select = -type),
+  ytest = test$type,
+  keep.forest = TRUE
+)
+
+bag_df <- data.frame(
+  model = "Bagging",
+  trees = 1:length(spam_bag$err.rate[,"OOB"]),
+  error = spam_bag$err.rate[,"OOB"]
+)
+
+rf_df <- data.frame(
+  model = "Random Forest",
+  trees = 1:length(spam_rf$err.rate[,"OOB"]),
+  error = spam_rf$err.rate[,"OOB"]
+)
+
+train$type <- ifelse(train$type == "spam", 1, 0)
+
+gbm_df <- data.frame(
+  model = "GBM",
+  trees = seq_len(1000),
+  error = 0
+)
+
+set.seed(8451)  # for reproducibility
+spam_gbm <- gbm::gbm(
+  type ~ .,
+  data = train,
+  distribution = "bernoulli",  # "bernoulli", "coxph", etc.
+  n.trees = 1000,
+  interaction.depth = 6,
+  n.minobsinnode = 5,
+  shrinkage = 0.2,
+  bag.fraction = 1,
+  train.fraction = 1
+  )
+
+for(i in seq_len(1000)) {
+  pred <- predict(spam_gbm, test, n.trees = i)
+  pred <- ifelse(pred >= .5, "spam", "nonspam")
+  gbm_df[i, "error"] <- mean(pred != as.character(test$type))
+}
+
+p <- rbind(bag_df, rf_df) %>%
+  rbind(gbm_df) %>%
+  ggplot(aes(trees, error, color = model)) +
+  geom_line() +
+  scale_y_continuous(limits = c(.025, .1)) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = c(0.85, 0.9)
+    ) +
+  transition_reveal(id = model, along = trees)
+
+animate_p <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+animate_p
+```
+
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Basic GBM]
+
+---
+# Basic GBM
+
+.pull-left[
+
+.bold.font110[[gbm](https://github.com/gbm-developers/gbm)]
+- The original R implementation of GMBs (by Greg Ridgeway)
+- Slower than modern implementations (but still pretty fast)
+- Provides OOB error estimate
+- Supports the weighted tree traversal method for fast construction of PDPs
+
+   
+.bold.font110[[gbm3](https://github.com/gbm-developers/gbm3)]
+- Shiny new version of gbm that is not backwards compatible
+- Faster and supports parallel tree building
+- Not currently listed on CRAN
+
+]
+
+---
+# Basic GBM .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 2]
+
+.pull-left[
+
+.bold.font110[[gbm](https://github.com/gbm-developers/gbm)]
+- The original R implementation of GMBs (by Greg Ridgeway)
+- Slower than modern implementations (but still pretty fast)
+- Provides OOB error estimate
+- Supports the weighted tree traversal method for fast construction of PDPs
+
+.opacity20[   
+.bold.font110[[gbm3](https://github.com/gbm-developers/gbm3)]
+- Shiny new version of gbm that is not backwards compatible
+- Faster and supports parallel tree building
+- Not currently listed on CRAN
+]
+]
+
+.pull-right[
+.center.bold.font90[Let's run your first GBM model]
+
+```{r basic-gbm}
+set.seed(123)
+ames_gbm <- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian", # or bernoulli, multinomial, etc. 
+  n.trees = 5000, 
+  shrinkage = 0.1, 
+  interaction.depth = 1, 
+  n.minobsinnode = 10, 
+  cv.folds = 5 
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE <- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+```
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~30 secs `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+]
+
+---
+# What's going on?
+
+
+.pull-left.font90[
+
+<br>
+
+* .bold[`distribution`]: specify distribution of response variable; `gbm` will make intelligent guess
+
+* .bold[`n.trees`]: number of sequential trees to fit
+
+* .bold[`shrinkage`]: how quickly do we improve on each iteration (aka _learning rate_)
+
+* .bold[`interaction.depth`]: how weak of a learner do we want
+
+* .bold[`n.minobsinnode`]: minimum number of observations in the trees terminal nodes
+
+* .bold[`cv.folds`]: _k_-fold cross validation
+
+]
+
+.pull-right[
+
+.opacity20.center.bold.font90[Let's run your first GBM model]
+
+```{r basic-gbm-whats-going-on, eval=FALSE}
+set.seed(123)
+ames_gbm <- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian", # or bernoulli, multinomial, etc. #<<
+  n.trees = 5000, #<<
+  shrinkage = 0.1, #<<
+  interaction.depth = 1, #<<
+  n.minobsinnode = 10, #<<
+  cv.folds = 5 #<<
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE <- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+## [1] 26825.21
+```
+
+.opacity20.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~30 secs `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+]
+
+---
+# What's going on?
+
+
+.pull-left.font90[
+
+.bold.center[Tunable Hyperparameters]
+
+* .opacity20[`distribution`: specify distribution of response variable; `gbm` will make intelligent guess]
+
+* .bold[`n.trees`]: number of sequential trees to fit
+
+* .bold[`shrinkage`]: how quickly do we improve on each iteration (aka _learning rate_)
+
+* .bold[`interaction.depth`]: how weak of a learner do we want
+
+* .bold[`n.minobsinnode`]: minimum number of observations in the trees terminal nodes
+
+* .opacity20[`cv.folds`: _k_-fold cross validation]
+
+]
+
+.pull-right[
+
+.opacity20.center.bold.font90[Let's run your first GBM model]
+
+```{r basic-gbm-whats-going-on2, eval=FALSE}
+set.seed(123)
+ames_gbm <- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian", # or bernoulli, multinomial, etc. #<<
+  n.trees = 5000, #<<
+  shrinkage = 0.1, #<<
+  interaction.depth = 1, #<<
+  n.minobsinnode = 10, #<<
+  cv.folds = 5 #<<
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE <- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+## [1] 26825.21
+```
+
+.opacity20.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~30 secs `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+In contrast to Random Forests, GBMs .bold.red[do not] provide good "out-of-the-`r anicon::faa("box-open", animate = "pulse", anitype="hover")`" performance!
+
+--
+
+We can divide hyperparameters into 2 primary categories:
+
+--
+
+.pull-left[
+
+.center.bold[Boosting Parameters]
+
+- Number of trees
+
+- Learning rate
+
+- More to come!
+
+]
+
+.pull-right[
+
+.center.bold[Tree-specific Parameters]
+
+- Tree depth
+
+- Minimum obs in terminal node
+
+- And others
+
+]
+
+---
+# Boosting hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+.pull-left[
+
+.blue.bold[Number of trees]
+
+- The averaging in bagging and RF makes it very difficult to overfit with too many trees
+
+- GBMs will chase residuals as long as you allow them to
+
+- Consequently:
+   - We must provide enough trees to minimize error
+   - But not too many where we begin to overfit
+
+
+]
+
+.pull-right[
+
+```{r num-trees, include=FALSE}
+set.seed(1112)
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 1000),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+p <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 4) %>%
+  ggplot(aes(x, prediction)) +
+  ylab("y") +
+  geom_point(data = df, aes(x, y), alpha = .1) +
+  geom_line(data = df, aes(x, truth), color = "blue") +
+  geom_line(colour = "red", size = 1) +
+  transition_manual(tree) +
+  labs(title = 'Number of trees (depth = 1): {frame}')
+
+p_animate <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+p_animate
+```
+
+
+]
+
+---
+# Boosting hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`  .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 3]
+
+.pull-left[
+
+.blue.bold[Number of trees]
+
+- The averaging in bagging and RF makes it very difficult to overfit with too many trees
+
+- GBMs will chase residuals as long as you allow them to
+
+- Consequently:
+   - We must provide enough trees to minimize error
+   - But not too many where we begin to overfit
+   - .red[plus, number of trees is dependent on other hyperparameters]
+
+.center.bold.blue[Use CV or OOB] 
+
+]
+
+.pull-right[
+
+```{r, fig.height=5}
+gbm.perf(ames_gbm, method = "cv") # or "OOB"
+```
+
+<br>   
+.center.bold.blue[Use CV or OOB]   
+
+]
+
+---
+# Boosting hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+.font120[
+- Determines the impact of each tree on the final outcome
+]
+
+]
+
+.pull-right[
+
+```{r learning-rate, echo=FALSE, fig.height=5.5}
+# create data to plot
+x <- seq(-5, 5, by = .05)
+y <- x^2 + 3
+df <- data.frame(x, y)
+
+step <- 5
+step_size <- .2
+for(i in seq_len(18)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+
+steps <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y)) %>%
+  dplyr::slice(1:18)
+
+# plot
+ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = df[c(5, which.min(df$y)), ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = filter(df, y == min(y)), aes(x, y), size = 4, shape = 21, fill = "yellow") +
+  geom_point(data = steps, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = steps, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Initial value", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[which.min(df$y), "x"], y = 1, label = "Minimium", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[5, "x"], y = df[5, "y"], label = "Learning step", hjust = -.8, vjust = 0)
+```
+
+]
+
+---
+# Boosting hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+- Determines the impact of each tree on the final outcome
+
+- .red[Too large of a learning rate will have poor predictive capability]
+
+- Lower values are generally preferred:
+   - .green[they make the model robust to the specific characteristics of tree and thus allowing it to generalize well]
+   - .green[easier to stop prior to overfitting]
+   - .red[but run the risk of not reaching the optimum]
+   - .red[are more computationally demanding]
+
+]
+
+.pull-right[
+
+```{r learning-rate-too-big, echo=FALSE, fig.height=7}
+# create too small of a learning rate
+step <- 5
+step_size <- .05
+for(i in seq_len(10)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+
+too_small <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+
+# plot
+p1 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_small[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_small, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_small, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("b) too small")
+
+# create too large of a learning rate
+too_large <- df[round(which.min(df$y) * (1 + c(-.9, -.6, -.2, .3)), 0), ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+
+# plot
+p2 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_large[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_large, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_large, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = too_large[1, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("a) too big")
+
+gridExtra::grid.arrange(p2, p1, nrow = 2)
+```
+
+]
+
+---
+# Boosting hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+- Determines the impact of each tree on the final outcome
+
+- .red[Too large of a learning rate will have poor predictive capability]
+
+- Lower values are generally preferred (.01 - .1):
+   - .green[they make the model robust to the specific characteristics of tree and thus allowing it to generalize well]
+   - .green[easier to stop prior to overfitting]
+   - .red[but run the risk of not reaching the optimum]
+   - .red[are more computationally demanding]
+   - .bold[Requires more trees!]
+
+]
+
+.pull-right[
+
+```{r small-rate-more-trees, include=FALSE, fig.height=5}
+set.seed(1112)
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 500),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+results <- data.frame(NULL)
+
+for(i in c(1, seq(25, 3000, by = 25))) {
+  set.seed(8451)
+  gbm_model_hi <- gbm::gbm(truth ~ x, data = df, n.trees = i, shrinkage = .1, distribution = "gaussian")
+  set.seed(8451)
+  gbm_model_med <- gbm::gbm(truth ~ x, data = df, n.trees = i, shrinkage = .01, distribution = "gaussian")
+  set.seed(8451)
+  gbm_model_lo <- gbm::gbm(truth ~ x, data = df, n.trees = i, shrinkage = .001, distribution = "gaussian")
+  add_results <- df
+  add_results$`shrinkage = .1` <- predict(gbm_model_hi, df, n.trees = i)
+  add_results$`shrinkage = .01` <- predict(gbm_model_med, df, n.trees = i)
+  add_results$`shrinkage = .001` <- predict(gbm_model_lo, df, n.trees = i)
+  add_results$trees <- i
+  results <- rbind(results, add_results)
+}
+
+p <- results %>%
+  gather(rate, prediction, `shrinkage = .1`:`shrinkage = .001`) %>% 
+  mutate(
+    trees = as.integer(trees),
+    rate = fct_relevel(rate, "shrinkage = .1", "shrinkage = .01", "shrinkage = .001")
+    ) %>%
+  ggplot(aes(x, prediction)) +
+  ylab("y") +
+  geom_point(data = df, aes(x, y), alpha = .1, size = 2) +
+  geom_line(colour = "red", size = 1) +
+  facet_wrap(~ rate, nrow = 1) +
+  labs(title = 'Number of trees: {frame_time}') +
+  transition_time(trees)
+
+p_animate <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r echo=FALSE, fig.height=5}
+p_animate
+```
+
+]
+
+---
+# Tree-specific hyperparameters `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+.pull-left[
+
+.blue.bold[Tree depth]
+
+- controls over-fitting
+- higher depth captures unique interactions
+- but runs risk of over-fitting
+- smaller depth (i.e. stumps) are computationally efficient (but .bold[require more trees!])
+- typical values: 3-8
+   - larger _n_ or _p_ are more tolerable to `r anicon::faa("arrow-up", animate = FALSE)` values
+
+
+.blue.bold[Min obs in terminal nodes]
+
+- controls over-fitting
+- higher values prevent a model from learning relations which might be highly specific to the particular sample selected for a tree
+- typically have small impact on performance
+- smaller values can help with imbalanced classes 
+
+]
+
+.pull-right[
+
+```{r depth-and-nodes, include=FALSE}
+set.seed(1112)
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 1000),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+rpartBoost <- function(x, y, data, num_trees = 100, learn_rate = 0.1, tree_depth = 6, minbucket = 5) {
+  x <- data[[deparse(substitute(x))]]
+  y <- data[[deparse(substitute(y))]]
+  G_b_hat <- matrix(0, nrow = length(y), ncol = num_trees + 1)
+  r <- y
+
+  for(tree in seq_len(num_trees)) {
+
+    g_b_tilde <- rpart(r ~ x, control = list(cp = 0, maxdepth = tree_depth, minbucket = minbucket))
+    g_b_hat <- learn_rate * predict(g_b_tilde)
+    G_b_hat[, tree + 1] <- G_b_hat[, tree] + matrix(g_b_hat)
+    r <- r - g_b_hat
+    colnames(G_b_hat) <- paste0("tree_", c(0, seq_len(num_trees)))
+  }
+  cbind(df, as.data.frame(G_b_hat)) %>%
+    gather(tree, prediction, starts_with("tree")) %>%
+    mutate(tree = stringr::str_extract(tree, "\\d+") %>% as.numeric())
+}
+
+m1 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 1, minbucket = 1) %>% mutate(depth = "Depth = 1", min_obs = "Min obs = 1")
+m2 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 3, minbucket = 1) %>% mutate(depth = "Depth = 3", min_obs = "Min obs = 1")
+m3 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 8, minbucket = 1) %>% mutate(depth = "Depth = 8", min_obs = "Min obs = 1")
+m4 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 1, minbucket = 5) %>% mutate(depth = "Depth = 1", min_obs = "Min obs = 5")
+m5 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 3, minbucket = 5) %>% mutate(depth = "Depth = 3", min_obs = "Min obs = 5")
+m6 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 8, minbucket = 5) %>% mutate(depth = "Depth = 8", min_obs = "Min obs = 5")
+m7 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 1, minbucket = 10) %>% mutate(depth = "Depth = 1", min_obs = "Min obs = 10")
+m8 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 3, minbucket = 10) %>% mutate(depth = "Depth = 3", min_obs = "Min obs = 10")
+m9 <- rpartBoost(x, y, data = df, num_trees = 200, learn_rate = 0.1, tree_depth = 8, minbucket = 10) %>% mutate(depth = "Depth = 8", min_obs = "Min obs = 10")
+
+p <- do.call(rbind, list(m1, m2, m3, m4, m5, m6, m7, m8, m9)) %>%
+  mutate(min_obs = factor(min_obs, levels = c("Min obs = 1", "Min obs = 5", "Min obs = 10"))) %>%
+  ggplot(aes(x, prediction)) +
+  ylab("y") +
+  geom_point(data = df, aes(x, y), alpha = .1) +
+  geom_line(data = df, aes(x, truth), color = "blue") +
+  geom_line(colour = "red", size = 1) +
+  facet_grid(min_obs ~ depth) +
+  transition_manual(tree) +
+  labs(title = 'Number of trees (learning rate = 1): {frame}')
+
+p_animate <- animate(p, renderer = gifski_renderer(), device = "png")
+```
+
+```{r, echo=FALSE}
+p_animate
+```
+
+]
+
+---
+# Tuning strategy `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`
+
+<br>
+.font120[
+1. Choose a relatively high learning rate. Generally the default value of 0.1 works but somewhere between 0.05 to 0.2 should work for different problems
+
+2. Determine the optimum number of trees for this learning rate. 
+
+3. Tune learning rate and assess speed vs. performance
+
+4. Tune tree-specific parameters for decided learning rate and number of trees. 
+
+5. Lower the learning rate and increase the estimators proportionally to get more robust models.
+]
+
+---
+
+# Tuning strategy `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`  .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 4]
+
+.scrollable90[
+.pull-left[
+<br>
+.font110[
+1. fix tree hyperparameters
+    - moderate tree depth
+    - default min obs
+2. set our learning rate at .01
+3. increase CV to ensure unbiased error estimate
+4. Results
+   - Lowest error rate yet ($ 22,609.14)!
+   - Used nearly all our trees $\rightarrow$ increase to 6000?
+   - took $\approx$ 2.25 min
+5. Compared to learning rate of .001
+   - error rate of $26,952.78
+   - took $\approx$ 3 min
+]
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This model run takes ~2 mins `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r tune1}
+set.seed(123)
+ames_gbm1 <- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian", # or bernoulli, multinomial, etc. #<<
+  n.trees = 5000, #<<
+  shrinkage = 0.01, #<<
+  interaction.depth = 3, #<<
+  n.minobsinnode = 10, #<<
+  cv.folds = 10 #<<
+  )
+
+# find index for n trees with minimum CV error
+min_MSE <- which.min(ames_gbm1$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm1$cv.error[min_MSE])
+
+gbm.perf(ames_gbm1, method = "cv")
+```
+
+]
+]
+
+---
+# Tuning strategy `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")`  .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 5]
+
+.scrollable90[
+.pull-left[
+
+Now let's tune the tree-specific hyperparameters
+
+* we could do it in `caret` but lets use functional programming
+
+```{r hell-yeah, echo=FALSE, out.width="25%", out.height="25%"}
+knitr::include_graphics("images/hell-yeah.png")
+```
+
+* assess 3 values for tree depth
+
+* assess 3 values for min obs in terminal node
+
+]
+
+.pull-right[
+.center[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)` `r  anicon::faa("exclamation-triangle", color = "red", animate = FALSE)` `r  anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+.center.font90.bold[This grid search takes ~30 mins; remember, I said the ML process is more of a marathon than a sprint!!]
+.center[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)` `r  anicon::faa("exclamation-triangle", color = "red", animate = FALSE)` `r  anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r tune12, eval=FALSE, results='asis'}
+# search grid
+hyper_grid <- expand.grid(
+  n.trees = 6000,
+  shrinkage = .01,
+  interaction.depth = c(3, 5, 7), #<<
+  n.minobsinnode = c(5, 10, 15) #<<
+)
+
+model_fit <- function(n.trees, shrinkage, interaction.depth, n.minobsinnode) {
+  set.seed(123)
+  m <- gbm(
+    formula = Sale_Price ~ .,
+    data = ames_train,
+    distribution = "gaussian",
+    n.trees = n.trees,
+    shrinkage = shrinkage, #<<
+    interaction.depth = interaction.depth, #<<
+    n.minobsinnode = n.minobsinnode,
+    cv.folds = 10
+  )
+  # compute RMSE
+  sqrt(min(m$cv.error))
+}
+
+hyper_grid$rmse <- pmap_dbl(
+  hyper_grid,
+  ~ model_fit(
+    n.trees = ..1,
+    shrinkage = ..2,
+    interaction.depth = ..3,
+    n.minobsinnode = ..4
+    )
+)
+
+arrange(hyper_grid, rmse)
+##   n.trees shrinkage interaction.depth n.minobsinnode     rmse
+## 1    6000      0.01                 7              5 21835.03
+## 2    6000      0.01                 5             10 22030.60
+## 3    6000      0.01                 5              5 22036.20
+## 4    6000      0.01                 5             15 22049.48
+## 5    6000      0.01                 7             10 22077.24
+## 6    6000      0.01                 3             10 22397.88
+## 7    6000      0.01                 3             15 22411.68
+## 8    6000      0.01                 7             15 22455.38
+## 9    6000      0.01                 3              5 22525.67
+```
+
+]]
+
+---
+class: center, middle, inverse
+
+.font300.white[Stochastic GBM]
+
+---
+# Adding randomness
+
+<br>
+
+- Friedman (1999) [`r anicon::aia("google-scholar", animate = 'tada', anitype="hover")`](https://statweb.stanford.edu/~jhf/ftp/stobst.pdf) introduced stochastic gradient boosting
+
+- A big insight into bagging ensembles and random forest was allowing trees to be created from random subsamples of the training dataset `r anicon::faa("arrow-right", animate = FALSE, color = "red")` minimizes tree correlation among sequential trees
+
+- Improves computational time since we're reducing *n*
+
+- A few variants of stochastic boosting that can be used:
+   - Subsample rows before creating each tree (__gbm__)
+   - Subsample columns before creating each tree (__h2o__ & __xgboost__)
+   - Subsample columns before considering each split (__h2o__ & __xgboost__)
+
+- .blue.bold[Pro tip]: Generally, aggressive sub-sampling such as selecting only 50% of the data has shown to be beneficial. Typical values: 0.5-0.8
+
+---
+# Applying   .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 6]
+
+.pull-left[
+
+- start by assessing if values between 0.5-0.8 outperform your previous best model
+
+- zoom in with a second round of tuning
+
+- smaller values will tell you that overfitting was occurring
+
+]
+
+.pull-right[
+
+```{r stochastic, eval=FALSE}
+bag_frac <- c(.5, .65, .8) #<<
+
+for(i in bag_frac) {
+  set.seed(123)
+  m <- gbm(
+    formula = Sale_Price ~ .,
+    data = ames_train,
+    distribution = "gaussian",
+    n.trees = 6000, 
+    shrinkage = 0.01, 
+    interaction.depth = 7, 
+    n.minobsinnode = 5,
+    bag.fraction = i, #<<
+    cv.folds = 10 
+    )
+  # compute RMSE
+  print(sqrt(min(m$cv.error)))
+}
+## [1] 21835.03
+## [1] 21688.16
+## [1] 22064.78
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Extreme Gradient Boosting]
+
+---
+# XGBoost Advantage
+
+Extreme Gradient boosting (XGBoost) provides a few advantages over traditional boosting:
+
+- .bold[Regularization]: Standard GBM implementation has no regularization like XGBoost; helps to reduce overfitting.
+
+- .bold[Parallel Processing]: GPU and Spark compatible 
+
+- .bold[Loss functions]: allows users to define custom optimization objectives and evaluation criteria
+
+- .bold[Tree pruning]: splits up to the max depth specified and then pruning; uses the weakest learner required
+
+- .bold[Early stopping]: stop model assessment when additional trees offer no improvement
+
+- .bold[Continue existing model]: User can start training an XGBoost model from its last iteration of previous run 
+
+.center.bold.blue[Super powerful...super `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885", animate = FALSE)` awesome!]
+
+---
+# Prereqs .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 7]
+
+.pull-left[
+
+* __xgboost__ requires that our features are one-hot encoded
+
+* __caret__ and __h2o::h2o.xgboost__ can automate this for you
+
+* In this preprocessing I:
+   - collapse low frequency levels to "other"
+   - convert ordered factors to integers (aka label encode)
+
+]
+
+.pull-right[
+
+```{r xgb-feature-prep}
+library(recipes)
+xgb_prep <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_other(all_nominal(), threshold = .005) %>%
+  step_integer(all_nominal()) %>%
+  prep(training = ames_train, retain = TRUE) %>%
+  juice()
+
+X <- as.matrix(xgb_prep[setdiff(names(xgb_prep), "Sale_Price")])
+Y <- xgb_prep$Sale_Price
+```
+
+]
+
+<br>
+
+.center.bold[.blue[Pro tip:] If you have I cardinality categorical features, label or ordinal encoding often improves performance and speed!]
+
+---
+# First XGBoost model  .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 8]
+
+.pull-left.font90[
+
+<br>
+
+* .bold[`nrounds`]: 6,000 trees 
+
+* .bold[`objective`]: `reg:linear` for regression but other options exist (i.e. `reg:logistic`, `binary:logistic`, `num_class`)
+
+* .bold[`early_stopping_rounds`]: stop training if CV RMSE doesn't improve for 50 trees in a row 
+
+* .bold[`nfold`]: 10-fold CV 
+
+<br>
+
+.center.bold[What's up with the results `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1542340469/4974/notinterested.gif", animate = FALSE, size = 2.5)`!!!]
+
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~20 secs `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r basic-xgboost}
+set.seed(123)
+ames_xgb <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 5000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+  )  
+
+ames_xgb$evaluation_log %>% tail()
+```
+
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 9]
+
+.pull-left.font110[
+<br>
+1. Crank up the trees and tune learning rate with early stopping
+   - initial test RMSE results:
+   - .red[`eta = .3` (default): 24,246 w/59 trees (< 1 min)]
+   - .red[`eta = .1`: 23,353 w/365 trees (< 1 min)]
+   - .green[`eta = .05`: 22,835 w/658 trees (1.5 min)]
+   - .red[`eta = .01`: 22,854 w/2359 trees (4 min)]
+   
+<br>
+.center.font80[As a comparison, if you one-hot encoded the feature set it takes 30 mins to run with `eta = .01`!]
+
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~1.5 min `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r xgboost-eta, eval=FALSE}
+set.seed(123)
+ames_xgb <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 6000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+  params = list(eta = .05) #<<
+  )  
+
+ames_xgb$evaluation_log %>% tail()
+##    iter train_rmse_mean train_rmse_std test_rmse_mean test_rmse_std
+## 1:  703        1939.203       85.80847       22838.30      4117.835
+## 2:  704        1934.107       84.71774       22838.41      4117.534
+## 3:  705        1929.225       84.02225       22838.51      4117.648
+## 4:  706        1924.938       84.76338       22838.19      4117.490
+## 5:  707        1921.622       84.35032       22838.57      4117.288
+## 6:  708        1916.764       85.21769       22839.00      4116.994
+```
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 10]
+
+.scrollable90[
+.pull-left.font110[
+<br>
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. Tune tree-specific hyperparameters
+   - tree depth
+   - instances required to make additional split
+
+<br>
+
+* Preferred values: 
+   - `max_depth` = 3
+   - `min_child_weight` = 1
+   - RMSE = 22457.38
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~30 min `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r xgboost-tree-specific, eval=FALSE}
+# grid
+hyper_grid <- expand.grid(
+  eta = .05,
+  max_depth = c(1, 3, 5, 7, 9), #<<
+  min_child_weight = c(1, 3, 5, 7, 9), #<<
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m <- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+    params = list( #<<
+      eta = hyper_grid$eta[i], #<<
+      max_depth = hyper_grid$max_depth[i], #<<
+      min_child_weight = hyper_grid$min_child_weight[i] #<<
+    ) #<<
+  )
+  hyper_grid$rmse[i] <- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##     eta max_depth min_child_weight     rmse
+## 1  0.05         3                1 22457.38
+## 2  0.05         3                5 22692.19
+## 3  0.05         3                3 22852.76
+## 4  0.05         5                1 23052.25
+## 5  0.05         5                5 23065.48
+## 6  0.05         3                7 23190.42
+## 7  0.05         3                9 23243.66
+## 8  0.05         5                7 23308.51
+## 9  0.05         5                9 23375.43
+## 10 0.05         7                1 23446.60
+## 11 0.05         5                3 23466.38
+## 12 0.05         9                1 23604.30
+## 13 0.05         7                5 23844.86
+## 14 0.05         7                9 23900.27
+## 15 0.05         7                7 23932.79
+## 16 0.05         7                3 23970.08
+## 17 0.05         9                5 23983.13
+## 18 0.05         9                3 24062.60
+## 19 0.05         9                7 24102.38
+## 20 0.05         9                9 24137.39
+## 21 0.05         1                1 26114.08
+## 22 0.05         1                3 26310.89
+## 23 0.05         1                9 26451.40
+## 24 0.05         1                7 26476.04
+## 25 0.05         1                5 27237.43
+```
+
+]
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 11]
+
+.scrollable90[
+.pull-left.font110[
+<br>
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. Add stochastic attributes with
+   - subsampling rows for each tree
+   - subsampling columns for each tree 
+   
+<br>
+
+* Preferred values: 
+   - `subsample` = 1
+   - `colsample_bytree` = 0.65
+   - RMSE = 22206.60
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~12 min `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r xgb-stochastic-grid, eval=FALSE}
+# grid
+hyper_grid <- expand.grid(
+  eta = .05,
+  max_depth = 3, 
+  min_child_weight = 1,
+  subsample = c(.5, .65, .8, 1), #<<
+  colsample_bytree = c(.5, .65, .8, 1), #<<
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m <- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+    params = list( #<<
+      eta = hyper_grid$eta[i],
+      max_depth = hyper_grid$max_depth[i],
+      min_child_weight = hyper_grid$min_child_weight[i],
+      subsample = hyper_grid$subsample[i], #<<
+      colsample_bytree = hyper_grid$colsample_bytree[i] #<<
+    ) #<<
+  )
+  hyper_grid$rmse[i] <- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##     eta max_depth min_child_weight subsample colsample_bytree     rmse
+## 1  0.05         3                1      1.00             0.65 22206.60
+## 2  0.05         3                1      0.80             0.65 22267.11
+## 3  0.05         3                1      0.65             0.80 22287.02
+## 4  0.05         3                1      1.00             1.00 22457.38
+## 5  0.05         3                1      0.80             0.50 22464.28
+## 6  0.05         3                1      1.00             0.80 22479.92
+## 7  0.05         3                1      0.80             0.80 22481.30
+## 8  0.05         3                1      0.65             0.65 22540.13
+## 9  0.05         3                1      0.80             1.00 22569.57
+## 10 0.05         3                1      0.65             0.50 22616.20
+## 11 0.05         3                1      0.50             0.80 22654.22
+## 12 0.05         3                1      0.50             0.50 22692.35
+## 13 0.05         3                1      0.65             1.00 22814.75
+## 14 0.05         3                1      0.50             0.65 22834.63
+## 15 0.05         3                1      1.00             0.50 23261.14
+## 16 0.05         3                1      0.50             1.00 23416.40
+```
+
+]
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` 
+
+.font110[
+<br>
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. See if adding regularization helps
+   - gamma: Minimum loss reduction required to make a further partition on a leaf node of the tree (values dependent on loss function)
+   - lambda: $L_2$ (ridge) regularizer on weights of trees. Decent values to test: 0.001, 0.01, 0.1, 1, 100, 1000 
+   - alpha:  $L_1$ (lasso) regularizer on weights of trees. Decent values to test: 0.001, 0.01, 0.1, 1, 100, 1000 
+
+]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 12]
+
+.scrollable90[
+.pull-left.font110[
+<br>
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. See if adding regularization helps
+   - gamma: tested 1, 100, 1000, 10000 -- no effect
+   - lambda: tested 0.001, 0.01, 0.1, 1, 100, 1000 -- no effect
+   - alpha: tested 0.001, 0.01, 0.1, 1, 100, 1000 -- minor effect
+
+* Preferred value:
+   - `alpha` = 1e+04
+   - RMSE = 22137.45
+]
+
+.pull-right[
+
+.center.bold.font90[`r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`  This grid search takes ~5 min `r anicon::faa("exclamation-triangle", color = "red", animate = FALSE)`]
+
+```{r xgb-regularize, eval=FALSE}
+hyper_grid <- expand.grid(
+  eta = .05,
+  max_depth = 3, 
+  min_child_weight = 1,
+  subsample = .8, 
+  colsample_bytree = 1,
+  #gamma = c(1, 100, 1000, 10000),
+  #lambda = c(1e-2, 0.1, 1, 100, 1000, 10000), 
+  alpha = c(1e-2, 0.1, 1, 100, 1000, 10000), #<<
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m <- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+    params = list( 
+      eta = hyper_grid$eta[i], 
+      max_depth = hyper_grid$max_depth[i],
+      min_child_weight = hyper_grid$min_child_weight[i],
+      subsample = hyper_grid$subsample[i], #<<
+      colsample_bytree = hyper_grid$colsample_bytree[i],
+      #gamma = hyper_grid$gamma[i], 
+      #lambda = hyper_grid$lambda[i], 
+      alpha = hyper_grid$alpha[i] #<<
+    ) 
+  )
+  hyper_grid$rmse[i] <- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##    eta max_depth min_child_weight subsample colsample_bytree alpha     rmse
+## 1 0.05         3                1         1             0.65 1e+04 22137.86
+## 2 0.05         3                1         1             0.65 1e+00 22154.56
+## 3 0.05         3                1         1             0.65 1e-01 22189.76
+## 4 0.05         3                1         1             0.65 1e-02 22227.70
+## 5 0.05         3                1         1             0.65 1e+03 22319.05
+## 6 0.05         3                1         1             0.65 1e+02 22379.46
+```
+
+]]
+
+---
+# Tuning `r anicon::faa("cog", animate = 'spin', speed = 'slow', colour = "red")` .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 13]
+
+<br>
+.scrollable90[
+.pull-left.font110[
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. .opacity[See if adding regularization helps]
+5. If you find hyperparameter values that are substantially different from default settings, be sure to assess the learning rate again
+6. Rerun final "optimal" model with `xgb.cv()` to get iterations required and then with `xgboost()` to produce final model
+
+.center.bold.font90[.font130[`final_cv`] test RMSE: 20,581.31]
+
+]
+
+.pull-right[
+
+```{r final-xgb-model}
+# parameter list
+params <- list(
+  eta = 0.05,
+  max_depth = 3, 
+  min_child_weight = 1,
+  subsample = 1, 
+  colsample_bytree = 0.65,
+  alpha = 1e+04
+)
+
+# final cv fit
+set.seed(123)
+final_cv <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 6000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+  params = params #<<
+  ) 
+
+# train final model
+ames_final_xgb <- xgboost(
+  data = X,
+  label = Y,
+  nrounds = final_cv$best_iteration, #<<
+  objective = "reg:linear",
+  params = params, #<<
+  verbose = 0
+)
+```
+
+]]
+
+---
+class: center, middle, inverse
+
+.font300.white[Feature Interpretation]
+
+---
+# Feature Interpretation .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 14]
+
+.pull-left[
+
+.center.bold[Feature Importance]
+
+```{r xgb-vip, fig.height=6}
+vip::vip(ames_final_xgb, num_features = 25)
+```
+
+]
+
+---
+# Feature Interpretation .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunks 15-16]
+
+.pull-left[
+.center.bold[Overall_Qual]
+
+```{r xgb-pdp, fig.height=3.45}
+ames_final_xgb %>%
+  partial(
+    pred.var = "Overall_Qual", 
+    n.trees = ames_final_xgb$niter, 
+    train = X
+    ) %>%
+  autoplot(rug = TRUE, train = X)
+```
+]
+
+.pull-right[
+
+.center.bold[Gr_Liv_Area]
+
+```{r xgb-ice, fig.height=3.2}
+ames_final_xgb %>%
+  partial(
+    pred.var = "Gr_Liv_Area", 
+    n.trees = ames_final_xgb$niter, 
+    grid.resolution = 50, 
+    train = X
+    ) %>%
+  autoplot(rug = TRUE, train = X)
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Wrapping Up]
+
+---
+# Summary
+
+.scrollable90[
+
+.pull-left[
+
+.bold.center[Random forests:]
+
+* Builds an ensemble of fully grown decision trees (**low bias, high variance**)
+    - Correlation between trees is reduced through subsampling the columns
+    - Variance is reduced through averaging <br><br>
+    
+* Tuning tends to have minimal impact
+
+* Good accuracy but rarely the best
+
+* Trees are independently grown (embarrassingly parallel)
+
+]
+
+.pull-right[
+
+.bold.center[Gradient boosting machines:]
+
+* Builds an ensemble of small decision trees (**high bias, low variance**)
+    - Bias is reduced through sequential learning and fixing past mistakes
+    - Variance is controlled with tree parameters & regularization
+
+* Requires more TLC for tuning
+
+* Great accuracy; often a leaderboard model
+
+* Trees are **NOT** independent, but training times are usually pretty fast since trees are not grown too deep; plus XGBoost provides parallel options.
+
+]
+]
+
+---
+# Packages `r emo::ji("package")` to remember
+
+.pull-left.font130[
+* Standard GBM
+   - __gbm__
+
+* Stochastic GBM
+   - __gbm__
+   - __h2o__
+
+* Extreme GBM
+   - __xgboost__
+   - __h2o__
+]
+
+.pull-right.font130[
+
+<br><br><br>
+.center[Other packages exists, check out the [machine learning task view](https://cran.r-project.org/web/views/MachineLearning.html)!]
+]
+
+---
+# Learning More
+
+.pull-left[
+
+```{r isl-book-cover, echo=FALSE, out.height='55%', out.width='55%'}
+knitr::include_graphics("images/isl.jpg")
+```
+
+.center.font150[[Book website](http://www-bcf.usc.edu/~gareth/ISL/)]
+]
+
+
+.pull-right[
+
+```{r esl-book-cover, echo=FALSE, out.height='55%', out.width='55%'}
+knitr::include_graphics("images/esl.jpg")
+```
+
+.center.font150[[Book website](https://web.stanford.edu/~hastie/ElemStatLearn/)]
+]
+
+---
+
+# Other Great Resources
+
+<br>
+.font120[
+
+* [How to explain gradient boosting](https://explained.ai/gradient-boosting/)
+
+* [A Gentle Introduction to the Gradient Boosting Algorithm for Machine Learning](https://machinelearningmastery.com/gentle-introduction-gradient-boosting-algorithm-machine-learning/)
+
+* [Complete Guide to Parameter Tuning in Gradient Boosting (GBM)](https://www.analyticsvidhya.com/blog/2016/02/complete-guide-parameter-tuning-gradient-boosting-gbm-python/)
+
+* [Complete Guide to Parameter Tuning in XGBoost](https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/)
+
+]
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+<br><br><br><br>
+[.center[`r anicon::faa("home", size = 10, animate = FALSE)`]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]

@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Gradient Boosting Machines</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <link href="libs/academicons/css/academicons.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: clear, center, middle
+
+background-image: url(images/gbm-icon.jpg)
+background-position: center
+background-size: cover
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.font300.white[Gradient Boosting Machines]
+
+---
+# Introduction
+
+.pull-left[
+
+.center.bold.font120[Thoughts]
+
+- Extremely popular
+
+- One of the leading methods in prediction competitions
+
+- Boosted trees <span>&lt;i class="fas  fa-arrow-right faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> similar to, but quite different than, RFs <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="images/headpound_bunny.gif" style="height:1.5em; width:auto; "/&gt;</span>
+
+- Math isn't that complicated until you want to generalize to all loss functions
+
+]
+
+--
+
+.pull-right[
+
+.center.bold.font120[Overview]
+
+- Fundamental differences between RFs and GBMs
+
+- Basic GBM
+
+- Stochastic GBM
+
+- XGBoost
+
+]
+
+---
+# Prereqs .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 1]
+
+.pull-left[
+
+.center.bold.font120[Packages]
+
+
+```r
+library(gbm)
+library(xgboost)
+library(vip)
+library(pdp)
+```
+
+]
+
+.pull-right[
+
+.center.bold.font120[Data]
+
+
+```r
+# ames data
+ames &lt;- AmesHousing::make_ames()
+
+# split data
+set.seed(123)
+split &lt;- rsample::initial_split(ames, strata = "Sale_Price")
+ames_train &lt;- rsample::training(split)
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Technicalities]
+
+---
+# Decision Trees
+
+.pull-left[
+
+* Many benefits <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870" style="height:1em; width:auto; "/&gt;</span>
+   - .green[minimal preprocessing]
+   - .green[can handle any data type]
+   - .green[automatically captures interactions]
+   - .green[scales well to large data]
+   - .green[(can be) easy to interpret]
+   
+* A few significant weaknesses <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885" style="height:1em; width:auto; "/&gt;</span>   
+   - .red[large trees hard to interpret]
+   - .red[trees are step functions] (i.e., binary splits)
+   - .red[single trees typically have poor predictive accuracy]
+   - .red[single trees have high variance] (easy to overfit to training data)
+
+]
+
+.pull-right[
+
+&lt;img src="12-gbm-slides_files/figure-html/dt-deep-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Bagging
+
+.pull-left[
+
+* Benefits <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870" style="height:1em; width:auto; "/&gt;</span>
+   - .green[takes advantage of a deep, single tree's high variance]
+   - .green[wisdom of the crowd reduces prediction error]
+   - .green[fast (typically only requires 50-100 trees)]
+
+* Weaknesses <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885" style="height:1em; width:auto; "/&gt;</span>  
+   - .red[tree correlation]
+   - .red[minimizes tree diversity and, therefore,]
+   - .red[limited prediction error improvement ]
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-1-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Random Forests
+
+.pull-left[
+
+* Many benefits <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045870/910/rock.gif?1471045870" style="height:1em; width:auto; "/&gt;</span>
+   - .green[all the benefits of individual trees and bagging plus...]
+   - .green[split-variable randomization reduces tree correlation]
+   - .green[typically results in reduced prediction error compared to bagging]
+   - .green[good out-of-box performance]
+   
+* Weaknesses <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885" style="height:1em; width:auto; "/&gt;</span> 
+   - .red[Although accurate, often cannot compete with the accuracy of advanced boosting algorithms.]
+   - .red[Can become slow on large data sets.]
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-2-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, base-learner model is trained with respect to the error of the whole ensemble learnt so far.
+
+&lt;img src="images/boosted-trees-process.png" width="663" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+--
+
+.pull-right[
+
+&lt;img src="https://media.giphy.com/media/3o84UeTqecxpcQJGOA/giphy.gif" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new .blue.bold[weak], base-learner model is trained with respect to the error of the whole ensemble learnt so far.
+
+&lt;img src="images/boosted-trees-process.png" width="663" style="display: block; margin: auto;" /&gt;
+
+]
+
+.pull-right[
+
+A weak model:
+
+* one whose error rate is only slightly better than random guessing
+
+* each step slightly improves the remaining errors
+
+* commonly, trees with only 1-6 splits are used
+
+* Benefits of weak models
+   - speed
+   - accuracy improvement
+   - can avoid overfitting
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, .blue.bold[base-learner model] is trained with respect to the error of the whole ensemble learnt so far.
+
+&lt;img src="images/boosted-trees-process.png" width="663" style="display: block; margin: auto;" /&gt;
+
+]
+
+.pull-right[
+
+Base-learning models:
+
+* boosting is a framework that iteratively improves any weak learning model
+
+* many gradient boosting applications allow you to “plug in” various classes of weak learners at your disposal
+
+* in practice however, boosted algorithms almost always use decision trees as the base-learner
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+The main idea of boosting is to add new models to the ensemble sequentially. At each particular iteration, a new weak, base-learner model is .blue.bold[trained with respect to the error] of the whole ensemble learnt so far.
+
+&lt;img src="images/boosted-trees-process.png" width="663" style="display: block; margin: auto;" /&gt;
+
+]
+
+.pull-right[
+
+Sequential training with respect to errors:
+
+* boosted trees are grown sequentially; each tree is grown using information from previously grown trees. 
+
+   1. Fit a decision tree to the data: `\(F_1(x) = y\)`,
+   2. We then fit the next decision tree to the residuals of the previous: `\(h_1(x) = y - F_1(x)\)`,
+   3. Add this new tree to our algorithm: `\(F_2(x) = F_1(x) + h_1(x)\)`,
+   4. Fit the next decision tree to the residuals of `\(F_2\)`: `\(h_2(x) = y - F_2(x)\)`,
+   5. Add this new tree to our algorithm: `\(F_3(x) = F_2(x) + h_1(x)\)`,
+   6. Continue this process until some mechanism (i.e. cross validation) tells us to stop.
+
+]
+
+---
+# How boosting works
+
+We call this sequential training .blue.bold[additive model ensembling] where each iteration gradually nudges our predicted values closer to the target.
+
+.pull-left[
+
+$$
+`\begin{aligned}
+ \hat y &amp; = f_0(x) + \triangle_1(x) + \triangle_2(x) + \cdots + \triangle_M(x)  \\
+        &amp; = f_0(x) + \sum^M_{m=1} \triangle_m(x) \\
+        &amp; = F_m(x)
+\end{aligned}`
+$$
+
+Also written as...
+
+$$
+`\begin{aligned}
+ F_0(x) &amp; = f_0(x) \\
+ F_m(x) &amp; = F_{m-1}(x) + \triangle_m(x)
+\end{aligned}`
+$$
+
+]
+
+.pull-right[
+
+&lt;img src="images/golf-dir-vector.png" width="2888" style="display: block; margin: auto;" /&gt;
+
+.font60.right[Image: [Terence Parr &amp; Jeremy Howard](https://explained.ai/gradient-boosting/L2-loss.html)]
+
+]
+
+---
+# How boosting works
+
+.pull-left[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-3-1.gif" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-4-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Boosting &gt; Random Forest &gt; Bagging &gt; Single Tree
+
+.pull-left[
+
+&lt;br&gt;&lt;br&gt;
+
+.center.font120.blue[Typically, this allows us to eek out additional predictive performance!]
+
+]
+
+.pull-right[
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-5-1.gif" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Basic GBM]
+
+---
+# Basic GBM
+
+.pull-left[
+
+.bold.font110[[gbm](https://github.com/gbm-developers/gbm)]
+- The original R implementation of GMBs (by Greg Ridgeway)
+- Slower than modern implementations (but still pretty fast)
+- Provides OOB error estimate
+- Supports the weighted tree traversal method for fast construction of PDPs
+
+   
+.bold.font110[[gbm3](https://github.com/gbm-developers/gbm3)]
+- Shiny new version of gbm that is not backwards compatible
+- Faster and supports parallel tree building
+- Not currently listed on CRAN
+
+]
+
+---
+# Basic GBM .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 2]
+
+.pull-left[
+
+.bold.font110[[gbm](https://github.com/gbm-developers/gbm)]
+- The original R implementation of GMBs (by Greg Ridgeway)
+- Slower than modern implementations (but still pretty fast)
+- Provides OOB error estimate
+- Supports the weighted tree traversal method for fast construction of PDPs
+
+.opacity20[   
+.bold.font110[[gbm3](https://github.com/gbm-developers/gbm3)]
+- Shiny new version of gbm that is not backwards compatible
+- Faster and supports parallel tree building
+- Not currently listed on CRAN
+]
+]
+
+.pull-right[
+.center.bold.font90[Let's run your first GBM model]
+
+
+```r
+set.seed(123)
+ames_gbm &lt;- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  distribution = "gaussian", # or bernoulli, multinomial, etc. 
+  n.trees = 5000, 
+  shrinkage = 0.1, 
+  interaction.depth = 1, 
+  n.minobsinnode = 10, 
+  cv.folds = 5 
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE &lt;- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+## [1] 26825.21
+```
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~30 secs <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+]
+
+---
+# What's going on?
+
+
+.pull-left.font90[
+
+&lt;br&gt;
+
+* .bold[`distribution`]: specify distribution of response variable; `gbm` will make intelligent guess
+
+* .bold[`n.trees`]: number of sequential trees to fit
+
+* .bold[`shrinkage`]: how quickly do we improve on each iteration (aka _learning rate_)
+
+* .bold[`interaction.depth`]: how weak of a learner do we want
+
+* .bold[`n.minobsinnode`]: minimum number of observations in the trees terminal nodes
+
+* .bold[`cv.folds`]: _k_-fold cross validation
+
+]
+
+.pull-right[
+
+.opacity20.center.bold.font90[Let's run your first GBM model]
+
+
+```r
+set.seed(123)
+ames_gbm &lt;- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+* distribution = "gaussian", # or bernoulli, multinomial, etc.
+* n.trees = 5000,
+* shrinkage = 0.1,
+* interaction.depth = 1,
+* n.minobsinnode = 10,
+* cv.folds = 5
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE &lt;- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+## [1] 26825.21
+```
+
+.opacity20.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~30 secs <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+]
+
+---
+# What's going on?
+
+
+.pull-left.font90[
+
+.bold.center[Tunable Hyperparameters]
+
+* .opacity20[`distribution`: specify distribution of response variable; `gbm` will make intelligent guess]
+
+* .bold[`n.trees`]: number of sequential trees to fit
+
+* .bold[`shrinkage`]: how quickly do we improve on each iteration (aka _learning rate_)
+
+* .bold[`interaction.depth`]: how weak of a learner do we want
+
+* .bold[`n.minobsinnode`]: minimum number of observations in the trees terminal nodes
+
+* .opacity20[`cv.folds`: _k_-fold cross validation]
+
+]
+
+.pull-right[
+
+.opacity20.center.bold.font90[Let's run your first GBM model]
+
+
+```r
+set.seed(123)
+ames_gbm &lt;- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+* distribution = "gaussian", # or bernoulli, multinomial, etc.
+* n.trees = 5000,
+* shrinkage = 0.1,
+* interaction.depth = 1,
+* n.minobsinnode = 10,
+* cv.folds = 5
+  )  
+
+# find index for n trees with minimum CV error
+min_MSE &lt;- which.min(ames_gbm$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm$cv.error[min_MSE])
+## [1] 26825.21
+```
+
+.opacity20.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~30 secs <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+In contrast to Random Forests, GBMs .bold.red[do not] provide good "out-of-the-<span>&lt;i class="fas  fa-box-open faa-pulse animated-hover "&gt;&lt;/i&gt;</span>" performance!
+
+--
+
+We can divide hyperparameters into 2 primary categories:
+
+--
+
+.pull-left[
+
+.center.bold[Boosting Parameters]
+
+- Number of trees
+
+- Learning rate
+
+- More to come!
+
+]
+
+.pull-right[
+
+.center.bold[Tree-specific Parameters]
+
+- Tree depth
+
+- Minimum obs in terminal node
+
+- And others
+
+]
+
+---
+# Boosting hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue.bold[Number of trees]
+
+- The averaging in bagging and RF makes it very difficult to overfit with too many trees
+
+- GBMs will chase residuals as long as you allow them to
+
+- Consequently:
+   - We must provide enough trees to minimize error
+   - But not too many where we begin to overfit
+
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-6-1.gif" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# Boosting hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>  .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 3]
+
+.pull-left[
+
+.blue.bold[Number of trees]
+
+- The averaging in bagging and RF makes it very difficult to overfit with too many trees
+
+- GBMs will chase residuals as long as you allow them to
+
+- Consequently:
+   - We must provide enough trees to minimize error
+   - But not too many where we begin to overfit
+   - .red[plus, number of trees is dependent on other hyperparameters]
+
+.center.bold.blue[Use CV or OOB] 
+
+]
+
+.pull-right[
+
+
+```r
+gbm.perf(ames_gbm, method = "cv") # or "OOB"
+```
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-7-1.png" style="display: block; margin: auto;" /&gt;
+
+```
+## [1] 1550
+```
+
+&lt;br&gt;   
+.center.bold.blue[Use CV or OOB]   
+
+]
+
+---
+# Boosting hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+.font120[
+- Determines the impact of each tree on the final outcome
+]
+
+]
+
+.pull-right[
+
+&lt;img src="12-gbm-slides_files/figure-html/learning-rate-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Boosting hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+- Determines the impact of each tree on the final outcome
+
+- .red[Too large of a learning rate will have poor predictive capability]
+
+- Lower values are generally preferred:
+   - .green[they make the model robust to the specific characteristics of tree and thus allowing it to generalize well]
+   - .green[easier to stop prior to overfitting]
+   - .red[but run the risk of not reaching the optimum]
+   - .red[are more computationally demanding]
+
+]
+
+.pull-right[
+
+&lt;img src="12-gbm-slides_files/figure-html/learning-rate-too-big-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Boosting hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue.bold[Learning rate] (aka shrinkage)
+
+- Determines the impact of each tree on the final outcome
+
+- .red[Too large of a learning rate will have poor predictive capability]
+
+- Lower values are generally preferred (.01 - .1):
+   - .green[they make the model robust to the specific characteristics of tree and thus allowing it to generalize well]
+   - .green[easier to stop prior to overfitting]
+   - .red[but run the risk of not reaching the optimum]
+   - .red[are more computationally demanding]
+   - .bold[Requires more trees!]
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-8-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Tree-specific hyperparameters <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+.pull-left[
+
+.blue.bold[Tree depth]
+
+- controls over-fitting
+- higher depth captures unique interactions
+- but runs risk of over-fitting
+- smaller depth (i.e. stumps) are computationally efficient (but .bold[require more trees!])
+- typical values: 3-8
+   - larger _n_ or _p_ are more tolerable to <span>&lt;i class="fas  fa-arrow-up faa-FALSE animated "&gt;&lt;/i&gt;</span> values
+
+
+.blue.bold[Min obs in terminal nodes]
+
+- controls over-fitting
+- higher values prevent a model from learning relations which might be highly specific to the particular sample selected for a tree
+- typically have small impact on performance
+- smaller values can help with imbalanced classes 
+
+]
+
+.pull-right[
+
+
+
+&lt;img src="12-gbm-slides_files/figure-html/unnamed-chunk-9-1.gif" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Tuning strategy <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>
+
+&lt;br&gt;
+.font120[
+1. Choose a relatively high learning rate. Generally the default value of 0.1 works but somewhere between 0.05 to 0.2 should work for different problems
+
+2. Determine the optimum number of trees for this learning rate. 
+
+3. Tune learning rate and assess speed vs. performance
+
+4. Tune tree-specific parameters for decided learning rate and number of trees. 
+
+5. Lower the learning rate and increase the estimators proportionally to get more robust models.
+]
+
+---
+
+# Tuning strategy <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>  .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 4]
+
+.scrollable90[
+.pull-left[
+&lt;br&gt;
+.font110[
+1. fix tree hyperparameters
+    - moderate tree depth
+    - default min obs
+2. set our learning rate at .01
+3. increase CV to ensure unbiased error estimate
+4. Results
+   - Lowest error rate yet ($ 22,609.14)!
+   - Used nearly all our trees `\(\rightarrow\)` increase to 6000?
+   - took `\(\approx\)` 2.25 min
+5. Compared to learning rate of .001
+   - error rate of $26,952.78
+   - took `\(\approx\)` 3 min
+]
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This model run takes ~2 mins <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+set.seed(123)
+ames_gbm1 &lt;- gbm(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+* distribution = "gaussian", # or bernoulli, multinomial, etc.
+* n.trees = 5000,
+* shrinkage = 0.01,
+* interaction.depth = 3,
+* n.minobsinnode = 10,
+* cv.folds = 10
+  )
+
+# find index for n trees with minimum CV error
+min_MSE &lt;- which.min(ames_gbm1$cv.error)
+
+# get MSE and compute RMSE
+sqrt(ames_gbm1$cv.error[min_MSE])
+## [1] 22609.14
+
+gbm.perf(ames_gbm1, method = "cv")
+```
+
+&lt;img src="12-gbm-slides_files/figure-html/tune1-1.png" style="display: block; margin: auto;" /&gt;
+
+```
+## [1] 4994
+```
+
+]
+]
+
+---
+# Tuning strategy <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span>  .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 5]
+
+.scrollable90[
+.pull-left[
+
+Now let's tune the tree-specific hyperparameters
+
+* we could do it in `caret` but lets use functional programming
+
+&lt;img src="images/hell-yeah.png" width="25%" height="25%" style="display: block; margin: auto;" /&gt;
+
+* assess 3 values for tree depth
+
+* assess 3 values for min obs in terminal node
+
+]
+
+.pull-right[
+.center[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+.center.font90.bold[This grid search takes ~30 mins; remember, I said the ML process is more of a marathon than a sprint!!]
+.center[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+# search grid
+hyper_grid &lt;- expand.grid(
+  n.trees = 6000,
+  shrinkage = .01,
+* interaction.depth = c(3, 5, 7),
+* n.minobsinnode = c(5, 10, 15)
+)
+
+model_fit &lt;- function(n.trees, shrinkage, interaction.depth, n.minobsinnode) {
+  set.seed(123)
+  m &lt;- gbm(
+    formula = Sale_Price ~ .,
+    data = ames_train,
+    distribution = "gaussian",
+    n.trees = n.trees,
+*   shrinkage = shrinkage,
+*   interaction.depth = interaction.depth,
+    n.minobsinnode = n.minobsinnode,
+    cv.folds = 10
+  )
+  # compute RMSE
+  sqrt(min(m$cv.error))
+}
+
+hyper_grid$rmse &lt;- pmap_dbl(
+  hyper_grid,
+  ~ model_fit(
+    n.trees = ..1,
+    shrinkage = ..2,
+    interaction.depth = ..3,
+    n.minobsinnode = ..4
+    )
+)
+
+arrange(hyper_grid, rmse)
+##   n.trees shrinkage interaction.depth n.minobsinnode     rmse
+## 1    6000      0.01                 7              5 21835.03
+## 2    6000      0.01                 5             10 22030.60
+## 3    6000      0.01                 5              5 22036.20
+## 4    6000      0.01                 5             15 22049.48
+## 5    6000      0.01                 7             10 22077.24
+## 6    6000      0.01                 3             10 22397.88
+## 7    6000      0.01                 3             15 22411.68
+## 8    6000      0.01                 7             15 22455.38
+## 9    6000      0.01                 3              5 22525.67
+```
+
+]]
+
+---
+class: center, middle, inverse
+
+.font300.white[Stochastic GBM]
+
+---
+# Adding randomness
+
+&lt;br&gt;
+
+- Friedman (1999) [<span>&lt;i class="ai  ai-google-scholar faa-tada animated-hover "&gt;&lt;/i&gt;</span>](https://statweb.stanford.edu/~jhf/ftp/stobst.pdf) introduced stochastic gradient boosting
+
+- A big insight into bagging ensembles and random forest was allowing trees to be created from random subsamples of the training dataset <span>&lt;i class="fas  fa-arrow-right faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span> minimizes tree correlation among sequential trees
+
+- Improves computational time since we're reducing *n*
+
+- A few variants of stochastic boosting that can be used:
+   - Subsample rows before creating each tree (__gbm__)
+   - Subsample columns before creating each tree (__h2o__ &amp; __xgboost__)
+   - Subsample columns before considering each split (__h2o__ &amp; __xgboost__)
+
+- .blue.bold[Pro tip]: Generally, aggressive sub-sampling such as selecting only 50% of the data has shown to be beneficial. Typical values: 0.5-0.8
+
+---
+# Applying   .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 6]
+
+.pull-left[
+
+- start by assessing if values between 0.5-0.8 outperform your previous best model
+
+- zoom in with a second round of tuning
+
+- smaller values will tell you that overfitting was occurring
+
+]
+
+.pull-right[
+
+
+```r
+*bag_frac &lt;- c(.5, .65, .8)
+
+for(i in bag_frac) {
+  set.seed(123)
+  m &lt;- gbm(
+    formula = Sale_Price ~ .,
+    data = ames_train,
+    distribution = "gaussian",
+    n.trees = 6000, 
+    shrinkage = 0.01, 
+    interaction.depth = 7, 
+    n.minobsinnode = 5,
+*   bag.fraction = i,
+    cv.folds = 10 
+    )
+  # compute RMSE
+  print(sqrt(min(m$cv.error)))
+}
+## [1] 21835.03
+## [1] 21688.16
+## [1] 22064.78
+```
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Extreme Gradient Boosting]
+
+---
+# XGBoost Advantage
+
+Extreme Gradient boosting (XGBoost) provides a few advantages over traditional boosting:
+
+- .bold[Regularization]: Standard GBM implementation has no regularization like XGBoost; helps to reduce overfitting.
+
+- .bold[Parallel Processing]: GPU and Spark compatible 
+
+- .bold[Loss functions]: allows users to define custom optimization objectives and evaluation criteria
+
+- .bold[Tree pruning]: splits up to the max depth specified and then pruning; uses the weakest learner required
+
+- .bold[Early stopping]: stop model assessment when additional trees offer no improvement
+
+- .bold[Continue existing model]: User can start training an XGBoost model from its last iteration of previous run 
+
+.center.bold.blue[Super powerful...super <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045885/967/wtf.gif?1471045885" style="height:1em; width:auto; "/&gt;</span> awesome!]
+
+---
+# Prereqs .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 7]
+
+.pull-left[
+
+* __xgboost__ requires that our features are one-hot encoded
+
+* __caret__ and __h2o::h2o.xgboost__ can automate this for you
+
+* In this preprocessing I:
+   - collapse low frequency levels to "other"
+   - convert ordered factors to integers (aka label encode)
+
+]
+
+.pull-right[
+
+
+```r
+library(recipes)
+xgb_prep &lt;- recipe(Sale_Price ~ ., data = ames_train) %&gt;%
+  step_other(all_nominal(), threshold = .005) %&gt;%
+  step_integer(all_nominal()) %&gt;%
+  prep(training = ames_train, retain = TRUE) %&gt;%
+  juice()
+
+X &lt;- as.matrix(xgb_prep[setdiff(names(xgb_prep), "Sale_Price")])
+Y &lt;- xgb_prep$Sale_Price
+```
+
+]
+
+&lt;br&gt;
+
+.center.bold[.blue[Pro tip:] If you have I cardinality categorical features, label or ordinal encoding often improves performance and speed!]
+
+---
+# First XGBoost model  .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 8]
+
+.pull-left.font90[
+
+&lt;br&gt;
+
+* .bold[`nrounds`]: 6,000 trees 
+
+* .bold[`objective`]: `reg:linear` for regression but other options exist (i.e. `reg:logistic`, `binary:logistic`, `num_class`)
+
+* .bold[`early_stopping_rounds`]: stop training if CV RMSE doesn't improve for 50 trees in a row 
+
+* .bold[`nfold`]: 10-fold CV 
+
+&lt;br&gt;
+
+.center.bold[What's up with the results <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1542340469/4974/notinterested.gif" style="height:2.5em; width:auto; "/&gt;</span>!!!]
+
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~20 secs <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+set.seed(123)
+ames_xgb &lt;- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 5000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+  )  
+
+ames_xgb$evaluation_log %&gt;% tail()
+##    iter train_rmse_mean train_rmse_std test_rmse_mean test_rmse_std
+## 1:  104        2129.095       154.6692       24304.04      3428.906
+## 2:  105        2093.833       160.5231       24300.29      3429.206
+## 3:  106        2058.820       147.4346       24296.37      3428.053
+## 4:  107        2015.093       140.3247       24299.15      3426.006
+## 5:  108        1990.135       141.1260       24295.42      3427.259
+## 6:  109        1971.045       142.7896       24293.17      3425.749
+```
+
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 9]
+
+.pull-left.font110[
+&lt;br&gt;
+1. Crank up the trees and tune learning rate with early stopping
+   - initial test RMSE results:
+   - .red[`eta = .3` (default): 24,246 w/59 trees (&lt; 1 min)]
+   - .red[`eta = .1`: 23,353 w/365 trees (&lt; 1 min)]
+   - .green[`eta = .05`: 22,835 w/658 trees (1.5 min)]
+   - .red[`eta = .01`: 22,854 w/2359 trees (4 min)]
+   
+&lt;br&gt;
+.center.font80[As a comparison, if you one-hot encoded the feature set it takes 30 mins to run with `eta = .01`!]
+
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~1.5 min <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+set.seed(123)
+ames_xgb &lt;- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 6000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+* params = list(eta = .05)
+  )  
+
+ames_xgb$evaluation_log %&gt;% tail()
+##    iter train_rmse_mean train_rmse_std test_rmse_mean test_rmse_std
+## 1:  703        1939.203       85.80847       22838.30      4117.835
+## 2:  704        1934.107       84.71774       22838.41      4117.534
+## 3:  705        1929.225       84.02225       22838.51      4117.648
+## 4:  706        1924.938       84.76338       22838.19      4117.490
+## 5:  707        1921.622       84.35032       22838.57      4117.288
+## 6:  708        1916.764       85.21769       22839.00      4116.994
+```
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 10]
+
+.scrollable90[
+.pull-left.font110[
+&lt;br&gt;
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. Tune tree-specific hyperparameters
+   - tree depth
+   - instances required to make additional split
+
+&lt;br&gt;
+
+* Preferred values: 
+   - `max_depth` = 3
+   - `min_child_weight` = 1
+   - RMSE = 22457.38
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~30 min <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+# grid
+hyper_grid &lt;- expand.grid(
+  eta = .05,
+* max_depth = c(1, 3, 5, 7, 9),
+* min_child_weight = c(1, 3, 5, 7, 9),
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m &lt;- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+*   params = list(
+*     eta = hyper_grid$eta[i],
+*     max_depth = hyper_grid$max_depth[i],
+*     min_child_weight = hyper_grid$min_child_weight[i]
+*   )
+  )
+  hyper_grid$rmse[i] &lt;- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##     eta max_depth min_child_weight     rmse
+## 1  0.05         3                1 22457.38
+## 2  0.05         3                5 22692.19
+## 3  0.05         3                3 22852.76
+## 4  0.05         5                1 23052.25
+## 5  0.05         5                5 23065.48
+## 6  0.05         3                7 23190.42
+## 7  0.05         3                9 23243.66
+## 8  0.05         5                7 23308.51
+## 9  0.05         5                9 23375.43
+## 10 0.05         7                1 23446.60
+## 11 0.05         5                3 23466.38
+## 12 0.05         9                1 23604.30
+## 13 0.05         7                5 23844.86
+## 14 0.05         7                9 23900.27
+## 15 0.05         7                7 23932.79
+## 16 0.05         7                3 23970.08
+## 17 0.05         9                5 23983.13
+## 18 0.05         9                3 24062.60
+## 19 0.05         9                7 24102.38
+## 20 0.05         9                9 24137.39
+## 21 0.05         1                1 26114.08
+## 22 0.05         1                3 26310.89
+## 23 0.05         1                9 26451.40
+## 24 0.05         1                7 26476.04
+## 25 0.05         1                5 27237.43
+```
+
+]
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 11]
+
+.scrollable90[
+.pull-left.font110[
+&lt;br&gt;
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. Add stochastic attributes with
+   - subsampling rows for each tree
+   - subsampling columns for each tree 
+   
+&lt;br&gt;
+
+* Preferred values: 
+   - `subsample` = 1
+   - `colsample_bytree` = 0.65
+   - RMSE = 22206.60
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~12 min <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+# grid
+hyper_grid &lt;- expand.grid(
+  eta = .05,
+  max_depth = 3, 
+  min_child_weight = 1,
+* subsample = c(.5, .65, .8, 1),
+* colsample_bytree = c(.5, .65, .8, 1),
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m &lt;- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+*   params = list(
+      eta = hyper_grid$eta[i],
+      max_depth = hyper_grid$max_depth[i],
+      min_child_weight = hyper_grid$min_child_weight[i],
+*     subsample = hyper_grid$subsample[i],
+*     colsample_bytree = hyper_grid$colsample_bytree[i]
+*   )
+  )
+  hyper_grid$rmse[i] &lt;- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##     eta max_depth min_child_weight subsample colsample_bytree     rmse
+## 1  0.05         3                1      1.00             0.65 22206.60
+## 2  0.05         3                1      0.80             0.65 22267.11
+## 3  0.05         3                1      0.65             0.80 22287.02
+## 4  0.05         3                1      1.00             1.00 22457.38
+## 5  0.05         3                1      0.80             0.50 22464.28
+## 6  0.05         3                1      1.00             0.80 22479.92
+## 7  0.05         3                1      0.80             0.80 22481.30
+## 8  0.05         3                1      0.65             0.65 22540.13
+## 9  0.05         3                1      0.80             1.00 22569.57
+## 10 0.05         3                1      0.65             0.50 22616.20
+## 11 0.05         3                1      0.50             0.80 22654.22
+## 12 0.05         3                1      0.50             0.50 22692.35
+## 13 0.05         3                1      0.65             1.00 22814.75
+## 14 0.05         3                1      0.50             0.65 22834.63
+## 15 0.05         3                1      1.00             0.50 23261.14
+## 16 0.05         3                1      0.50             1.00 23416.40
+```
+
+]
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> 
+
+.font110[
+&lt;br&gt;
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. See if adding regularization helps
+   - gamma: Minimum loss reduction required to make a further partition on a leaf node of the tree (values dependent on loss function)
+   - lambda: `\(L_2\)` (ridge) regularizer on weights of trees. Decent values to test: 0.001, 0.01, 0.1, 1, 100, 1000 
+   - alpha:  `\(L_1\)` (lasso) regularizer on weights of trees. Decent values to test: 0.001, 0.01, 0.1, 1, 100, 1000 
+
+]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 12]
+
+.scrollable90[
+.pull-left.font110[
+&lt;br&gt;
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. See if adding regularization helps
+   - gamma: tested 1, 100, 1000, 10000 -- no effect
+   - lambda: tested 0.001, 0.01, 0.1, 1, 100, 1000 -- no effect
+   - alpha: tested 0.001, 0.01, 0.1, 1, 100, 1000 -- minor effect
+
+* Preferred value:
+   - `alpha` = 1e+04
+   - RMSE = 22137.45
+]
+
+.pull-right[
+
+.center.bold.font90[<span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>  This grid search takes ~5 min <span>&lt;i class="fas  fa-exclamation-triangle faa-FALSE animated " style=" color:red;"&gt;&lt;/i&gt;</span>]
+
+
+```r
+hyper_grid &lt;- expand.grid(
+  eta = .05,
+  max_depth = 3, 
+  min_child_weight = 1,
+  subsample = .8, 
+  colsample_bytree = 1,
+  #gamma = c(1, 100, 1000, 10000),
+  #lambda = c(1e-2, 0.1, 1, 100, 1000, 10000), 
+* alpha = c(1e-2, 0.1, 1, 100, 1000, 10000),
+  rmse = 0 # a place to dump results
+  )
+
+# grid search
+for(i in seq_len(nrow(hyper_grid))) {
+  set.seed(123)
+  m &lt;- xgb.cv(
+    data = X,
+    label = Y,
+    nrounds = 6000,
+    objective = "reg:linear",
+    early_stopping_rounds = 50, 
+    nfold = 10,
+    verbose = 0,
+    params = list( 
+      eta = hyper_grid$eta[i], 
+      max_depth = hyper_grid$max_depth[i],
+      min_child_weight = hyper_grid$min_child_weight[i],
+*     subsample = hyper_grid$subsample[i],
+      colsample_bytree = hyper_grid$colsample_bytree[i],
+      #gamma = hyper_grid$gamma[i], 
+      #lambda = hyper_grid$lambda[i], 
+*     alpha = hyper_grid$alpha[i]
+    ) 
+  )
+  hyper_grid$rmse[i] &lt;- min(m$evaluation_log$test_rmse_mean)
+}
+
+arrange(hyper_grid, rmse)
+##    eta max_depth min_child_weight subsample colsample_bytree alpha     rmse
+## 1 0.05         3                1         1             0.65 1e+04 22137.86
+## 2 0.05         3                1         1             0.65 1e+00 22154.56
+## 3 0.05         3                1         1             0.65 1e-01 22189.76
+## 4 0.05         3                1         1             0.65 1e-02 22227.70
+## 5 0.05         3                1         1             0.65 1e+03 22319.05
+## 6 0.05         3                1         1             0.65 1e+02 22379.46
+```
+
+]]
+
+---
+# Tuning <span>&lt;i class="fas  fa-cog faa-spin animated faa-slow " style=" color:red;"&gt;&lt;/i&gt;</span> .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 13]
+
+&lt;br&gt;
+.scrollable90[
+.pull-left.font110[
+1. .opacity[Crank up the trees and tune learning rate with early stopping]
+2. .opacity[Tune tree-specific hyperparameters]
+3. .opacity[Add stochastic attributes with]
+4. .opacity[See if adding regularization helps]
+5. If you find hyperparameter values that are substantially different from default settings, be sure to assess the learning rate again
+6. Rerun final "optimal" model with `xgb.cv()` to get iterations required and then with `xgboost()` to produce final model
+
+.center.bold.font90[.font130[`final_cv`] test RMSE: 20,581.31]
+
+]
+
+.pull-right[
+
+
+```r
+# parameter list
+params &lt;- list(
+  eta = 0.05,
+  max_depth = 3, 
+  min_child_weight = 1,
+  subsample = 1, 
+  colsample_bytree = 0.65,
+  alpha = 1e+04
+)
+
+# final cv fit
+set.seed(123)
+final_cv &lt;- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 6000,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  verbose = 0,
+* params = params
+  ) 
+
+# train final model
+ames_final_xgb &lt;- xgboost(
+  data = X,
+  label = Y,
+* nrounds = final_cv$best_iteration,
+  objective = "reg:linear",
+* params = params,
+  verbose = 0
+)
+```
+
+]]
+
+---
+class: center, middle, inverse
+
+.font300.white[Feature Interpretation]
+
+---
+# Feature Interpretation .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 14]
+
+.pull-left[
+
+.center.bold[Feature Importance]
+
+
+```r
+vip::vip(ames_final_xgb, num_features = 25)
+```
+
+&lt;img src="12-gbm-slides_files/figure-html/xgb-vip-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Feature Interpretation .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunks 15-16]
+
+.pull-left[
+.center.bold[Overall_Qual]
+
+
+```r
+ames_final_xgb %&gt;%
+  partial(
+    pred.var = "Overall_Qual", 
+    n.trees = ames_final_xgb$niter, 
+    train = X
+    ) %&gt;%
+  autoplot(rug = TRUE, train = X)
+```
+
+&lt;img src="12-gbm-slides_files/figure-html/xgb-pdp-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+.pull-right[
+
+.center.bold[Gr_Liv_Area]
+
+
+```r
+ames_final_xgb %&gt;%
+  partial(
+    pred.var = "Gr_Liv_Area", 
+    n.trees = ames_final_xgb$niter, 
+    grid.resolution = 50, 
+    train = X
+    ) %&gt;%
+  autoplot(rug = TRUE, train = X)
+```
+
+&lt;img src="12-gbm-slides_files/figure-html/xgb-ice-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+class: center, middle, inverse
+
+.font300.white[Wrapping Up]
+
+---
+# Summary
+
+.scrollable90[
+
+.pull-left[
+
+.bold.center[Random forests:]
+
+* Builds an ensemble of fully grown decision trees (**low bias, high variance**)
+    - Correlation between trees is reduced through subsampling the columns
+    - Variance is reduced through averaging &lt;br&gt;&lt;br&gt;
+    
+* Tuning tends to have minimal impact
+
+* Good accuracy but rarely the best
+
+* Trees are independently grown (embarrassingly parallel)
+
+]
+
+.pull-right[
+
+.bold.center[Gradient boosting machines:]
+
+* Builds an ensemble of small decision trees (**high bias, low variance**)
+    - Bias is reduced through sequential learning and fixing past mistakes
+    - Variance is controlled with tree parameters &amp; regularization
+
+* Requires more TLC for tuning
+
+* Great accuracy; often a leaderboard model
+
+* Trees are **NOT** independent, but training times are usually pretty fast since trees are not grown too deep; plus XGBoost provides parallel options.
+
+]
+]
+
+---
+# Packages 📦 to remember
+
+.pull-left.font130[
+* Standard GBM
+   - __gbm__
+
+* Stochastic GBM
+   - __gbm__
+   - __h2o__
+
+* Extreme GBM
+   - __xgboost__
+   - __h2o__
+]
+
+.pull-right.font130[
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.center[Other packages exists, check out the [machine learning task view](https://cran.r-project.org/web/views/MachineLearning.html)!]
+]
+
+---
+# Learning More
+
+.pull-left[
+
+&lt;img src="images/isl.jpg" width="55%" height="55%" style="display: block; margin: auto;" /&gt;
+
+.center.font150[[Book website](http://www-bcf.usc.edu/~gareth/ISL/)]
+]
+
+
+.pull-right[
+
+&lt;img src="images/esl.jpg" width="55%" height="55%" style="display: block; margin: auto;" /&gt;
+
+.center.font150[[Book website](https://web.stanford.edu/~hastie/ElemStatLearn/)]
+]
+
+---
+
+# Other Great Resources
+
+&lt;br&gt;
+.font120[
+
+* [How to explain gradient boosting](https://explained.ai/gradient-boosting/)
+
+* [A Gentle Introduction to the Gradient Boosting Algorithm for Machine Learning](https://machinelearningmastery.com/gentle-introduction-gradient-boosting-algorithm-machine-learning/)
+
+* [Complete Guide to Parameter Tuning in Gradient Boosting (GBM)](https://www.analyticsvidhya.com/blog/2016/02/complete-guide-parameter-tuning-gradient-boosting-gbm-python/)
+
+* [Complete Guide to Parameter Tuning in XGBoost](https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/)
+
+]
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
