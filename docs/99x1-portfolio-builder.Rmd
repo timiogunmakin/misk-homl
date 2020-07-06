@@ -1,0 +1,34 @@
+---
+title: "Portfolio Builder Exercise #1"
+output: html_document
+---
+
+Identify one of the open source datasets you found during module 1's [exercise](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#exercises). Create a new Github repository that will focus on analyzing this dataset. Write up an initial report that answers the following:
+
+1. Assess the distribution of the target / response variable.
+   - Is the response skewed?
+   - Does applying a transformation normalize the distribution?
+   
+2. Assess the dataset for missingness.
+   - How many observations have missing values?
+   - Plot the missing values. Does there appear to be any patterns to the missing values?
+   - How do you think the different imputation approaches would impact modeling results?
+   
+3. Assess the variance across the features.
+   - Do any features have zero variance?
+   - Do any features have near-zero variance?
+   
+4. Assess the numeric features.
+   - Do some features have significant skewness?
+   - Do features have a wide range of values that would benefit from standardization?
+   
+5. Assess the categorical features.
+   - Are categorical levels equally spread out across the features or is "lumping" occurring?
+   - Which values do you think should be one-hot or dummy encoded versus label encoded?  Why?
+   
+6. Execute a basic feature engineering process.
+   - First, apply a KNN model to your data without pre-applying feature engineering processes.
+   - Create and a apply a blueprint of feature engineering processes that you think will help your model improve.
+   - Now reapply the KNN model to your data that has been feature engineered.
+   - Did your model performance improve?
+   

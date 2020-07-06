@@ -725,28 +725,18 @@ ggplot(knn_fit2)
 
 # Exercises
 
-Using one of the open source datasets you found during module 1's [exercise](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#exercises):
+Using the Ames dataset and the same approach shown in the [last section](#engineering-process-example):
 
-1. Assess the distribution of the target / response variable.
-   - Is the response skewed?
-   - Does applying a transformation normalize the distribution?
-2. Assess the dataset for missingness.
-   - How many observations have missing values?
-   - Plot the missing values. Does there appear to be any patterns to the missing values?
-   - How do you think the different imputation approaches would impact modeling results?
-3. Assess the variance across the features.
-   - Do any features have zero variance?
-   - Do any features have near-zero variance?
-4. Assess the numeric features.
-   - Do some features have significant skewness?
-   - Do features have a wide range of values that would benefit from standardization?
-5. Assess the categorical features.
-   - Are categorical levels equally spread out across the features or is "lumping" occurring?
-   - Which values do you think should be one-hot or dummy encoded versus label encoded?  Why?
-6. Execute a basic feature engineering process.
-   - First, apply a KNN model to your data without pre-applying feature engineering processes.
-   - Create and a apply a blueprint of feature engineering processes that you think will help your model improve.
-   - Now reapply the KNN model to your data that has been feature engineered.
-   - Did your model performance improve?
+1. Rather than use a 70% stratified training split, try an 80% unstratified training split. How does your cross-validated results compare?
+
+2. Rather than numerically encode the quality and condition features (i.e. `step_integer(matches("Qual|Cond|QC|Qu"))`), one-hot encode these features.  What is the difference in the number of features your training set?  Apply the same cross-validated KNN model to this new feature set. How does the performance change? How does the training time change?
+
+3. Identify three new `step_xxx` functions that [recipes](https://recipes.tidymodels.org/) provides:
+   - Why would these feature engineering steps be applicable to the Ames data?
+   - Apply these feature engineering steps along with the same cross-validated KNN model. How do your results change?
+   
+4. Using the [Attrition data set](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#the_data_sets), assess the characterstics of the target and features.
+   - Which target/feature engineering steps should be applied?
+   - Create a feature engineering blueprint and apply a KNN grid search. What is the performance of your model?
 
 # References
