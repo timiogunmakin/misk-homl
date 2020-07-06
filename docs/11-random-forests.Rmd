@@ -509,7 +509,7 @@ Random forests provide a very powerful out-of-the-box algorithm that often has g
 
 # Exercises
 
-Using the same regression and/or classification dataset you've been using in the bagging module exercises:
+Using the Boston housing data set from the pdp package, where the response feature is the median value of homes within a census tract (`cmedv`):
 
 1. Apply a default random forest model with the same features you used in the bagging module. How does the out-of-the-box random forest model perform compared to the bagging module?
 2. Assess the number of trees in your random forest model.
@@ -523,5 +523,6 @@ Using the same regression and/or classification dataset you've been using in the
 5. Now run a random grid search across the same hyperparameter grid but restrict the time or number of models to run to 50% of the models ran in the full cartesian. How does the random grid search results compare?
 6. Pick your best random forest model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
 7. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+8. Now perform 1-7 to the Attrition dataset, which is classification model rather than a regression model.
 
 # References

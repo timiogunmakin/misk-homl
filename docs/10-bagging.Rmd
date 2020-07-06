@@ -335,13 +335,14 @@ for(i in 1:iter){
 
 # Exercises
 
-Use the same regression and/or classification dataset you've been using in the decision tree module exercises:
+Using the Boston housing data set from the pdp package, where the response feature is the median value of homes within a census tract (`cmedv`):
 
 1. Apply a bagged decision tree model with all features.
 2. How many trees are required before the loss function stabilizes?
 3. Adjust different parameters such as `minsplit`, `minbucket`, `cp`, `maxdepth` and assess how performance changes.
-4. How does the model performance compare to your previous models?
-5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+4. How does the model performance compare to the decision tree model applied in the [previous module](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html#exercises)?
+5. Which 10 features are considered most influential? Are these the same features that have been influential in previous model?
 6. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+7. Now perform 1-6 to the Attrition dataset, which is classification model rather than a regression model.
 
 # References

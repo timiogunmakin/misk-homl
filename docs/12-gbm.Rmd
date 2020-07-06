@@ -775,7 +775,7 @@ Although we discussed the most popular GBM algorithms, realize there are alterna
 
 # Exercises
 
-Using the same regression and/or classification dataset you've been using in the tree-based module exercises:
+Using the Boston housing data set from the pdp package, where the response feature is the median value of homes within a census tract (`cmedv`):
 
 1. Apply a basic GBM model with the same features you used in the random forest module. 
    - Apply the default hyperparameter settings with a learning rate set to 0.10. How does model performance compare to the random forest module?
@@ -787,5 +787,6 @@ Using the same regression and/or classification dataset you've been using in the
    - Did regularization help?
 4. Pick your best GBM model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
 5. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+6. Now perform 1-5 to the Attrition dataset, which is classification model rather than a regression model.
 
 # References

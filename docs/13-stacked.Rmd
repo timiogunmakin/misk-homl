@@ -309,7 +309,7 @@ auto_ml@leaderboard %>%
 
 # Exercises
 
-Using the same regression and/or classification dataset you've been using in the tree-based module exercises:
+Using the Boston housing data set from the pdp package, where the response feature is the median value of homes within a census tract (`cmedv`):
 
 1. Using H2O, build and assess the following models:
    - regularized regression base learner, 
@@ -325,6 +325,7 @@ Using the same regression and/or classification dataset you've been using in the
    - Which types of base learners are in the top 10?
    - What model provides the optimal performance?
    - Apply this model to the test set. How does the test loss function compare to the training cross-validated RMSE?
+5. Now perform 1-4 to the Attrition dataset, which is classification model rather than a regression model.
 
 
 # References
