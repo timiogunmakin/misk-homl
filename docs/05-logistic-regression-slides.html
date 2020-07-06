@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Logistic Regression</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: center, middle, inverse
+
+.font300.white[Logistic Regression]
+
+---
+# Prerequisites
+
+.pull-left[
+
+
+```r
+# Helper packages
+library(dplyr)     # for data wrangling
+library(ggplot2)   # for awesome plotting
+library(rsample)   # for data splitting
+# Modeling packages
+library(caret)     # for logistic regression modeling
+# Model interpretability packages
+library(vip)       # variable importance
+```
+
+]
+
+.pull-right[
+
+
+```r
+df &lt;- attrition %&gt;% mutate_if(is.ordered, factor, ordered = FALSE)
+# Create training (70%) and test (30%) sets for the 
+# rsample::attrition data.
+set.seed(123)  # for reproducibility
+churn_split &lt;- initial_split(df, prop = .7, strata = "Attrition")
+churn_train &lt;- training(churn_split)
+churn_test  &lt;- testing(churn_split)
+```
+
+]
+
+---
+# Why logistic regression
+
+.pull-left[
+
+- Linear regression lacks the ability to adquately capture appropriate estimates of the response variable near the 0/1 (no/yes) boundaries
+- Probability estimates tend to not be sensible (below 0% or above 100%)
+- These inconsistencies only increase as our data become more imbalanced and the number of outliers increase
+
+]
+
+.pull-right[
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/whylogit-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+---
+# Why logistic regression
+
+.pull-left[
+
+- Linear regression lacks the ability to adquately capture appropriate estimates of the response variable near the 0/1 (no/yes) boundaries
+- Probability estimates tend to not be sensible (below 0% or above 100%)
+- These inconsistencies only increase as our data become more imbalanced and the number of outliers increase
+- .bold[The logistic function produces the S-shaped probability curve that better reflects reality]
+
+`\begin{equation}
+  p\left(X\right) = \frac{e^{\beta_0 + \beta_1X}}{1 + e^{\beta_0 + \beta_1X}}
+\end{equation}`
+
+]
+
+.pull-right[
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/whylogit2-1.png" style="display: block; margin: auto;" /&gt;
+]
+
+---
+# Simple logistic regression
+
+.pull-left[
+
+The `\(\beta_i\)` parameters represent the coefficients as in linear regression and `\(p\left(X\right)\)` may be interpreted as the probability that the positive class (default in the above example) is present.  The minimum for `\(p\left(x\right)\)` is obtained at `\(\lim_{a \rightarrow -\infty} \left[ \frac{e^a}{1+e^a} \right] = 0\)`, and the maximum for `\(p\left(x\right)\)` is obtained at `\(\lim_{a \rightarrow \infty} \left[ \frac{e^a}{1+e^a} \right] = 1\)` which restricts the output probabilities to 0-1.
+
+`\begin{equation}
+  g\left(X\right) = \ln \left[ \frac{p\left(X\right)}{1 - p\left(X\right)} \right] = \beta_0 + \beta_1 X
+\end{equation}`
+
+]
+
+.pull-right[
+
+
+```r
+model1 &lt;- glm(
+*Attrition ~ MonthlyIncome,
+ family = "binomial", 
+ data = churn_train
+ )
+```
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/glm-sigmoid-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Simple logistic regression
+
+.pull-left[
+
+The `\(\beta_i\)` parameters represent the coefficients as in linear regression and `\(p\left(X\right)\)` may be interpreted as the probability that the positive class (default in the above example) is present.  The minimum for `\(p\left(x\right)\)` is obtained at `\(\lim_{a \rightarrow -\infty} \left[ \frac{e^a}{1+e^a} \right] = 0\)`, and the maximum for `\(p\left(x\right)\)` is obtained at `\(\lim_{a \rightarrow \infty} \left[ \frac{e^a}{1+e^a} \right] = 1\)` which restricts the output probabilities to 0-1.
+
+`\begin{equation}
+  g\left(X\right) = \ln \left[ \frac{p\left(X\right)}{1 - p\left(X\right)} \right] = \beta_0 + \beta_1 X
+\end{equation}`
+
+]
+
+.pull-right[
+
+
+```r
+model2 &lt;- glm(
+*Attrition ~ OverTime,
+ family = "binomial", 
+ data = churn_train
+ )
+```
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/glm-model2-sigmoid-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Interpreting coefficients
+
+- Coefficient estimates from logistic regression characterize the relationship between the predictor and response variable on a log-odds (i.e., logit) scale.
+- Using the logit transformation results in an intuitive interpretation for the magnitude of `\(\beta_1\)`: the odds (e.g., of attrition) increase multiplicatively by exp( `\(\beta_1\)`) for every one-unit increase in X.
+
+.pull-left[
+
+
+```r
+tidy(model1)
+## # A tibble: 2 x 5
+##   term           estimate std.error statistic       p.value
+##   &lt;chr&gt;             &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;         &lt;dbl&gt;
+## 1 (Intercept)   -0.924    0.155         -5.96 0.00000000259
+## 2 MonthlyIncome -0.000130 0.0000264     -4.93 0.000000836
+```
+
+
+```r
+exp(coef(model1))
+##   (Intercept) MonthlyIncome 
+##     0.3970771     0.9998697
+```
+
+]
+
+.pull-right[
+
+
+```r
+tidy(model2)
+## # A tibble: 2 x 5
+##   term        estimate std.error statistic  p.value
+##   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)    -2.18     0.122    -17.9  6.76e-72
+## 2 OverTimeYes     1.41     0.176      8.00 1.20e-15
+```
+
+
+```r
+exp(coef(model2))
+## (Intercept) OverTimeYes 
+##   0.1126126   4.0812121
+```
+
+]
+
+---
+# Multiple logistic regression
+
+We can also extend our model as seen in Equation 1 so that we can predict a binary response using multiple predictors:
+
+`\begin{equation}
+p\left(X\right) = \frac{e^{\beta_0 + \beta_1 X + \cdots + \beta_p X_p }}{1 + e^{\beta_0 + \beta_1 X + \cdots + \beta_p X_p}} 
+\end{equation}`
+
+.pull-left[
+
+
+```r
+model3 &lt;- glm(
+  Attrition ~ MonthlyIncome + OverTime,
+  family = "binomial", 
+  data = churn_train
+  )
+
+tidy(model3)
+## # A tibble: 3 x 5
+##   term           estimate std.error statistic  p.value
+##   &lt;chr&gt;             &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)   -1.43     0.176         -8.11 5.25e-16
+## 2 MonthlyIncome -0.000139 0.0000270     -5.15 2.62e- 7
+## 3 OverTimeYes    1.47     0.180          8.16 3.43e-16
+```
+
+]
+
+.pull-right[
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/glm-sigmoid2-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Comparing model accuracy
+
+.scrollable90[
+.pull-left[
+
+* three 10-fold cross validated logistic regression models
+* both `cv_model1` and `cv_model2` had an average accuracy of 83.88%
+* `cv_model3` which used all predictor variables in our data achieved an average accuracy rate of 87.58%
+
+]
+
+.pull-right[
+
+
+```r
+set.seed(123)
+cv_model1 &lt;- train(
+  Attrition ~ MonthlyIncome, 
+  data = churn_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10)
+)
+set.seed(123)
+cv_model2 &lt;- train(
+  Attrition ~ MonthlyIncome + OverTime, 
+  data = churn_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10)
+)
+set.seed(123)
+cv_model3 &lt;- train(
+  Attrition ~ ., 
+  data = churn_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10)
+)
+# extract out of sample performance measures
+summary(
+  resamples(
+    list(
+      model1 = cv_model1, 
+      model2 = cv_model2, 
+      model3 = cv_model3
+    )
+  )
+)$statistics$Accuracy
+##             Min.   1st Qu.    Median      Mean   3rd Qu.      Max. NA's
+## model1 0.8349515 0.8349515 0.8365385 0.8388478 0.8431373 0.8446602    0
+## model2 0.8349515 0.8349515 0.8365385 0.8388478 0.8431373 0.8446602    0
+## model3 0.8365385 0.8495146 0.8792476 0.8757893 0.8907767 0.9313725    0
+```
+
+]
+]
+
+---
+# Model performance
+
+.scrollable90[
+.pull-left[
+
+* We can get a better understanding of our model’s performance by assessing the confusion matrix.
+* .bold[Pro tip]: By default the `predict()` function predicts the response class for a caret model; however, you can change the `type` argument to predict the probabilities (see `?caret::predict.train`).
+
+&lt;br&gt;
+
+.center.bold[`No Information Rate: 0.8388`]
+]
+
+.pull-right[
+
+
+```r
+# predict class
+pred_class &lt;- predict(cv_model3, churn_train)
+# create confusion matrix
+confusionMatrix(
+  data = relevel(pred_class, ref = "Yes"), 
+  reference = relevel(churn_train$Attrition, ref = "Yes")
+)
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction Yes  No
+##        Yes  93  25
+##        No   73 839
+##                                           
+##                Accuracy : 0.9049          
+##                  95% CI : (0.8853, 0.9221)
+##     No Information Rate : 0.8388          
+##     P-Value [Acc &gt; NIR] : 0.000000000536  
+##                                           
+##                   Kappa : 0.6016          
+##                                           
+##  Mcnemar's Test P-Value : 0.000002057257  
+##                                           
+##             Sensitivity : 0.56024         
+##             Specificity : 0.97106         
+##          Pos Pred Value : 0.78814         
+##          Neg Pred Value : 0.91996         
+##              Prevalence : 0.16117         
+##          Detection Rate : 0.09029         
+##    Detection Prevalence : 0.11456         
+##       Balanced Accuracy : 0.76565         
+##                                           
+##        'Positive' Class : Yes             
+## 
+```
+
+]
+]
+
+---
+# Model performance
+
+.scrollable90[
+.pull-left[
+
+* Our goal is to maximize our accuracy rate over and above this no information baseline while also trying to balance sensitivity and specificity.
+
+* ROC curve helps to illustrate this "lift"
+
+]
+
+.pull-right[
+
+
+```r
+library(ROCR)
+# Compute predicted probabilities
+m1_prob &lt;- predict(cv_model1, churn_train, type = "prob")$Yes
+m3_prob &lt;- predict(cv_model3, churn_train, type = "prob")$Yes
+# Compute AUC metrics for cv_model1 and cv_model3
+perf1 &lt;- prediction(m1_prob, churn_train$Attrition) %&gt;%
+  performance(measure = "tpr", x.measure = "fpr")
+perf2 &lt;- prediction(m3_prob, churn_train$Attrition) %&gt;%
+  performance(measure = "tpr", x.measure = "fpr")
+# Plot ROC curves for cv_model1 and cv_model3
+plot(perf1, col = "black", lty = 2)
+plot(perf2, add = TRUE, col = "blue")
+legend(0.8, 0.2, legend = c("cv_model1", "cv_model3"),
+       col = c("black", "blue"), lty = 2:1, cex = 0.6)
+```
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/logistic-regression-roc-1.png" style="display: block; margin: auto;" /&gt;
+
+]]
+
+---
+# Feature interpretation
+
+.pull-left[
+
+
+```r
+vip(cv_model3, num_features = 20)
+```
+
+&lt;div class="figure" style="text-align: center"&gt;
+&lt;img src="05-logistic-regression-slides_files/figure-html/glm-vip-1.png" alt="Top 20 most important variables for the PLS model."  /&gt;
+&lt;p class="caption"&gt;Top 20 most important variables for the PLS model.&lt;/p&gt;
+&lt;/div&gt;
+
+]
+
+---
+# Feature interpretation
+
+.scrollable90[
+
+
+```r
+pred.fun &lt;- function(object, newdata) {
+  Yes &lt;- mean(predict(object, newdata, type = "prob")$Yes)
+  as.data.frame(Yes)
+}
+
+p1 &lt;- pdp::partial(cv_model3, pred.var = "OverTime", pred.fun = pred.fun) %&gt;% 
+  ggplot(aes(OverTime, yhat)) + geom_point() + ylim(c(0, 1))
+
+p2 &lt;- pdp::partial(cv_model3, pred.var = "JobSatisfaction", pred.fun = pred.fun) %&gt;% 
+  ggplot(aes(JobSatisfaction, yhat)) + geom_point() + ylim(c(0, 1))
+
+p3 &lt;- pdp::partial(cv_model3, pred.var = "NumCompaniesWorked", pred.fun = pred.fun, gr = 10) %&gt;% 
+  ggplot(aes(NumCompaniesWorked, yhat)) + geom_point() + scale_x_continuous(breaks = 0:9) + ylim(c(0, 1))
+  
+p4 &lt;- pdp::partial(cv_model3, pred.var = "EnvironmentSatisfaction", pred.fun = pred.fun) %&gt;% 
+  ggplot(aes(EnvironmentSatisfaction, yhat)) + geom_point() + ylim(c(0, 1))
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+
+&lt;img src="05-logistic-regression-slides_files/figure-html/glm-pdp-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
