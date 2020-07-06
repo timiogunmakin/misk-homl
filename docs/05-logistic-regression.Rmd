@@ -103,7 +103,6 @@ model2 <- glm(Attrition ~ OverTime, family = "binomial", data = churn_train)
 In the background `glm()` uses ML estimation to estimate the unknown model parameters. The basic intuition behind using ML estimation to fit a logistic regression model is as follows: we seek estimates for $\beta_0$ and $\beta_1$ such that the predicted probability $\widehat p\left(X_i\right)$ of attrition for each employee corresponds as closely as possible to the employee's observed attrition status. In other words, we try to find $\widehat \beta_0$ and $\widehat \beta_1$ such that plugging these estimates into the model for $p\left(X\right)$ yields a number close to one for all employees who attrited, and a number close to zero for all employees who did not. This intuition can be formalized using a mathematical equation called a _likelihood function_\index{likelihood function}:
 
 \begin{equation}
-(\#eq:max-like) 
   \ell\left(\beta_0, \beta_1\right) = \prod_{i:y_i=1}p\left(X_i\right) \prod_{i':y_i'=0}\left[1-p\left(x_i'\right)\right]
 \end{equation}
 
@@ -161,7 +160,6 @@ confint(model2)
 We can also extend our model as seen in Equation 1 so that we can predict a binary response using multiple predictors:
 
 \begin{equation}
-(\#eq:multi-logistic)
 p\left(X\right) = \frac{e^{\beta_0 + \beta_1 X + \cdots + \beta_p X_p }}{1 + e^{\beta_0 + \beta_1 X + \cdots + \beta_p X_p}} 
 \end{equation}
 
@@ -351,7 +349,7 @@ Logistic regression provides an alternative to linear regression for binary clas
 
 # Exercises
 
-Using one of the classification datasets identified in module 1's [exercise](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#exercises):
+Using the spam data set from the kernlab package:
 
 1. Pick a single feature and apply simple logistic regression model.
    - Interpret the feature's coefficient
