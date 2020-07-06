@@ -461,12 +461,14 @@ Other alternatives to traditional KNNs such as using invariant metrics, tangent 
 
 # Exercises
 
-Use the same regression and/or classification dataset you've been using in the previous module exercises:
+Using the `ISLR::Default` dataset where the `default` variable is the response variable:
 
-1. Apply a KNN model with all features.
-2. What value for _K_ optimizes model performance? What does this tell you about your data?
-3. How does the model performance compare to your previous models?
-4. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+1. Apply a KNN model with all features. Use a grid search to assess values of _k_ ranging from 2-200 that seeks to optimize the "ROC" metric.
+2. Plot the grid search performance.
+3. What value for _K_ optimizes model performance? What does this tell you about your data?
+4. Plot the ROC curve for the optimal model.
+5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+6. Now perform questions 1-5 for the built in `iris` data where `species` is the response variable.
 
 # References
 

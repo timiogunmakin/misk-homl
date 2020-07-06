@@ -459,7 +459,7 @@ However, one disadvantage to MARS models is that they're typically slower to tra
 
 # Exercises
 
-Use the same regression and/or classification dataset you've been using in the previous module exercises:
+Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISLR")`):
 
 1. Apply a MARS model with all features.
 2. How does the model performance compare to your previous models?
