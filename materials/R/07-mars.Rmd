@@ -1,0 +1,114 @@
+---
+title: "Multivariate Adaptive Regression Splines"
+output: html_notebook
+---
+
+# Prerequisites
+
+Packages:
+
+```{r}
+# Helper packages
+library(dplyr)     # for data wrangling
+library(ggplot2)   # for awesome plotting
+
+# Modeling packages
+library(earth)     # for fitting MARS models
+library(caret)     # for automating the tuning process
+
+# Model interpretability packages
+library(vip)       # for variable importance
+library(pdp)       # for variable relationships
+```
+
+Data:
+
+```{r prereqs-data}
+# ames data
+ames <- AmesHousing::make_ames()
+
+# split data
+set.seed(123)
+split <- initial_split(ames, strata = "Sale_Price")
+ames_train <- training(split)
+```
+
+
+# Tuning parameters
+
+MARS models have two tuning parameters:
+
+1. nprune: the maximum number of terms in the pruned model (including the intercept)
+2. degree: the maximum degree of interaction
+
+```{r earth-tuning-params}
+caret::getModelInfo("earth")$earth$parameters
+```
+
+
+# Implementation
+
+```{r cv-mars}
+# tuning grid
+hyper_grid <- expand.grid(
+  nprune = seq(2, 50, length.out = 10) %>% floor(),
+  degree = 1:3
+)
+
+# perform resampling
+set.seed(123)
+cv_mars <- train(
+  Sale_Price ~ ., 
+  data = ames_train, 
+  trControl = trainControl(method = "cv", number = 10),
+  method = "earth", #<<
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+
+# best model
+cv_mars$results %>%
+  filter(
+    nprune == cv_mars$bestTune$nprune,
+    degree == cv_mars$bestTune$degree
+    )
+```
+
+```{r cv-mars-plot, fig.height=5}
+# plot results
+plot(cv_mars)
+```
+
+# Feature importance
+
+* Backwards elimination feature selection routine that looks at reductions in the GCV estimate of error as each predictor is added to the model. 
+* This total reduction is used as the variable importance measure (`value = "gcv"`). 
+* Can also monitor the change in the residual sums of squares (RSS) as terms are added (`value = "rss"`)
+
+**Automated feature selection**
+
+```{r mars-vip, fig.height=10, fig.width=15}
+p1 <- vip(cv_mars, num_features = 40, geom = "point", value = "gcv") + ggtitle("GCV")
+p2 <- vip(cv_mars, num_features = 40, geom = "point", value = "rss") + ggtitle("RSS")
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+
+# Partial dependence plots
+
+```{r pdp, fig.width=15, fig.height=3, warning=FALSE, message=FALSE}
+# Construct partial dependence plots
+p1 <- partial(cv_mars, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
+  ggplot(aes(Gr_Liv_Area, yhat)) +
+  geom_line()
+p2 <- partial(cv_mars, pred.var = "Year_Built", grid.resolution = 10) %>% 
+  ggplot(aes(Year_Built, yhat)) +
+  geom_line()
+p3 <- partial(cv_mars, pred.var = c("Gr_Liv_Area", "Year_Built"), 
+              grid.resolution = 10) %>% 
+  plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, colorkey = TRUE, 
+              screen = list(z = -20, x = -60))
+# Display plots side by side
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
