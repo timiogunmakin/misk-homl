@@ -50,20 +50,24 @@ More info TBD.
 
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
-| 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | TBD  | TBD   |
+| 1             | Introduction to machine learning     | [Notebook](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/01-introduction-slides.html)  | NA   |
 | 2             | The modeling process                 | [Notebook](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/02-modeling-process-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/02-modeling-process.Rmd)   |
 | 3             | Feature and target engineering       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/03-engineering-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/03-feature-engineering.Rmd) |
-| 4             | Linear regression                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/04-linear-regression.Rmd) |
-| 5             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
-| 6             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
-| 7             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | TBD  | TBD   |
-| 8             | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
-| 9             | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  | NA   |
-| 10            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  | NA   |
-| 11            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |
-| 12            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/12-gbm-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
-| 13            | Stacked models & AutoML              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/13-stacked.nb.html)  | TBD  | TBD   |
-| 14            | Case study.                          | [Notebook]()  | TBD  | TBD   |
+| 4             | __Portfolio builder:__               | [Notebook]()  | NA  | NA |
+| 5             | Linear regression                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/04-linear-regression.Rmd) |
+| 6             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
+| 7             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
+| 8             | __Portfolio builder:__               | [Notebook]()  | NA  | NA |
+| 9             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | TBD  | TBD   |
+| 10            | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
+| 11            | __Portfolio builder:__               | [Notebook]()  | NA  | NA |
+| 12            | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  | NA   |
+| 13            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  | NA   |
+| 14            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |
+| 15            | __Portfolio builder:__               | [Notebook]()  | NA  | NA |
+| 16            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/12-gbm-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
+| 17            | Stacked models & AutoML              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/13-stacked.nb.html)  | TBD  | TBD   |
+| 18            | __Portfolio builder:__               | [Notebook]()  | NA  | NA |
 
 
 ## Extras
