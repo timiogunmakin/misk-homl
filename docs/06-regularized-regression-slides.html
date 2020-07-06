@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Regularized Regression</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: center, middle, inverse
+
+.font300.white[Regularized Regression]
+
+---
+# Prerequisites
+
+.pull-left[
+
+.center.bold.font120[Packages]
+
+
+```r
+# Helper packages
+library(recipes)   # for feature engineering
+library(tidyverse) # general data munging
+
+# Modeling packages
+library(glmnet)   # for implementing regularized regression
+library(caret)    # for automating the tuning process
+library(rsample)  # for sampling
+
+# Model interpretability packages
+library(vip)      # for variable importance
+```
+
+]
+
+.pull-right[
+
+.center.bold.font120[Data]
+
+
+```r
+# ames data
+ames &lt;- AmesHousing::make_ames()
+# split data
+set.seed(123)
+split &lt;- initial_split(ames, strata = "Sale_Price")
+ames_train &lt;- training(split)
+```
+
+]
+
+---
+# The Idea
+
+.font120[As *p* grows larger, there are three main issues we most commonly run into:]
+
+1. Multicollinearity (we've already seen how PCR &amp; PLS help to resolve this)
+
+2. Insufficient solution ( `\(p &gt;&gt; n\)` )
+
+3. Interpretability
+   - Approach 1: model selection
+      - computationally inefficient (Ames data: `\(2^{80}\)` models to evaluate)
+      - simply assume a feature as in or out `\(\rightarrow\)` _hard threshholding_
+   - Approach 2: regularize
+      - retain all coefficients
+      - slowly pushes a feature's effect towards zero `\(\rightarrow\)` _soft threshholding_
+   
+--
+
+&lt;br&gt;
+.center.bold.blue[Regularization helps with all three of these issues!]
+
+---
+# Regular regression
+
+&lt;br&gt;
+
+`\begin{equation}
+\text{minimize} \bigg \{ SSE = \sum^n_{i=1} (y_i - \hat{y}_i)^2 \bigg \}
+\end{equation}`
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-2-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+# Regular.red[ized] regression
+
+&lt;br&gt;
+
+`\begin{equation}
+\text{minimize} \big \{ SSE + P \big \}
+\end{equation}`
+
+&lt;br&gt;
+
+Modify OLS objective function by adding a ___.red[P]enalty___ parameter 
+
+- Constrains magnitude of the coefficients
+
+- Progressively shrinks coefficients to zero
+
+- Reduces variability of coefficients (pulls correlated coefficients together)
+
+- Can automate feature selection
+
+
+.center.bold.blue[There are 3 variants of regularized regression]
+
+---
+# .red[Ridge] regression
+
+.pull-left[
+Objective function: 
+
+`\begin{equation}
+\text{minimize } \bigg \{ SSE + \lambda \sum^p_{j=1} \beta_j^2 \bigg \}
+\end{equation}`
+
+* referred to as `\(L_2\)` penalty
+
+* pulls correlated features towards each other
+
+* pushes coefficients to .red[near zero]
+
+* retains .red[all] features
+
+]
+
+.pull-right[
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/ridge-coef-example-1.png" style="display: block; margin: auto;" /&gt;
+
+&lt;img src="images/lambda.001.png" width="1753" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# .red[Lasso] regression
+
+.pull-left[
+Objective function: 
+
+`\begin{equation}
+\text{minimize } \bigg \{ SSE + \lambda \sum^p_{j=1} | \beta_j | \bigg \}
+\end{equation}`
+
+* referred to as `\(L_1\)` penalty
+
+* pulls correlated features towards each other
+
+* pushes coefficients to .red[zero]
+
+* performs .red[automated feature selection]
+
+]
+
+.pull-right[
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/lasso-coef-example-1.png" style="display: block; margin: auto;" /&gt;
+
+&lt;img src="images/lambda.001.png" width="1753" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# .red[Elastic net] regression
+
+.pull-left[
+Objective function: 
+
+`\begin{equation}
+\text{minimize } \bigg \{ SSE + \lambda_1 \sum^p_{j=1} \beta_j^2 + \lambda_2 \sum^p_{j=1} | \beta_j | \bigg \}
+\end{equation}`
+
+* combines `\(L_1\)` &amp; `\(L_2\)` penalties
+
+* provides best of both worlds
+
+]
+
+.pull-right[
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/elastic-net-coef-example-1.png" style="display: block; margin: auto;" /&gt;
+
+&lt;img src="images/lambda.001.png" width="1753" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Tuning
+
+.pull-left[
+
+* .bold[lambda]
+   - controls the magnitude of the penalty parameter
+   - rule of <span class=" faa-slow animated " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1511903783/3230/wiggle_thumbs_up.gif?1511903783" style="height:1em; width:auto; "/&gt;</span>: 0.1, 10, 100, 1000, 10000
+
+* .bold[alpha]
+   - controls the type of penalty (ridge, lasso, elastic net)
+   - rule of <span class=" faa-slow animated " style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1511903783/3230/wiggle_thumbs_up.gif?1511903783" style="height:1em; width:auto; "/&gt;</span>: 0, .25, .50, .75, 1
+
+]
+
+.pull-right[
+
+&lt;br&gt;
+.center[.bold[Tip]: find tuning parameters with:]
+
+
+```r
+caret::getModelInfo("glmnet")$glmnet$parameters
+##   parameter   class                    label
+## 1     alpha numeric        Mixing Percentage
+## 2    lambda numeric Regularization Parameter
+```
+
+.center[Here, "glmnet" represents the __caret__ method we are going to use]
+
+]
+
+---
+# R packages 📦
+
+.pull-left[
+
+## [`glmnet`](https://cran.r-project.org/package=glmnet)
+
+* original implementation of regularized regression in R
+
+* linear regression, logistic and multinomial regression models, Poisson regression and the Cox model
+
+* extremely efficient procedures for fitting the entire lasso or elastic-net regularization path
+
+]
+.pull-right[
+
+## [h2o](https://cran.r-project.org/package=h2o) 💧
+
+* java-based interface
+
+* Automated feature pre-processing &amp; validation procedures
+
+* Supports the following distributions: “guassian”, “binomial”, “multinomial”, “ordinal”, “poisson”, “gamma”, “tweedie”
+    
+]
+
+.center.bold[Other options exist (see __Regularized and Shrinkage Methods__ section of [Machine Learning task view](https://CRAN.R-project.org/view=MachineLearning
+)) but these are the preferred.]
+
+---
+# Data prep
+
+.pull-left[
+
+* glmnet only accepts the non-formula XY interface so prior to modeling we need to separate our feature and target sets and
+
+* dummy encode our feature set 
+
+]
+
+.pull-right[
+
+```r
+# Create training  feature matrices
+# we use model.matrix(...)[, -1] to discard the intercept
+X &lt;- model.matrix(Sale_Price ~ ., ames_train)[, -1]
+
+# transform y with log transformation
+Y &lt;- log(ames_train$Sale_Price)
+```
+]
+---
+# glmnet
+
+.bold[Pro Tip]: glmnet can auto-generate the appropriate λ values based on the data; the vast majority of the time you will have little need to adjust this default.
+
+.scrollable90[
+.pull-left[
+
+.center.bold[Ridge]
+
+
+```r
+ridge &lt;- glmnet(
+  x = X,
+  y = Y,
+  alpha = 0
+)
+
+plot(ridge, xvar = "lambda")
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-4-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+.pull-right[
+
+.center.bold[Lasso]
+
+
+```r
+lasso &lt;- glmnet(
+  x = X,
+  y = Y,
+  alpha = 1
+)
+
+plot(lasso, xvar = "lambda")
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-5-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+
+---
+# glmnet
+
+* So which one is better?
+
+--
+
+* We can use `cv.glmnet` to provide cross-validated results
+
+.scrollable90[
+.pull-left[
+
+.center.bold[Ridge]
+
+
+```r
+ridge &lt;- cv.glmnet(
+  x = X,
+  y = Y,
+  alpha = 0
+)
+
+plot(ridge)
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-6-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+.pull-right[
+
+.center.bold[Lasso]
+
+
+```r
+lasso &lt;- cv.glmnet(
+  x = X,
+  y = Y,
+  alpha = 1
+)
+
+plot(lasso)
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-7-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+# glmnet
+
+* So which one is better?
+* We can use `cv.glmnet` to provide cross-validated results
+* The results are similar but the lasso model provides feature selection --&gt; allows us to focus on only 64 features rather than 296!
+
+.code70.scrollable90[
+.pull-left[
+
+.center.bold[Ridge]
+
+
+```r
+# Ridge model - minimum MSE
+min(ridge$cvm)
+## [1] 0.0193355
+
+# Ridge model - lambda for this min MSE
+ridge$lambda.min 
+## [1] 0.1674023
+
+# Ridge model w/1-SE rule
+ridge$cvm[ridge$lambda == ridge$lambda.1se]
+## [1] 0.02073208
+
+# Ridge model w/1-SE rule -- No. of coef | 1-SE MSE
+ridge$nzero[ridge$lambda == ridge$lambda.1se]
+## s69 
+## 296
+```
+
+
+]
+
+.pull-right[
+
+.center.bold[Lasso]
+
+
+```r
+# Lasso model - minimum MSE
+min(lasso$cvm)       
+## [1] 0.02028048
+
+# Lasso model - lambda for this min MSE
+lasso$lambda.min 
+## [1] 0.001880471
+
+# Lasso model - w/1-SE rule
+lasso$cvm[lasso$lambda == lasso$lambda.1se]
+## [1] 0.02278907
+
+# Lasso model w/1-SE rule -- No. of coef | 1-SE MSE
+lasso$nzero[lasso$lambda == lasso$lambda.1se]
+## s35 
+##  62
+```
+
+]
+]
+
+---
+# Grid search
+
+Often, the optimal model contains an alpha somewhere between 0–1, thus we want to tune both the λ and the alpha parameters. 
+
+.scrollable90[
+.pull-left[
+
+```r
+# tuning grid
+hyper_grid &lt;- expand.grid(
+  alpha = seq(0, 1, by = .25),
+  lambda = c(0.1, 10, 100, 1000, 10000)
+)
+
+# perform resampling
+set.seed(123)
+cv_glmnet &lt;- train(
+  x = X,
+  y = Y,
+  method = "glmnet",
+  preProc = c("zv", "center", "scale"),
+  trControl = trainControl(method = "cv", number = 10),
+  tuneLength = 10
+)
+
+# best model
+cv_glmnet$results %&gt;%
+  filter(
+    alpha == cv_glmnet$bestTune$alpha,
+    lambda == cv_glmnet$bestTune$lambda
+    )
+##   alpha     lambda      RMSE  Rsquared        MAE    RMSESD RsquaredSD       MAESD
+## 1   0.1 0.02007101 0.1330084 0.8918911 0.08157713 0.0234813 0.03649193 0.004197479
+```
+]
+
+.pull-right[
+
+
+```r
+# plot results
+plot(cv_glmnet)
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/cv-glmnet-plot-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+]
+
+---
+# Comparing results to previous models
+
+.pull-left[
+
+* So how does this compare to our previous best model for the Ames data set? 
+
+* Keep in mind that for this module we log transformed the response variable (`Sale_Price`). 
+
+* Consequently, to provide a fair comparison to our previously model(s) we need to re-transform our predicted values.
+
+]
+
+.pull-right[
+
+
+```r
+# predict sales price on training data
+pred &lt;- predict(cv_glmnet, X)
+
+# compute RMSE of transformed predicted
+RMSE(exp(pred), exp(Y))
+## [1] 21768.32
+```
+
+]
+
+---
+# Feature interpretation
+
+
+```r
+vip(cv_glmnet, num_features = 20, geom = "point")
+```
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/unnamed-chunk-11-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+# Feature interpretation
+
+&lt;img src="06-regularized-regression-slides_files/figure-html/regularized-top4-pdp-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
