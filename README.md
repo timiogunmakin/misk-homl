@@ -1,4 +1,4 @@
-Hands-on machine learning for predictive analytics
+Hands-on machine learning for predictive analytics with R
 ================
 
 ### Misk Academy
@@ -57,22 +57,13 @@ More info TBD.
 | 5             | Linear regression                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/04-linear-regression.Rmd) |
 | 6             | Logistic regression                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/05-logistic-regression.nb.html)  | TBD  | TBD   |
 | 7             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | TBD  | TBD   |
-| 8             | __Portfolio builder #2__               | [Notebook]()  |   |  |
+| 8             | __Portfolio builder #2__               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/99x2-portfolio-builder.html)  |   |  |
 | 9             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | TBD  | TBD   |
 | 10            | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
-| 11            | __Portfolio builder #3__               | [Notebook]()  |   |  |
-| 12            | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  |    |
-| 13            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  |    |
-| 14            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |
-| 15            | __Portfolio builder #4__               | [Notebook]()  |   |  |
-| 16            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/12-gbm-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
-| 17            | Stacked models & AutoML              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/13-stacked.nb.html)  | TBD  | TBD   |
-| 18            | __Portfolio builder #5__               | [Notebook]()  |   |   |
-
-
-## Extras
-
-| Description                             | Notebook 
-| :-------------------------------------- | :-----------: |
-| Python: importing the data              | [Notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/01-introduction.ipynb) |
-| Python: modeling process                | [Notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/02-modeling-process.ipynb) |
+| 11            | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  |    |
+| 12            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  |    |
+| 13            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |
+| 14            | __Portfolio builder #3__               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/99x3-portfolio-builder.html)  |   |  |
+| 15            | Gradient boosting                    | [Notebook](https://misk-data-science.github.io/misk-homl/docs/12-gbm.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/12-gbm-slides.html)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/12-gbm.Rmd)   |
+| 16            | Stacked models & AutoML              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/13-stacked.nb.html)  | TBD  | TBD   |
+| 17            | __Portfolio builder #4__               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/99x4-portfolio-builder.html)  |   |   |

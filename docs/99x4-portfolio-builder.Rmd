@@ -1,0 +1,42 @@
+---
+title: "Portfolio Builder Exercise #4"
+output: html_document
+---
+
+Using the same dataset leveraged for Portfolio Builder Exercises [#1](https://misk-data-science.github.io/misk-homl/docs/99x1-portfolio-builder.html),  [#2](https://misk-data-science.github.io/misk-homl/docs/99x2-portfolio-builder.html), & [#3](https://misk-data-science.github.io/misk-homl/docs/99x3-portfolio-builder.html) write up a third report that answers the following:
+
+1. Apply a basic GBM model with the same features you used in the random forest module. 
+   - Apply the default hyperparameter settings with a learning rate set to 0.10. How does model performance compare to the random forest module?
+   - How many trees were applied? Was this enough to stabilize the loss function or do you need to add more?
+   - Tune the hyperparameters using the suggested tuning strategy for basic GBMs. Did your model performance improve?
+
+2. Apply a stochastic GBM model. Tune the hyperparameters using the suggested tuning strategy for stochastic GBMs. Did your model performance improve?
+
+3. Apply an XGBoost model. Tune the hyperparameters using the suggested tuning strategy for XGBoost models. 
+   - Did your model performance improve?
+   - Did regularization help?
+
+4. Pick your best GBM model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+
+5. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+
+6. Using H2O, build and assess the following individual models:
+   - regularized regression base learner, 
+   - random forest base learner.
+   - GBM and/or XGBoost base learner.
+   
+7. Using `h2o.stackedEnsemble()`, stack these three models.
+   - Does your stacked model performance improve over and above the individual learners?
+   - Explain your reasoning why or why not performance improves.
+
+8. Perform a stacked grid search with an H2O GBM or XGBoost model.
+   - What was your best performing model?
+   - Do you notice any patterns in the hyperparameter settings for the top 5-10 models?
+
+9. Perform an AutoML search across multiple types of learners.
+   - Which types of base learners are in the top 10?
+   - What model provides the optimal performance?
+   - Apply this model to the test set. How does the test loss function compare to the training cross-validated RMSE?
+
+
+[🏠](https://github.com/misk-data-science/misk-homl)

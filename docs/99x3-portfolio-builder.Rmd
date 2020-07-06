@@ -1,0 +1,25 @@
+---
+title: "Portfolio Builder Exercise #3"
+output: html_document
+---
+
+Using the same dataset leveraged for Portfolio Builder Exercise [#1](https://misk-data-science.github.io/misk-homl/docs/99x1-portfolio-builder.html) & [#2](https://misk-data-science.github.io/misk-homl/docs/99x2-portfolio-builder.html), write up a third report that answers the following:
+
+1. Apply a MARS model with all features.
+   - How does the model performance compare to your previous models?
+   - How many of the features are influential? Which 10 features are considered most influential?
+   - Does your model include hinge functions? If so, explain their coefficient and plot their impact on the predicted response variable.
+   - Does your model include interactions? If so, pick the interaction effect that is most influential and explain the coefficient.
+   
+2. Apply a random forest model.
+   - First, apply a default random forest model.
+   - Now apply a a full cartesian grid search across various values of $m_{try}$, tree complexity & sampling scheme.
+   - Now run a random grid search across the same hyperparameter grid but restrict the time or number of models to run to 50% of the models ran in the full cartesian.
+
+3. Pick the best performing model from above.
+   - Identify the most influential features for this model.
+   - Plot the top 10 most influential features.
+   - Do these features have positive or negative impacts on your response variable?
+   - Create partial dependence plots for these features. Explain the relationship between the feature and the predicted values.
+
+[🏠](https://github.com/misk-data-science/misk-homl)

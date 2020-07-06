@@ -1,0 +1,33 @@
+---
+title: "Portfolio Builder Exercise #2"
+output: html_document
+---
+
+Using the same dataset leveraged for [Portfolio Builder Exercise #1](https://misk-data-science.github.io/misk-homl/docs/99x1-portfolio-builder.html), write up a second report that answers the following:
+
+1. Depending on the type of response variable, apply a linear or logistic regression model.
+   - First, apply the model to your data without pre-applying feature engineering processes.
+   - Create and a apply a blueprint of feature engineering processes that you think will help your model improve.
+   - Now reapply the model to your data that has been feature engineered.
+   - Did your model performance improve?
+   
+2. Apply a principal component regression model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+   
+3. Apply a partial least squares regression model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+   
+4. Apply a regularized regression model.
+   - Perform a grid search across alpha parameter values ranging between 0–1.
+   - What is the optimal alpha and lambda values?
+   - What is the MSE and RMSE for this optimal model?
+   - How does it compare to your previous models?
+   
+5. Pick the best performing model from above.
+   - Identify the most influential features for this model.
+   - Plot the top 10 most influential features.
+   - Do these features have positive or negative impacts on your response variable?
+   
+[🏠](https://github.com/misk-data-science/misk-homl)

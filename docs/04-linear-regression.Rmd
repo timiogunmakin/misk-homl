@@ -579,7 +579,7 @@ Linear regression is usually the first supervised learning algorithm you will le
 
 # Exercises
 
-Using the same dataset as you used in the previous module's [exercise](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html#exercises):
+Using the Boston housing data set from the [pdp package](https://cran.r-project.org/package=pdp), where the response feature is the median value of homes within a census tract (`cmedv`):
 
 1. Pick a single feature and apply simple linear regression model.
    - Interpret the feature's coefficient

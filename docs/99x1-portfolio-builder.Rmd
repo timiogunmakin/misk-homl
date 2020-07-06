@@ -32,3 +32,4 @@ Identify one of the open source datasets you found during module 1's [exercise](
    - Now reapply the KNN model to your data that has been feature engineered.
    - Did your model performance improve?
    
+[🏠](https://github.com/misk-data-science/misk-homl)
