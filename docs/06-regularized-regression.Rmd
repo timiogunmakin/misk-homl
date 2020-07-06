@@ -558,9 +558,9 @@ However, regularized regression does require some feature preprocessing.  Notabl
 
 # Exercises
 
-Using the same dataset as you used in the [feature engineering](https://misk-data-science.github.io/misk-homl/docs/03-engineering.nb.html#exercises) and [linear regression](https://misk-data-science.github.io/misk-homl/docs/04-linear-regression.nb.html#exercises) exercises:
+Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISLR")`):
 
-1. Apply a ridge model with glmnet.
+1. Apply a ridge model with glmnet with `Salary` being the response variable.
    - What is the minimum MSE?
    - What is the minimum MSE within 1 standard error?
    - What are the lambda values for these MSEs?
