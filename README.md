@@ -30,7 +30,13 @@ This module will teach students how to build and tune these various models with 
 
 ## Learning Objectives
 
-TBD
+This module will step through the process of building, visualizing, testing, and comparing supervised models. The goal is to expose you to building machine learning models in R using a variety of packages and model types. By the end of this module you should:
+
+* Understand how to apply an end-to-end modeling process that allows you to find an optimal model.
+* Be able to properly pre-process your feature and target variables.
+* Interpret, apply and compare today's most popular and effective machine learning algorithms.
+* Methodically and efficiently tune these algorithms.
+* Visualize and compare how features impact these models.
 
 ## Prework
 
@@ -46,7 +52,6 @@ This module makes a few assumptions of your established knowledge regarding your
 
 ## Schedule
 
-More info TBD.
 
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
@@ -59,7 +64,7 @@ More info TBD.
 | 7             | Regularized regression               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/06-regularized-regression-slides.html) | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/06-regularized-regression.Rmd) |
 | 8             | __Portfolio builder #2__               | [Notebook](https://misk-data-science.github.io/misk-homl/docs/99x2-portfolio-builder.html)  |   |  |
 | 9             | Multivariate adaptive regression splines | [Notebook](https://misk-data-science.github.io/misk-homl/docs/07-mars.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/07-mars-slides.html) | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/07-mars.Rmd) |
-| 10            | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  | TBD  | TBD   |
+| 10            | K-nearest neighbors                  | [Notebook](https://misk-data-science.github.io/misk-homl/docs/08-knn.nb.html)  |  [HTML](https://misk-data-science.github.io/misk-homl/docs/08-knn-slides.html) | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/08-knn.Rmd) |
 | 11            | Decision trees                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/09-decision-trees.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#1)  |    |
 | 12            | Bagging                              | [Notebook](https://misk-data-science.github.io/misk-homl/docs/10-bagging.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#28)  |    |
 | 13            | Random forests                       | [Notebook](https://misk-data-science.github.io/misk-homl/docs/11-random-forests.nb.html)  | [HTML](https://misk-data-science.github.io/misk-homl/docs/09-dt-bagging-rf-slides.html#36)  | [.Rmd](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/11-random-forests.Rmd)   |

@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>K-nearest Neighbor</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Misk Academy" />
+    <script src="libs/htmlwidgets/htmlwidgets.js"></script>
+    <script src="libs/jquery/jquery.min.js"></script>
+    <link href="libs/leaflet/leaflet.css" rel="stylesheet" />
+    <script src="libs/leaflet/leaflet.js"></script>
+    <link href="libs/leafletfix/leafletfix.css" rel="stylesheet" />
+    <script src="libs/Proj4Leaflet/proj4-compressed.js"></script>
+    <script src="libs/Proj4Leaflet/proj4leaflet.js"></script>
+    <link href="libs/rstudio_leaflet/rstudio_leaflet.css" rel="stylesheet" />
+    <script src="libs/leaflet-binding/leaflet.js"></script>
+    <link href="libs/font-awesome-animation/font-awesome-animation-emi.css" rel="stylesheet" />
+    <script src="libs/fontawesome/js/fontawesome-all.min.js"></script>
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+class: center, middle, inverse
+
+.font300.white[K-nearest Neighbor]
+
+---
+# Prerequisites
+
+.pull-left[
+
+
+```r
+# Helper packages
+library(dplyr)      # for data wrangling
+library(ggplot2)    # for awesome graphics
+library(rsample)    # for creating validation splits
+library(recipes)    # for feature engineering
+
+# Modeling packages
+library(caret)       # for fitting KNN models
+```
+
+]
+
+.pull-right[
+
+
+```r
+# Ames housing data
+ames &lt;- AmesHousing::make_ames()
+set.seed(123)
+split  &lt;- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  &lt;- rsample::training(split)
+
+# create training (70%) set for the rsample::attrition data.
+attrit &lt;- attrition %&gt;% mutate_if(is.ordered, factor, ordered = FALSE)
+set.seed(123)
+churn_split &lt;- initial_split(attrit, prop = .7, strata = "Attrition")
+churn_train &lt;- training(churn_split)
+
+# import MNIST training data
+mnist &lt;- dslabs::read_mnist()
+names(mnist)
+## [1] "train" "test"
+```
+
+]
+
+---
+# Measuring similarity
+
+.pull-left[
+
+* KNN algorithm identifies `\(k\)` observations that are "similar" or nearest to the new record being predicted
+
+* Real estate analogy --&gt; determine what price they will list (or market) a home for based on "comps" (comparable homes)
+
+* Homes that have very similar attributes to the one being sold (e.g., square footage, number of rooms, style of the home, neighborhood and school district)
+
+]
+
+.pull-right[
+
+<div id="htmlwidget-b7b2b1fa2f8220dda141" style="width:504px;height:576px;" class="leaflet html-widget"></div>
+<script type="application/json" data-for="htmlwidget-b7b2b1fa2f8220dda141">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"http://openstreetmap.org\">OpenStreetMap<\/a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA<\/a>"}]},{"method":"addCircleMarkers","args":[[42.062352,42.0623985,42.057028,42.058782,42.062046,42.062992,42.062789,42.059561,42.062991,42.059197,42.063141],[-93.653201,-93.657049,-93.655587,-93.65486,-93.658873,-93.654144,-93.657835,-93.650917,-93.654241,-93.65045,-93.654243],10,null,null,{"interactive":true,"className":"","stroke":false,"color":["#FF0000","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF"],"weight":5,"opacity":0.5,"fill":true,"fillColor":["#FF0000","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF","#0000FF"],"fillOpacity":0.75},null,null,null,null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[42.057028,42.063141],"lng":[-93.658873,-93.65045]}},"evals":[],"jsHooks":[]}</script>
+
+
+]
+
+---
+# Distance measures
+
+How do we determine the similarity between observations (or homes as in the previous example)?
+
+.pull-left[
+
+
+`\begin{equation}
+ \text{Euclidean: }\sqrt{\sum^P_{j=1}(x_{aj} - x_{bj})^2}
+\end{equation}`
+
+]
+
+.pull-right[
+
+`\begin{equation}
+ \text{Manhattan: }\sum^P_{j=1} | x_{aj} - x_{bj} | 
+\end{equation}`
+
+]
+
+To illustrate let's look at two homes:
+
+
+```r
+(two_houses &lt;- ames_train[1:2, c("Gr_Liv_Area", "Year_Built")])
+## # A tibble: 2 x 2
+##   Gr_Liv_Area Year_Built
+##         &lt;int&gt;      &lt;int&gt;
+## 1        1656       1960
+## 2         896       1961
+```
+
+---
+# Distance measures
+
+How do we determine the similarity between observations (or homes as in the previous example)?
+
+.pull-left[
+
+
+`\begin{equation}
+ \text{Euclidean: }\sqrt{\sum^P_{j=1}(x_{aj} - x_{bj})^2}
+\end{equation}`
+
+
+```r
+dist(two_houses, method = "euclidean")
+##          1
+## 2 760.0007
+```
+
+&lt;img src="08-knn-slides_files/figure-html/unnamed-chunk-3-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+.pull-right[
+
+`\begin{equation}
+ \text{Manhattan: }\sum^P_{j=1} | x_{aj} - x_{bj} | 
+\end{equation}`
+
+
+```r
+dist(two_houses, method = "manhattan")
+##     1
+## 2 761
+```
+
+&lt;img src="08-knn-slides_files/figure-html/unnamed-chunk-5-1.png" style="display: block; margin: auto;" /&gt;
+
+]
+
+---
+# Pre-processing
+
+.pull-left[
+
+* Due to the squaring in the Euclidean distance function, the Euclidean distance is more sensitive to outliers. 
+* Furthermore, most distance measures are sensitive to the scale of the features. 
+* Data with features that have different scales will bias the distance measures as those predictors with the largest values will contribute most to the distance between two samples.  
+* For example, consider the three home below: `home1` is a four bedroom built in 2008, `home2` is a two bedroom built in the same year, and `home3` is a three bedroom built a decade earlier.
+]
+
+.pull-right[
+
+
+
+
+```r
+home1
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;int&gt;      &lt;int&gt; &lt;int&gt;
+## 1 home1             4       2008   423
+home2
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;int&gt;      &lt;int&gt; &lt;int&gt;
+## 1 home2             2       2008   424
+home3
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;int&gt;      &lt;int&gt; &lt;int&gt;
+## 1 home3             3       1998     6
+```
+
+]
+
+---
+# Pre-processing
+
+.pull-left[
+
+* Due to the squaring in the Euclidean distance function, the Euclidean distance is more sensitive to outliers. 
+* Furthermore, most distance measures are sensitive to the scale of the features. 
+* Data with features that have different scales will bias the distance measures as those predictors with the largest values will contribute most to the distance between two samples.  
+* For example, consider the three home below: `home1` is a four bedroom built in 2008, `home2` is a two bedroom built in the same year, and `home3` is a three bedroom built a decade earlier.
+
+]
+
+.pull-right[
+
+
+```r
+features &lt;- c("Bedroom_AbvGr", "Year_Built")
+
+# distance between home 1 and 2
+dist(rbind(home1[,features], home2[,features]))
+##   1
+## 2 2
+
+# distance between home 1 and 3
+dist(rbind(home1[,features], home3[,features]))
+##          1
+## 2 10.04988
+```
+
+]
+
+&lt;br&gt;
+
+.center.bold[The Euclidean distance between `home1` and `home3` is larger due to the larger difference in `Year_Built` with `home2`.]
+
+---
+# Pre-processing
+
+.scrollable90[
+.pull-left[
+
+* Due to the squaring in the Euclidean distance function, the Euclidean distance is more sensitive to outliers. 
+* Furthermore, most distance measures are sensitive to the scale of the features. 
+* Data with features that have different scales will bias the distance measures as those predictors with the largest values will contribute most to the distance between two samples.  
+* For example, consider the three home below: `home1` is a four bedroom built in 2008, `home2` is a two bedroom built in the same year, and `home3` is a three bedroom built a decade earlier.
+* .bold[Standardizing eliminates these magnitude differences.]
+
+]
+
+.pull-right[
+
+
+
+
+```r
+home1_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt; &lt;int&gt;
+## 1 home1          1.38       1.21   423
+home2_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt; &lt;int&gt;
+## 1 home2         -1.03       1.21   424
+home3_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt; &lt;int&gt;
+## 1 home3         0.176      0.881     6
+
+# distance between home 1 and 2
+dist(rbind(home1_std[,features], home2_std[,features]))
+##          1
+## 2 2.416244
+
+# distance between home 1 and 3
+dist(rbind(home1_std[,features], home3_std[,features]))
+##          1
+## 2 1.252547
+```
+
+]]
+
+---
+# Choosing K
+
+.scrollable90[
+.pull-left[
+
+* `\(k\)` is our one hyperparameter!
+* When `\(k = 1\)`, we base our prediction on a single observation that has the closest distance measure.
+* When `\(k = n\)`, we are simply using the average (regression) or most common class (classification) across all training samples as our predicted value.
+* No general rule about the best `\(k\)` as it depends greatly on the nature of the data. 
+* For high signal data with very few noisy (irrelevant) features, smaller values of `\(k\)` tend to work best. As more irrelevant features are involved, larger values of `\(k\)` are required to smooth out the noise
+* .bold[Pro Tip]: When using KNN for classification, it is best to assess odd numbers for `\(k\)` to avoid ties in the event there is equal proportion of response levels.
+
+]
+
+.pull-right[
+
+
+```r
+# Create blueprint
+blueprint &lt;- recipe(Attrition ~ ., data = churn_train) %&gt;%
+  step_nzv(all_nominal()) %&gt;%
+  step_integer(contains("Satisfaction")) %&gt;%
+  step_integer(WorkLifeBalance) %&gt;%
+  step_integer(JobInvolvement) %&gt;%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %&gt;%
+  step_center(all_numeric(), -all_outcomes()) %&gt;%
+  step_scale(all_numeric(), -all_outcomes())
+
+# Create a resampling method
+cv &lt;- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5,
+  classProbs = TRUE,                 
+  summaryFunction = twoClassSummary
+)
+
+# Create a hyperparameter grid search
+hyper_grid &lt;- expand.grid(
+  k = floor(seq(1, nrow(churn_train)/3, length.out = 20))
+)
+
+# Fit knn model and perform grid search
+knn_grid &lt;- train(
+  blueprint, 
+  data = churn_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "ROC"
+)
+
+ggplot(knn_grid)
+```
+
+&lt;img src="08-knn-slides_files/figure-html/range-k-values-1.png" style="display: block; margin: auto;" /&gt;
+
+]]
+
+---
+# MNIST
+
+.pull-left[
+
+* Due to size let's just take a subset
+
+]
+
+.pull-right[
+
+
+```r
+set.seed(123)
+index &lt;- sample(nrow(mnist$train$images), size = 10000)
+mnist_x &lt;- mnist$train$images[index, ]
+mnist_y &lt;- factor(mnist$train$labels[index])
+```
+
+
+]
+
+---
+# MNIST
+
+.pull-left[
+
+* Due to size let's just take a subset
+* Lots of near-zero variance features
+
+]
+
+.pull-right[
+
+
+```r
+mnist_x %&gt;%
+  as.data.frame() %&gt;%
+  purrr::map_df(sd) %&gt;%
+  gather(feature, sd) %&gt;%
+  ggplot(aes(sd)) +
+  geom_histogram(binwidth = 1)
+```
+
+&lt;img src="08-knn-slides_files/figure-html/unnamed-chunk-8-1.png" style="display: block; margin: auto;" /&gt;
+
+
+]
+
+---
+# MNIST
+
+.pull-left[
+
+* Due to size let's just take a subset
+* Lots of near-zero variance features
+
+]
+
+.pull-right[
+
+&lt;div class="figure" style="text-align: center"&gt;
+&lt;img src="08-knn-slides_files/figure-html/mnist-plot-nzv-feature-image-1.png" alt="Example images (A)-(C) from our data set and (D) highlights near-zero variance features around the edges of our images."  /&gt;
+&lt;p class="caption"&gt;Example images (A)-(C) from our data set and (D) highlights near-zero variance features around the edges of our images.&lt;/p&gt;
+&lt;/div&gt;
+
+]
+
+---
+# MNIST
+
+.pull-left[
+
+* Due to size let's just take a subset
+* Lots of near-zero variance features
+* Removing these zero (or near-zero) variance features, we end up keeping 46 of the original 249 predictors
+   - can cause dramatic improvements to both the accuracy and speed of our algorithm
+]
+
+.pull-right[
+
+
+```r
+# Rename features
+colnames(mnist_x) &lt;- paste0("V", 1:ncol(mnist_x))
+
+# Remove near zero variance features manually
+nzv &lt;- nearZeroVar(mnist_x)
+index &lt;- setdiff(1:ncol(mnist_x), nzv)
+mnist_x &lt;- mnist_x[, index]
+```
+
+]
+
+---
+# MNIST
+
+.scrollable90[
+.pull-left[
+
+* Due to size let's just take a subset
+* Lots of near-zero variance features
+* Removing these zero (or near-zero) variance features, we end up keeping 46 of the original 249 predictors
+   - can cause dramatic improvements to both the accuracy and speed of our algorithm
+* .bold.red[Warning]: Our hyperparameter grid search assesses 13 k values between 1–25 and takes approximately 3 minutes.
+
+]
+
+.pull-right[
+
+
+```r
+# Use train/validate resampling method
+cv &lt;- trainControl(
+  method = "LGOCV", 
+  p = 0.7,
+  number = 1,
+  savePredictions = TRUE
+)
+
+# Create a hyperparameter grid search
+hyper_grid &lt;- expand.grid(k = seq(3, 25, by = 2))
+
+# Execute grid search
+knn_mnist &lt;- train(
+  mnist_x,
+  mnist_y,
+  method = "knn",
+  tuneGrid = hyper_grid,
+  preProc = c("center", "scale"),
+  trControl = cv
+)
+
+ggplot(knn_mnist)
+```
+
+&lt;div class="figure" style="text-align: center"&gt;
+&lt;img src="08-knn-slides_files/figure-html/mnist-initial-model-1.png" alt="KNN search grid results for the MNIST data"  /&gt;
+&lt;p class="caption"&gt;KNN search grid results for the MNIST data&lt;/p&gt;
+&lt;/div&gt;
+
+]]
+
+---
+# Results
+
+.pull-left[
+
+* 94% accuracy rate
+
+* hardest to detect
+   - 8s
+   - 4s
+   - 3s
+   - 2s
+
+]
+
+.pull-right[
+
+
+```r
+# Create confusion matrix
+cm &lt;- confusionMatrix(knn_mnist$pred$pred, knn_mnist$pred$obs)
+cm$byClass[, c(1:2, 11)]  # sensitivity, specificity, &amp; accuracy
+##          Sensitivity Specificity Balanced Accuracy
+## Class: 0   0.9641638   0.9962374         0.9802006
+## Class: 1   0.9916667   0.9841210         0.9878938
+## Class: 2   0.9155666   0.9955114         0.9555390
+## Class: 3   0.9163952   0.9920325         0.9542139
+## Class: 4   0.8698630   0.9960538         0.9329584
+## Class: 5   0.9151404   0.9914891         0.9533148
+## Class: 6   0.9795322   0.9888684         0.9842003
+## Class: 7   0.9326520   0.9896962         0.9611741
+## Class: 8   0.8224382   0.9978798         0.9101590
+## Class: 9   0.9329897   0.9852687         0.9591292
+```
+
+]
+
+---
+# Visualizing correct &amp; incorrect predictions
+
+.scrollable90[
+
+
+```r
+# Get a few accurate predictions
+set.seed(9)
+good &lt;- knn_mnist$pred %&gt;%
+  filter(pred == obs) %&gt;%
+  sample_n(4)
+
+# Get a few inaccurate predictions
+set.seed(9)
+bad &lt;- knn_mnist$pred %&gt;%
+  filter(pred != obs) %&gt;%
+  sample_n(4)
+
+combine &lt;- bind_rows(good, bad)
+
+# Get original feature set with all pixel features
+set.seed(123)
+index &lt;- sample(nrow(mnist$train$images), 10000)
+X &lt;- mnist$train$images[index,]
+
+# Plot results
+par(mfrow = c(4, 2), mar=c(1, 1, 1, 1))
+layout(matrix(seq_len(nrow(combine)), 4, 2, byrow = FALSE))
+for(i in seq_len(nrow(combine))) {
+  image(matrix(X[combine$rowIndex[i],], 28, 28)[, 28:1], 
+        col = gray(seq(0, 1, 0.05)),
+        main = paste("Actual:", combine$obs[i], "  ", 
+                     "Predicted:", combine$pred[i]),
+        xaxt="n", yaxt="n") 
+}
+```
+
+&lt;div class="figure" style="text-align: center"&gt;
+&lt;img src="08-knn-slides_files/figure-html/correct-vs-incorrect-1.png" alt="Actual images from the MNIST data set along with our KNN model's predictions.  Left column illustrates a few accurate predictions and the right column illustrates a few inaccurate predictions."  /&gt;
+&lt;p class="caption"&gt;Actual images from the MNIST data set along with our KNN model's predictions.  Left column illustrates a few accurate predictions and the right column illustrates a few inaccurate predictions.&lt;/p&gt;
+&lt;/div&gt;
+
+]
+
+---
+# Summary
+
+- KNNs are a very simplistic, and intuitive, algorithm that can provide average to decent predictive power, especially when the response is dependent on the local structure of the features
+
+- Major drawback of KNNs is their computation time, which increases by `\(n \times p\)` for each observation
+
+- Furthermore, since KNNs are a lazy learner, they require the model be run at prediction time which limits their use for real-time modeling
+
+- Although KNNs rarely provide the best predictive performance, they have many benefits, for example, in feature engineering and in data cleaning and preprocessing
+
+---
+class: clear, center, middle
+
+background-image: url(images/any-questions.jpg)
+background-position: center
+background-size: cover
+
+---
+# Back home
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+[.center[<span>&lt;i class="fas  fa-home fa-10x faa-FALSE animated "&gt;&lt;/i&gt;</span>]](https://github.com/misk-data-science/misk-homl)
+
+.center[https://github.com/misk-data-science/misk-homl]
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
