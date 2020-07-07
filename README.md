@@ -43,11 +43,12 @@ This module will step through the process of building, visualizing, testing, and
 This module makes a few assumptions of your established knowledge regarding your programming skills and exposure to basic statistical concepts. Below are my assumptions and the relevant courses that you should have already attended to make sure you are properly prepared.
 
 | Assumptions                       | Resource      
-| --------------------------------- | ------------- |
+| --------------------------------- | :-------------: |
 | Comfortable with R programming    | [link](https://github.com/misk-data-science/misk-intro-ds) | 
 | Proficient with basic data wrangling tasks    | [link](https://github.com/misk-data-science/misk-intro-ds) | 
 | Knowledgable of foundational statistics    | [link](https://github.com/misk-data-science/misk-stats-foundations) |
 
+Prior to session 1, please run the `00-setup.Rmd` notebook to ensure you have the necessary packages used throughout.
 
 ## Schedule
 
