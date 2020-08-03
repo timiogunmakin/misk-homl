@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-26"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -42,14 +44,10 @@ if (Sys.getenv("RSTUDIO") == "1" && !nzchar(Sys.getenv("RSTUDIO_TERM")) &&
 }
 ```
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/gbm-icon.jpg)
-background-position: center
-background-size: cover
-
-<br><br><br>
-.font300.white[Gradient Boosting Machines]
+<br><br><br><br><br><br>
+# .font140[Gradient Boosting Machines]
 
 ---
 # Introduction
@@ -117,9 +115,10 @@ ames_train <- rsample::training(split)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Technicalities]
+<br><br><br><br><br><br><br>
+.bold.font250[Technicalities]
 
 ---
 # Decision Trees
@@ -626,9 +625,10 @@ animate_p
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Basic GBM]
+<br><br><br><br><br><br><br>
+.bold.font250[Basic GBM]
 
 ---
 # Basic GBM
@@ -1336,9 +1336,10 @@ arrange(hyper_grid, rmse)
 ]]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Stochastic GBM]
+<br><br><br><br><br><br><br>
+.bold.font250[Stochastic GBM]
 
 ---
 # Adding randomness
@@ -1400,9 +1401,10 @@ for(i in bag_frac) {
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Extreme Gradient Boosting]
+<br><br><br><br><br><br><br>
+.bold.font250[Extreme Gradient Boosting]
 
 ---
 # XGBoost Advantage
@@ -1854,9 +1856,10 @@ ames_final_xgb <- xgboost(
 ]]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Feature Interpretation]
+<br><br><br><br><br><br><br>
+.bold.font250[Feature Interpretation]
 
 ---
 # Feature Interpretation .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 14]
@@ -1906,9 +1909,10 @@ ames_final_xgb %>%
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Wrapping Up]
+<br><br><br><br><br><br><br>
+.bold.font250[Wrapping Up]
 
 ---
 # Summary
@@ -2010,7 +2014,7 @@ knitr::include_graphics("images/esl.jpg")
 ]
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

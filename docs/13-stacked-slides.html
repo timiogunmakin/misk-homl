@@ -15,14 +15,10 @@
 
 
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/stacking-icon.jpg)
-background-position: center
-background-size: cover
-
-&lt;br&gt;&lt;br&gt;&lt;br&gt;
-.font300.white[Model Stacking &amp; AutoML]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+# .font140[Model Stacking &amp; AutoML]
 
 ---
 # Introduction
@@ -113,9 +109,10 @@ X &lt;- setdiff(names(ames_train), Y)
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Basic Idea]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Basic Idea]
 
 
 ---
@@ -186,10 +183,12 @@ Part 3: Predict on new data
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Stacking Existing Models]  
-.white[_Train first, stack later_]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Stacking Existing Models]
+
+_Train first, stack later_
 
 ---
 # Stacking existing models
@@ -417,9 +416,10 @@ data.frame(
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Stacking a Grid Search]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Stacking a Grid Search]
 
 ---
 # Stacking a grid search
@@ -580,9 +580,10 @@ h2o.performance(ensemble, newdata = test_h2o)
 .center.bold.blue[We see little benefit here; likely because our predictions are highly correlated.]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Auto ML Search]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Auto ML Search]
 
 ---
 # Auto ML search
@@ -765,7 +766,7 @@ auto_ml@leaderboard %&gt;% as.data.frame()
 ]
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center
@@ -869,6 +870,35 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   }
   preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
 })(document);</script>
+<style>
+.logo {
+  background-image: url(https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  bottom: -3em;
+  right: 1em;
+  width: 110px;
+  height: 128px;
+  z-index: 0;
+}
+</style>
+
+<script>
+document
+  .querySelectorAll(
+    '.remark-slide-content' +
+    ':not(.title-slide)' +
+    ':not(.misk-title-slide)' +
+    ':not(.misk-section-slide)' +
+    // add additional classes to exclude here, e.g.
+    // ':not(.inverse)' +
+    ':not(.hide-logo)'
+  )
+  .forEach(el => {
+    el.innerHTML += '<div class="logo"></div>';
+  });
+</script>
 
 <script>
 slideshow._releaseMath = function(el) {

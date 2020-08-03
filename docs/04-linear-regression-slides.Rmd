@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -34,14 +36,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(https://educationalresearchtechniques.files.wordpress.com/2014/08/1.jpg?w=624)
-background-position: center
-background-size: cover
-
-<br><br><br><br><br><br><br><br><br><br><br><br><br>
-.font200.bold[Regression & Cousins]
+<br><br><br><br><br>
+# .font150[Regression & Cousins]
 
 ---
 # Introduction
@@ -568,9 +566,10 @@ knitr::include_graphics("http://tinderdistrict.com/wp-content/uploads/2018/06/co
 .bold.center[Many regression extensions have been developed to deal with these concerns.]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Principal Component Regression]
+<br><br><br><br><br><br><br>
+.bold.font250[Principal Component Regression]
 
 ---
 # The idea
@@ -697,9 +696,10 @@ plot(cv_pcr)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Partial Least Squares Regression]
+<br><br><br><br><br><br><br>
+.bold.font250[Partial Least Squares Regression]
 
 ---
 # The idea
@@ -854,9 +854,10 @@ plot(cv_pls)
    - start with a few and zoom in
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Model Comparison]
+<br><br><br><br><br><br><br>
+.bold.font250[Model Comparison]
 
 ---
 # Comparing error distributions .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 10]
@@ -887,9 +888,10 @@ gridExtra::grid.arrange(p1, p2, nrow = 1)
 .center.bold[Student's *t*-test or a rank sum test could also be used.]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Feature Interpretation]
+<br><br><br><br><br><br><br>
+.bold.font250[Feature Interpretation]
 
 ---
 # Feature importance .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 11]
@@ -992,9 +994,10 @@ pdp::partial(cv_model2, pred.var = c("Gr_Liv_Area", "Year_Built"), grid.resoluti
 
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Wrapping up]
+<br><br><br><br><br><br><br>
+.bold.font250[Wrapping up]
 
 ---
 # Summary
@@ -1012,7 +1015,7 @@ class: center, middle, inverse
    - creates stronger signal btwn PCs and target
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

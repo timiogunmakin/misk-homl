@@ -20,3 +20,16 @@ leaflet
 gbm
 h2o
 xgboost
+knitr
+kableExtra
+ROCR
+Formula
+plotrix
+TeachingDemos
+plotmo
+earth
+pdp
+gganimate
+MASS
+randomForest
+ranger

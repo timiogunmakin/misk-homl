@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -34,9 +36,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: center, middle, inverse
+class: misk-title-slide   
 
-.font300.white[Multivariate Adaptive Regression Splines]
+<br><br><br><br><br>
+# .font140[Multivariate Adaptive Regression Splines]
 
 ---
 # Prerequisites
@@ -439,7 +442,7 @@ gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 ```
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

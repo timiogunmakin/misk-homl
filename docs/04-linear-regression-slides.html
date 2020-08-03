@@ -23,14 +23,10 @@
 
 
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(https://educationalresearchtechniques.files.wordpress.com/2014/08/1.jpg?w=624)
-background-position: center
-background-size: cover
-
-&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
-.font200.bold[Regression &amp; Cousins]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+# .font150[Regression &amp; Cousins]
 
 ---
 # Introduction
@@ -589,9 +585,10 @@ m3 &lt;- lm(Sale_Price ~ TotRms_AbvGrd, data = ames_train)
 .bold.center[Many regression extensions have been developed to deal with these concerns.]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Principal Component Regression]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Principal Component Regression]
 
 ---
 # The idea
@@ -729,9 +726,10 @@ plot(cv_pcr)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Partial Least Squares Regression]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Partial Least Squares Regression]
 
 ---
 # The idea
@@ -860,9 +858,10 @@ plot(cv_pls)
    - start with a few and zoom in
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Model Comparison]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Model Comparison]
 
 ---
 # Comparing error distributions .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 10]
@@ -901,9 +900,10 @@ gridExtra::grid.arrange(p1, p2, nrow = 1)
 .center.bold[Student's *t*-test or a rank sum test could also be used.]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Feature Interpretation]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Feature Interpretation]
 
 ---
 # Feature importance .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 11]
@@ -987,9 +987,10 @@ pdp::partial(cv_model2, pred.var = c("Gr_Liv_Area", "Year_Built"), grid.resoluti
 
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Wrapping up]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Wrapping up]
 
 ---
 # Summary
@@ -1007,7 +1008,7 @@ class: center, middle, inverse
    - creates stronger signal btwn PCs and target
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center
@@ -1111,6 +1112,35 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   }
   preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
 })(document);</script>
+<style>
+.logo {
+  background-image: url(https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  bottom: -3em;
+  right: 1em;
+  width: 110px;
+  height: 128px;
+  z-index: 0;
+}
+</style>
+
+<script>
+document
+  .querySelectorAll(
+    '.remark-slide-content' +
+    ':not(.title-slide)' +
+    ':not(.misk-title-slide)' +
+    ':not(.misk-section-slide)' +
+    // add additional classes to exclude here, e.g.
+    // ':not(.inverse)' +
+    ':not(.hide-logo)'
+  )
+  .forEach(el => {
+    el.innerHTML += '<div class="logo"></div>';
+  });
+</script>
 
 <script>
 slideshow._releaseMath = function(el) {

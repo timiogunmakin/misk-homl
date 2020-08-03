@@ -21,3 +21,5 @@ gbm
 h2o
 xgboost
 ROCR
+knitr
+kableExtra

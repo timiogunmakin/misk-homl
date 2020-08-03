@@ -15,14 +15,10 @@
 
 
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/rf-icon.jpg)
-background-position: center
-background-size: cover
-
-&lt;br&gt;&lt;br&gt;&lt;br&gt;
-.font300.white[Decision Trees, Bagging, &lt;br&gt;&amp; Random Forests]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+# .font140[Decision Trees, Bagging, &lt;br&gt;&amp; Random Forests]
 
 ---
 # Introduction
@@ -63,16 +59,10 @@ Random forests are an ensemble method that:
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/single-tree.gif)
-background-size: cover
-
-.font300.white[Decision Trees]
-
-???
-
-Image credit: [giphy](https://giphy.com/gifs/tree-U85Z0lxOwDoys?utm_source=media-link&amp;utm_medium=landing&amp;utm_campaign=Media%20Links&amp;utm_term=)
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Decision Trees]
 
 ---
 
@@ -540,16 +530,10 @@ Once we have a final model, we can find the most .red[influential variables] bas
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/bagging-icon.jpg)
-background-size: cover
-
-.font300.white[Bagging]
-
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/19SC2oaVZW0)
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Bagging]
 
 ---
 
@@ -693,16 +677,10 @@ Image credit: [unsplash](https://unsplash.com/photos/19SC2oaVZW0)
 .center[.content-box-gray[.bold[which prevents bagging from optimally reducing variance of the predictive values]] <span style=" display: -moz-inline-stack; display: inline-block; transform: rotate(0deg);">&lt;img src="https://emojis.slackmojis.com/emojis/images/1471045851/836/headbang.gif?1471045851" style="height:3em; width:auto; "/&gt;</span>]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/rf-icon2.jpg)
-background-size: cover
-
-.font300.white[Random Forests]
-
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/5KvErlbdeyo)
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Random Forests]
 
 ---
 
@@ -1075,18 +1053,10 @@ The two tend to .blue[produce similar results but with slight differences in ran
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/everyone-can-random-forest.jpg)
-background-size: cover
-
-.pull-left[
-&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
-.font200.white[Implementation]
-]
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/mDinBvq1Sfg)
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Implementation]
 
 ---
 # Prereqs .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 1]
@@ -1852,7 +1822,7 @@ _"Take the output of random forests not as absolute truth, but as smart computer
 
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center
@@ -1956,6 +1926,35 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   }
   preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
 })(document);</script>
+<style>
+.logo {
+  background-image: url(https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  bottom: -3em;
+  right: 1em;
+  width: 110px;
+  height: 128px;
+  z-index: 0;
+}
+</style>
+
+<script>
+document
+  .querySelectorAll(
+    '.remark-slide-content' +
+    ':not(.title-slide)' +
+    ':not(.misk-title-slide)' +
+    ':not(.misk-section-slide)' +
+    // add additional classes to exclude here, e.g.
+    // ':not(.inverse)' +
+    ':not(.hide-logo)'
+  )
+  .forEach(el => {
+    el.innerHTML += '<div class="logo"></div>';
+  });
+</script>
 
 <script>
 slideshow._releaseMath = function(el) {

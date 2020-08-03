@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -38,14 +40,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/rf-icon.jpg)
-background-position: center
-background-size: cover
-
-<br><br><br>
-.font300.white[Decision Trees, Bagging, <br>& Random Forests]
+<br><br><br><br><br>
+# .font140[Decision Trees, Bagging, <br>& Random Forests]
 
 ---
 # Introduction
@@ -86,16 +84,10 @@ Random forests are an ensemble method that:
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/single-tree.gif)
-background-size: cover
-
-.font300.white[Decision Trees]
-
-???
-
-Image credit: [giphy](https://giphy.com/gifs/tree-U85Z0lxOwDoys?utm_source=media-link&utm_medium=landing&utm_campaign=Media%20Links&utm_term=)
+<br><br><br><br><br><br><br>
+.bold.font250[Decision Trees]
 
 ---
 
@@ -693,16 +685,10 @@ vip::vip(fit)
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/bagging-icon.jpg)
-background-size: cover
-
-.font300.white[Bagging]
-
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/19SC2oaVZW0)
+<br><br><br><br><br><br><br>
+.bold.font250[Bagging]
 
 ---
 
@@ -966,16 +952,10 @@ knitr::include_graphics("images/tree-correlation-1.png")
 .center[.content-box-gray[.bold[which prevents bagging from optimally reducing variance of the predictive values]] `r anicon::cia("https://emojis.slackmojis.com/emojis/images/1471045851/836/headbang.gif?1471045851", animate = FALSE, size = 3)`]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/rf-icon2.jpg)
-background-size: cover
-
-.font300.white[Random Forests]
-
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/5KvErlbdeyo)
+<br><br><br><br><br><br><br>
+.bold.font250[Random Forests]
 
 ---
 
@@ -1602,18 +1582,10 @@ vip::vip(permutation, num_features = 25, geom = "point") + ggtitle("Permutation-
 ]
 
 ---
-class: clear, center, middle
+class: misk-section-slide 
 
-background-image: url(images/everyone-can-random-forest.jpg)
-background-size: cover
-
-.pull-left[
-<br><br><br><br><br><br><br><br><br><br><br><br><br>
-.font200.white[Implementation]
-]
-???
-
-Image credit: [unsplash](https://unsplash.com/photos/mDinBvq1Sfg)
+<br><br><br><br><br><br><br>
+.bold.font250[Implementation]
 
 ---
 # Prereqs .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 1]
@@ -2264,7 +2236,7 @@ knitr::include_graphics("images/esl.jpg")
 
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

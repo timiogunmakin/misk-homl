@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -34,9 +36,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: center, middle, inverse
+class: misk-title-slide   
 
-.font300.white[K-nearest Neighbor]
+<br><br><br><br><br>
+# .font140[K-nearest Neighbor]
 
 ---
 # Prerequisites
@@ -621,7 +624,7 @@ for(i in seq_len(nrow(combine))) {
 - Although KNNs rarely provide the best predictive performance, they have many benefits, for example, in feature engineering and in data cleaning and preprocessing
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-26"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -37,14 +39,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/stacking-icon.jpg)
-background-position: center
-background-size: cover
-
-<br><br><br>
-.font300.white[Model Stacking & AutoML]
+<br><br><br><br><br><br>
+# .font140[Model Stacking & AutoML]
 
 ---
 # Introduction
@@ -135,9 +133,10 @@ X <- setdiff(names(ames_train), Y)
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Basic Idea]
+<br><br><br><br><br><br><br>
+.bold.font250[Basic Idea]
 
 
 ---
@@ -210,10 +209,12 @@ Part 3: Predict on new data
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Stacking Existing Models]  
-.white[_Train first, stack later_]
+<br><br><br><br><br><br><br>
+.bold.font250[Stacking Existing Models]
+
+_Train first, stack later_
 
 ---
 # Stacking existing models
@@ -437,9 +438,10 @@ data.frame(
 ]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Stacking a Grid Search]
+<br><br><br><br><br><br><br>
+.bold.font250[Stacking a Grid Search]
 
 ---
 # Stacking a grid search
@@ -596,9 +598,10 @@ h2o.performance(ensemble, newdata = test_h2o)
 .center.bold.blue[We see little benefit here; likely because our predictions are highly correlated.]
 
 ---
-class: clear, center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Auto ML Search]
+<br><br><br><br><br><br><br>
+.bold.font250[Auto ML Search]
 
 ---
 # Auto ML search
@@ -784,7 +787,7 @@ knitr::include_graphics("images/automl-panacea.jpg")
 ]
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center
