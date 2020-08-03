@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -33,14 +35,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/engineering-icon.jpg)
-background-position: center
-background-size: cover
-
-<br><br><br><br><br><br><br><br><br><br><br><br><br>
-.font200.bold.white[Feature & Target Engineering]
+<br><br><br><br><br>
+# .font120[Feature & Target Engineering]
 
 ---
 # Introduction
@@ -111,9 +109,10 @@ ames_test <- testing(split)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Target Engineering]
+<br><br><br><br><br><br><br>
+.bold.font250[Target Engineering]
 
 ---
 # Normality correction
@@ -220,11 +219,12 @@ data.frame(
 ```
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Missingness]
+<br><br><br><br><br><br><br>
+.bold.font250[Missingness]
 
-.white[_Many models cannot cope with missing data so imputation strategies may be necessary._]
+_Many models cannot cope with missing data so imputation strategies may <br>be necessary._
 
 ---
 # Visualizing .red[`r anicon::faa("hand-point-right", color = "red", animate = "horizontal")` code chunk 2]
@@ -431,9 +431,10 @@ step_bagimpute()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Feature Filtering]
+<br><br><br><br><br><br><br>
+.bold.font250[Feature Filtering]
 
 ---
 # More is not always better!
@@ -513,9 +514,10 @@ step_corr()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Numeric Feature Engineering]
+<br><br><br><br><br><br><br>
+.bold.font250[Numeric Feature Engineering]
 
 ---
 # Transformations
@@ -592,9 +594,10 @@ step_scale()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Categorical Feature Engineering]
+<br><br><br><br><br><br><br>
+.bold.font250[Categorical Feature Engineering]
 
 ---
 # One-hot & Dummy encoding
@@ -728,9 +731,10 @@ step_ordinalscore()
 ```
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Dimension Reduction]
+<br><br><br><br><br><br><br>
+.bold.font250[Dimension Reduction]
 
 ---
 # PCA
@@ -805,9 +809,10 @@ step_spatialsign()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Blueprints]
+<br><br><br><br><br><br><br>
+.bold.font250[Blueprints]
 
 ---
 # Sequential steps
@@ -989,7 +994,7 @@ baked_train
 <br>
 
 ```{r thank-goodness, echo=FALSE, out.width="90%", out.height="90%"}
-knitr::include_graphics("https://media1.tenor.com/images/6358cb41e076a3c517e5a9988b1dc888/tenor.gif?itemid=5711499")
+knitr::include_graphics("https://media.giphy.com/media/Rl9Yqavfj2Ula/giphy.gif")
 ```
 
 
@@ -1073,7 +1078,7 @@ knitr::include_graphics("https://media1.tenor.com/images/2b6d0826f02a9ba7c9d4384
 ```
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center

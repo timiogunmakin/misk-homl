@@ -14,14 +14,10 @@
 
 
 
-class: clear, center, middle
-
-background-image: url(images/process-icon.svg)
-background-position: center
-background-size: contain
+class: misk-title-slide   
 
 &lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
-&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; .font200.grey[Supervised Modeling Process]
+# .font120[Supervised Modeling Process]
 
 ---
 # Introduction
@@ -100,9 +96,10 @@ churn &lt;- rsample::attrition
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Data Splitting]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Data Splitting]
 
 ---
 # Generalizability
@@ -257,10 +254,10 @@ table(churn_test$Attrition) %&gt;% prop.table()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Creating models in R]
-
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Creating models in R]
 
 ---
 # Many interfaces
@@ -381,11 +378,11 @@ lm_caret &lt;- train(Sale_Price ~ ., data = ames_train, method = "lm")
 
 .center.bold[You'll be exposed to both direct and meta engines]
 
-
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Resampling Methods]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Resampling Methods]
 
 ---
 # Resampling methods
@@ -618,10 +615,10 @@ bootstraps(ames, times = 10)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Bias-Variance Trade-off]
-
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Bias-Variance Trade-off]
 
 ---
 # Bias-variance trade-off
@@ -712,9 +709,10 @@ knn_fit &lt;- train(
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Model Evaluation Metrics]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Model Evaluation Metrics]
 
 ---
 # Model evaluation
@@ -776,9 +774,10 @@ $$MSE = \frac{1}{n}\sum^n_{i=1}(y_i - \hat y_i)^2 $$
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Putting the process together]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Putting the process together]
 
 ---
 # Putting the process together
@@ -1005,6 +1004,35 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   }
   preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
 })(document);</script>
+<style>
+.logo {
+  background-image: url(https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  bottom: -3em;
+  right: 1em;
+  width: 110px;
+  height: 128px;
+  z-index: 0;
+}
+</style>
+
+<script>
+document
+  .querySelectorAll(
+    '.remark-slide-content' +
+    ':not(.title-slide)' +
+    ':not(.misk-title-slide)' +
+    ':not(.misk-section-slide)' +
+    // add additional classes to exclude here, e.g.
+    // ':not(.inverse)' +
+    ':not(.hide-logo)'
+  )
+  .forEach(el => {
+    el.innerHTML += '<div class="logo"></div>';
+  });
+</script>
 
 <script>
 slideshow._releaseMath = function(el) {

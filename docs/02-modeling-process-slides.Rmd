@@ -4,6 +4,8 @@ author: "Misk Academy"
 date: "2020-6-22"
 output:
   xaringan::moon_reader:
+    includes:
+      after_body: insert-logo.html
     css: ["custom.css"]
     self_contained: false
     lib_dir: libs
@@ -33,14 +35,10 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-class: clear, center, middle
-
-background-image: url(images/process-icon.svg)
-background-position: center
-background-size: contain
+class: misk-title-slide   
 
 <br><br><br><br><br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .font200.grey[Supervised Modeling Process]
+# .font120[Supervised Modeling Process]
 
 ---
 # Introduction
@@ -119,9 +117,10 @@ churn <- rsample::attrition
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Data Splitting]
+<br><br><br><br><br><br><br>
+.bold.font250[Data Splitting]
 
 ---
 # Generalizability
@@ -279,10 +278,10 @@ table(churn_test$Attrition) %>% prop.table()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Creating models in R]
-
+<br><br><br><br><br><br><br>
+.bold.font250[Creating models in R]
 
 ---
 # Many interfaces
@@ -399,11 +398,11 @@ lm_caret <- train(Sale_Price ~ ., data = ames_train, method = "lm")
 
 .center.bold[You'll be exposed to both direct and meta engines]
 
-
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Resampling Methods]
+<br><br><br><br><br><br><br>
+.bold.font250[Resampling Methods]
 
 ---
 # Resampling methods
@@ -646,10 +645,10 @@ bootstraps(ames, times = 10)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Bias-Variance Trade-off]
-
+<br><br><br><br><br><br><br>
+.bold.font250[Bias-Variance Trade-off]
 
 ---
 # Bias-variance trade-off
@@ -856,9 +855,10 @@ ggplot(df, aes(x, y)) +
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Model Evaluation Metrics]
+<br><br><br><br><br><br><br>
+.bold.font250[Model Evaluation Metrics]
 
 ---
 # Model evaluation
@@ -922,9 +922,10 @@ knitr::include_graphics("images/confusion-matrix.png")
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Putting the process together]
+<br><br><br><br><br><br><br>
+.bold.font250[Putting the process together]
 
 ---
 # Putting the process together

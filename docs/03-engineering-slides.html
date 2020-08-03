@@ -15,14 +15,10 @@
 
 
 
-class: clear, center, middle
+class: misk-title-slide   
 
-background-image: url(images/engineering-icon.jpg)
-background-position: center
-background-size: cover
-
-&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
-.font200.bold.white[Feature &amp; Target Engineering]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+# .font120[Feature &amp; Target Engineering]
 
 ---
 # Introduction
@@ -95,9 +91,10 @@ ames_test &lt;- testing(split)
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Target Engineering]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Target Engineering]
 
 ---
 # Normality correction
@@ -171,11 +168,12 @@ step_YeoJohnson()
 &lt;img src="03-engineering-slides_files/figure-html/distribution-comparison-1.png" style="display: block; margin: auto;" /&gt;
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Missingness]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Missingness]
 
-.white[_Many models cannot cope with missing data so imputation strategies may be necessary._]
+_Many models cannot cope with missing data so imputation strategies may &lt;br&gt;be necessary._
 
 ---
 # Visualizing .red[<span>&lt;i class="fas  fa-hand-point-right faa-horizontal animated " style=" color:red;"&gt;&lt;/i&gt;</span> code chunk 2]
@@ -339,9 +337,10 @@ step_bagimpute()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Feature Filtering]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Feature Filtering]
 
 ---
 # More is not always better!
@@ -441,9 +440,10 @@ step_corr()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Numeric Feature Engineering]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Numeric Feature Engineering]
 
 ---
 # Transformations
@@ -495,9 +495,10 @@ step_scale()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Categorical Feature Engineering]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Categorical Feature Engineering]
 
 ---
 # One-hot &amp; Dummy encoding
@@ -738,9 +739,10 @@ step_ordinalscore()
 ```
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Dimension Reduction]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Dimension Reduction]
 
 ---
 # PCA
@@ -797,9 +799,10 @@ step_spatialsign()
 ]
 
 ---
-class: center, middle, inverse
+class: misk-section-slide 
 
-.font300.white[Blueprints]
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+.bold.font250[Blueprints]
 
 ---
 # Sequential steps
@@ -1041,7 +1044,7 @@ baked_train
 
 &lt;br&gt;
 
-&lt;img src="https://media1.tenor.com/images/6358cb41e076a3c517e5a9988b1dc888/tenor.gif?itemid=5711499" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
+&lt;img src="https://media.giphy.com/media/Rl9Yqavfj2Ula/giphy.gif" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
 
 
 ]
@@ -1163,7 +1166,7 @@ ggplot(knn_fit$results, aes(k, RMSE)) +
 &lt;img src="https://media1.tenor.com/images/2b6d0826f02a9ba7c9d4384a740013e9/tenor.gif?itemid=5531028" width="90%" height="90%" style="display: block; margin: auto;" /&gt;
 
 ---
-class: clear, center, middle
+class: clear, center, middle, hide-logo
 
 background-image: url(images/any-questions.jpg)
 background-position: center
@@ -1267,6 +1270,35 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
   }
   preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
 })(document);</script>
+<style>
+.logo {
+  background-image: url(https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  position: absolute;
+  bottom: -3em;
+  right: 1em;
+  width: 110px;
+  height: 128px;
+  z-index: 0;
+}
+</style>
+
+<script>
+document
+  .querySelectorAll(
+    '.remark-slide-content' +
+    ':not(.title-slide)' +
+    ':not(.misk-title-slide)' +
+    ':not(.misk-section-slide)' +
+    // add additional classes to exclude here, e.g.
+    // ':not(.inverse)' +
+    ':not(.hide-logo)'
+  )
+  .forEach(el => {
+    el.innerHTML += '<div class="logo"></div>';
+  });
+</script>
 
 <script>
 slideshow._releaseMath = function(el) {
