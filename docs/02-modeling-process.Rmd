@@ -710,6 +710,8 @@ The question remains: "Is this the best predictive model we can find?"  We may h
 
 6. Repeat exercise 5) on the Boston housing data; however, instead of a linear regression model, use a _k_-nearest neighbor model that executes a hyperparameter grid search where _k_ ranges from 2--20. How does this model's results compare to the linear regression results?
 
+7. **Python challenge**: Repeat the above exercises but using Python and Scikit Learn. Feel free to use this wonderful resource by [Chris Albon](https://chrisalbon.com/) to help you with individual components of the modeling process.
+
 [🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
