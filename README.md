@@ -1,6 +1,6 @@
 <img src="https://user-images.githubusercontent.com/6753598/86978801-c3cf3280-c14d-11ea-822a-7e65a384ed8b.png" align="right" width="25%" height="25%"/>
 
-Hands-on machine learning for predictive analytics with R
+Hands-on machine learning for predictive analytics
 ================
 
 ### Misk Academy
@@ -28,11 +28,11 @@ Students will learn many of the most common machine learning methods to include:
 -	Stacking / super learners 
 -	And more!
 
-This module will teach students how to build and tune these various models with R packages that have been tested and approved due to their ability to scale well (i.e. glmnet, ranger, xgboost, h2o). However, the motivation in almost every case is to describe the techniques in a way that helps develop intuition for its strengths and weaknesses. 
+This module will teach students how to build and tune these various models with R and Python packages that have been tested and approved due to their ability to scale well (i.e. glmnet, ranger, xgboost, h2o, scikit-learn). However, the motivation in almost every case is to describe the techniques in a way that helps develop intuition for its strengths and weaknesses. 
 
 ## Learning Objectives
 
-This module will step through the process of building, visualizing, testing, and comparing supervised models. The goal is to expose you to building machine learning models in R using a variety of packages and model types. By the end of this module you should:
+This module will step through the process of building, visualizing, testing, and comparing supervised models. The goal is to expose you to building machine learning models using a variety of algorithms. By the end of this module you should:
 
 * Understand how to apply an end-to-end modeling process that allows you to find an optimal model.
 * Be able to properly pre-process your feature and target variables.
@@ -42,11 +42,11 @@ This module will step through the process of building, visualizing, testing, and
 
 ## Prework
 
-This module makes a few assumptions of your established knowledge regarding your programming skills and exposure to basic statistical concepts. Below are my assumptions and the relevant courses that you should have already attended to make sure you are properly prepared.
+This module makes a few assumptions of your established knowledge regarding your programming skills and exposure to basic statistical concepts. Below are my assumptions and the relevant courses that you should have already attended to make sure you are properly prepared. Most of the material is heavily focused on R implementations; however, we also provide and link to many Python implementations. Consequently, the R assumptions are strong but the Python requirements are not firm.
 
 | Assumptions                       | Resource      
 | --------------------------------- | :-------------: |
-| Comfortable with R programming    | [link](https://github.com/misk-data-science/misk-intro-ds) | 
+| Comfortable with R & Python programming    | [link](https://github.com/misk-data-science/misk-intro-ds) | 
 | Proficient with basic data wrangling tasks    | [link](https://github.com/misk-data-science/misk-intro-ds) | 
 | Knowledgable of foundational statistics    | [link](https://github.com/misk-data-science/misk-stats-foundations) |
 
@@ -54,6 +54,7 @@ Prior to session 1, please run the [`00-setup.Rmd` notebook](https://github.com/
 
 ## Schedule
 
+Most of the material is heavily focused on R implementations; however, the language to implement modeling is less important than gaining strong intuition behind what the algorithms are doing. Furthermore, you should strive to feel comfortable implementing these algorithms in both languages. Therefore, in each notebook we provide examples and resources to illustrate Python implementations. Moreover, we offer **Python challenges** that will challenge you with implementing the modeling algorithms and processes in Python.
 
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
