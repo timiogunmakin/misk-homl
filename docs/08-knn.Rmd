@@ -457,7 +457,14 @@ Although KNNs rarely provide the best predictive performance, they have many ben
 
 Other alternatives to traditional KNNs such as using invariant metrics, tangent distance metrics, and adaptive nearest neighbor methods are also discussed in @esl and are worth exploring.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+We already provided a simple example of implementing a Python KNN model on the Ames housing data in module 2 (notebook [here](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/02-modeling-process.ipynb)). The following are additional KNN examples using Python:
+
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab3-py.html) on KNNs for Smith College Machine Learning course.
+- Chris Albon's tutorials on [KNN for classification](https://chrisalbon.com/machine_learning/nearest_neighbors/k-nearest_neighbors_classifer/) and [Identifying Best Value Of k](https://chrisalbon.com/machine_learning/nearest_neighbors/identifying_best_value_of_k/).
+- Machine Learning Mastery post on [Developing KNNs in Python From Scratch](https://machinelearningmastery.com/tutorial-to-implement-k-nearest-neighbors-in-python-from-scratch/).
+- Stack Abuse [post on KNNs](https://stackabuse.com/k-nearest-neighbors-algorithm-in-python-and-scikit-learn/).
 
 # Exercises
 
@@ -469,6 +476,10 @@ Using the `ISLR::Default` dataset where the `default` variable is the response v
 4. Plot the ROC curve for the optimal model.
 5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
 6. Now perform questions 1-5 for the built in `iris` data where `species` is the response variable.
+7. **Python challenge**: Save the `ISLR::Default` data from R to a CSV file. Import this data into a Python session. Now Repeat the above exercises but using Python and Scikit Learn.
+
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
 

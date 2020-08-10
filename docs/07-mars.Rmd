@@ -455,7 +455,9 @@ There are several advantages to MARS.  First, MARS naturally handles mixed types
 
 However, one disadvantage to MARS models is that they're typically slower to train.  Since the algorithm scans each value of each predictor for potential cutpoints, computational performance can suffer as both $n$ and $p$ increase.  Also, although correlated predictors do not necessarily impede model performance, they can make model interpretation difficult. When two features are nearly perfectly correlated, the algorithm will essentially select the first one it happens to come across when scanning the features.  Then, since it randomly selected one, the correlated feature will likely not be included as it adds no additional explanatory power.  
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The `py-earth` Python package provides an implementation of MARS. You can see the documentation [here](http://mehdidc.github.io/pyearth-doc/#) and several examples in the [examples subdirectory](https://github.com/scikit-learn-contrib/py-earth/tree/master/examples) of the [github repo](https://github.com/scikit-learn-contrib/py-earth).
 
 # Exercises
 
@@ -466,5 +468,8 @@ Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISL
 3. How many of the features are influential? Which 10 features are considered most influential?
 4. Does your model include hinge functions? If so, explain their coefficient and plot their impact on the predicted response variable.
 5. Does your model include interactions? If so, pick the interaction effect that is most influential and explain the coefficient.
+6. **Python challenge**: Save the `Hitters` data from R to a CSV file. Import this data into a Python session. Now Repeat the above exercises but using Python and Scikit Learn.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
