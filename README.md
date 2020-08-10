@@ -54,7 +54,7 @@ Prior to session 1, please run the [`00-setup.Rmd` notebook](https://github.com/
 
 ## Schedule
 
-Most of the material is heavily focused on R implementations; however, the language to implement modeling is less important than gaining strong intuition behind what the algorithms are doing. Furthermore, you should strive to feel comfortable implementing these algorithms in both languages. Therefore, in each notebook we provide examples and resources to illustrate Python implementations. Moreover, we offer **Python challenges** that will challenge you with implementing the modeling algorithms and processes in Python.
+Most of the material is heavily focused on R implementations; however, the language to implement modeling is less important than gaining strong intuition behind what the algorithms are doing. Furthermore, you should strive to feel comfortable implementing these algorithms in both languages. Therefore, in each notebook we provide examples and resources to illustrate Python implementations. Moreover, we offer **_Python challenges_** that will challenge you with implementing the modeling algorithms and processes in Python.
 
 | Session       | Description                          | Reading(s)    | Slides        | Source code             
 | :-----------: | :----------------------------------- | :-----------: | :-----------: | :-----------: |
