@@ -208,9 +208,11 @@ dim(mnist$train$images)
 
 # response variable
 head(mnist$train$labels)
-```   
+```
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+To import these same datasets with Python see [this notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/01-introduction.ipynb).
 
 # Exercises
 
@@ -240,5 +242,7 @@ head(mnist$train$labels)
 
 4. Identify examples of misuse of machine learning in society. What was the
    ethical concern?
+   
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References

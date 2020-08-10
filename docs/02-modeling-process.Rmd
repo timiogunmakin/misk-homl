@@ -8,6 +8,13 @@ bibliography: [references.bib, packages.bib]
 ---
 
 ```{r 02-setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(
+  warning = FALSE, 
+  message = FALSE
+)
+
 library(tidyverse)
 
 # Set the graphical theme
@@ -662,7 +669,12 @@ ggplot(knn_fit)
 
 The question remains: "Is this the best predictive model we can find?"  We may have identified the  optimal _k_-nearest neighbor model for our given data set, but this doesn't mean we've found the best possible overall model.  Nor have we considered potential feature and target engineering options.  The remainder of this course will walk you through the journey of identifying alternative solutions and, hopefully, a much more optimal model.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+[Scikit-learn](https://scikit-learn.org/stable/) is the predominate Python package for machine learning. Unlike R, scikit-learn provides nearly all components required for the modeling process (i.e. sampling, feature engineering, modeling, evaluation).  
+
+1. To get introduced to scikit learn, work through this [Getting Started tutorial](https://scikit-learn.org/stable/getting_started.html#).
+2. You can see a reimplimentation of the previous section but all in Python in [this notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/02-modeling-process.ipynb).
 
 # Exercises
 
@@ -697,5 +709,7 @@ The question remains: "Is this the best predictive model we can find?"  We may h
    - Repeat this exercise for the spam data from exercise 3); since the target (`type`) is binary, be sure to use a more appropriate metric (e.g., AUC or misclassification error).
 
 6. Repeat exercise 5) on the Boston housing data; however, instead of a linear regression model, use a _k_-nearest neighbor model that executes a hyperparameter grid search where _k_ ranges from 2--20. How does this model's results compare to the linear regression results?
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
