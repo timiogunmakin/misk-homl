@@ -675,6 +675,7 @@ The question remains: "Is this the best predictive model we can find?"  We may h
 
 1. To get introduced to scikit learn, work through this [Getting Started tutorial](https://scikit-learn.org/stable/getting_started.html#).
 2. You can see a reimplimentation of the previous section but all in Python in [this notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/02-modeling-process.ipynb).
+3. For a more comprehensive example of an end-to-end machine learning process we recommend reading through Chapter 2 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/02_end_to_end_machine_learning_project.ipynb).
 
 # Exercises
 

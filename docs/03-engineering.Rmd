@@ -31,7 +31,7 @@ We will not cover all the potential ways of implementing feature engineering; ho
 
 # Prerequisites
 
-This chapter leverages the following packages:
+This module leverages the following packages:
 
 ```{r engineering-prereqs}
 # Helper packages
@@ -720,8 +720,13 @@ knn_fit2
 ggplot(knn_fit2)
 ```
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
 
+Within Python, the majority of your feature engineering will be performed with `sklearn.compose`, `sklearn.preprocessing` and `sklearn.pipeline` modules. To see how to execute many of the same target and feature engineering tasks in scikit learn we recommend reviewing these resources:
+
+- Chris Albon's section on [preprocessing structured data](https://chrisalbon.com/)
+- Jake VanderPlas's book chapter on [Feature Engineering](https://jakevdp.github.io/PythonDataScienceHandbook/05.04-feature-engineering.html)
+- Yhat blog on [feature engineering](http://blog.yhat.com/tutorials/5-Feature-Engineering.html)
 
 # Exercises
 
@@ -738,5 +743,9 @@ Using the Ames dataset and the same approach shown in the [last section](#engine
 4. Using the [Attrition data set](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#the_data_sets), assess the characterstics of the target and features.
    - Which target/feature engineering steps should be applied?
    - Create a feature engineering blueprint and apply a KNN grid search. What is the performance of your model?
+   
+5. **Python challenge**: Repeat the above exercises but using Python and Scikit Learn. Reference the [Python modeling process notebook](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/02-modeling-process.ipynb) to implement the proper workflow but expand upon the feature engineering steps to implement feature engineering steps such as scaling, centering, numerically encoding categorical features, etc.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
