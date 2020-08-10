@@ -305,7 +305,9 @@ auto_ml@leaderboard %>%
   dplyr::slice(1:25)
 ```
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+H2O provides both R and Python APIs. Consequently, you can implement the same procedures shown above in Python with very similar syntax. You can review the H2O documentation and see examples in Python [here](http://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/stacked-ensembles.html).
 
 # Exercises
 
@@ -326,6 +328,8 @@ Using the Boston housing data set from the pdp package, where the response featu
    - What model provides the optimal performance?
    - Apply this model to the test set. How does the test loss function compare to the training cross-validated RMSE?
 5. Now perform 1-4 to the Attrition dataset, which is classification model rather than a regression model.
+6.  **Python challenge**: Repeat the above exercises but using Python and Scikit Learn.
 
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References

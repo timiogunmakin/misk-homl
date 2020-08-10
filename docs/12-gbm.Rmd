@@ -771,7 +771,14 @@ GBMs are one of the most powerful ensemble algorithms that are often first-in-cl
 
 Although we discussed the most popular GBM algorithms, realize there are alternative algorithms not covered here. For example LightGBM [@ke2017lightgbm] is a gradient boosting framework that focuses on _leaf-wise_ tree growth versus the traditional level-wise tree growth. This means as a tree is grown deeper, it focuses on extending a single branch versus growing multiple branches. CatBoost [@dorogush2018catboost] is another gradient boosting framework that focuses on using efficient methods for encoding categorical features during the gradient boosting process. Both frameworks are available in R.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The following resources provide detailed examples of performing gradient boosting with Python and Scikit Learn:
+
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab14-py.html) on boosting for Smith College Machine Learning course (sections 8.3.4).
+- Machine Learning Mastery's post on [Gradient Boosting with Scikit-Learn, XGBoost, LightGBM, and CatBoost](https://machinelearningmastery.com/gradient-boosting-with-scikit-learn-xgboost-lightgbm-and-catboost/).
+- Chapter 7 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/07_ensemble_learning_and_random_forests.ipynb) regarding random forests (code chunks 33-55).
+
 
 # Exercises
 
@@ -788,5 +795,8 @@ Using the Boston housing data set from the pdp package, where the response featu
 4. Pick your best GBM model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
 5. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
 6. Now perform 1-5 to the Attrition dataset, which is classification model rather than a regression model.
+7.  **Python challenge**: Repeat the above exercises but using Python and Scikit Learn.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References

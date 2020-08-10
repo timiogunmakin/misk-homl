@@ -331,7 +331,13 @@ for(i in 1:iter){
 }
 ```
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The following resources provide detailed examples of bagging decision trees with Python and Scikit Learn:
+
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab14-py.html) on decision trees for Smith College Machine Learning course (sections 8.3.3).
+- Machine Learning Mastery's post on [How to Implement Bagging from Scratch with Python](https://machinelearningmastery.com/implement-bagging-scratch-python/).
+- Chapter 7 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/07_ensemble_learning_and_random_forests.ipynb) regarding bagging (code chunks 10-14).
 
 # Exercises
 
@@ -344,5 +350,8 @@ Using the Boston housing data set from the pdp package, where the response featu
 5. Which 10 features are considered most influential? Are these the same features that have been influential in previous model?
 6. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
 7. Now perform 1-6 to the Attrition dataset, which is classification model rather than a regression model.
+8. **Python challenge**: Repeat the above exercises but using Python and Scikit Learn. Recall that Scikit Learn [provides the Boston housing data set](https://chrisalbon.com/machine_learning/basics/loading_scikit-learns_boston_housing_dataset/).
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
