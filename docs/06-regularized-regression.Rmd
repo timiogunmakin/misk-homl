@@ -554,7 +554,13 @@ Regularized regression provides many great benefits over traditional GLMs when a
 
 However, regularized regression does require some feature preprocessing.  Notably, all inputs must be numeric; however, some packages (e.g., __caret__ and __h2o__) automate this process.  They cannot automatically handle missing data, which requires you to remove or impute them prior to modeling.  Similar to GLMs, they are also not robust to outliers in both the feature and target.  Lastly, regularized regression models still assume a monotonic linear relationship (always increasing or decreasing in a linear fashion). It is also up to the analyst whether or not to include specific interaction effects.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The following resources provide detailed examples of performing regularized regression with Python and Scikit Learn:
+
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab10-py.html) on regularized regression for Smith College Machine Learning course.
+- Chris Albon's tutorials on [Lasso Regression](https://chrisalbon.com/machine_learning/linear_regression/lasso_regression/), [Effect Of Alpha On Lasso Regression](https://chrisalbon.com/machine_learning/linear_regression/effect_of_alpha_on_lasso_regression/), [Ridge Regression](https://chrisalbon.com/machine_learning/linear_regression/ridge_regression/) and [Selecting The Best Alpha Value In Ridge Regression](https://chrisalbon.com/machine_learning/linear_regression/selecting_best_alpha_value_in_ridge_regression/).
+- Chapter 3 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/03_classification.ipynb) provides a discussion on regularized models. You'll find the discussion regarding regularized regression toward the middle of the notebook (code chunk 41).
 
 # Exercises
 
@@ -573,5 +579,6 @@ Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISL
    - What is the MSE and RMSE for this optimal model?
    - How does it compare to your previous models?
 4. Plot the top 10 most influential features. Do these features have positive or negative impacts on your response variable?
+5. **Python challenge**: Save the `Hitters` data from R to a CSV file. Import this data into a Python session. Now Repeat the above exercises but using Python and Scikit Learn.
 
 # References

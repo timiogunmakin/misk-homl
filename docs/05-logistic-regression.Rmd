@@ -345,7 +345,14 @@ grid.arrange(p1, p2, p3, p4, nrow = 2)
 
 Logistic regression provides an alternative to linear regression for binary classification problems. However, similar to linear regression, logistic regression suffers from the many assumptions involved in the algorithm (i.e. linear relationship of the coefficient, multicollinearity). Moreover, often we have more than two classes to predict which is commonly referred to as multinomial classification. Although multinomial extensions of logistic regression exist, the assumptions made only increase and, often, the stability of the coefficient estimates (and therefore the accuracy) decrease. Future modules will discuss more advanced algorithms that provide a more natural and trustworthy approach to binary and multinomial classification prediction.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The following resources provide detailed examples of performing logistic regression with Python and Scikit Learn:
+
+- Chris Albon's tutorials on [logistic regression](https://chrisalbon.com/machine_learning/logistic_regression/logistic_regression/) and [logistic regression with imbalanced classes](https://chrisalbon.com/machine_learning/logistic_regression/handling_imbalanced_classes_in_logistic_regression/).
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab4-py.html) on logistic regression for Smith College Machine Learning course. Note that this example uses Python's `statsmodel` package rather than Scikit Learn.
+- Datacamp [example](https://www.datacamp.com/community/tutorials/understanding-logistic-regression-python) of logistic regression in Python.
+- Chapter 3 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/03_classification.ipynb) provides comprehensive coverage on classification modeling (logistic regression and more). You'll find discussion regarding logistic regression towards the bottom of the notebook.
 
 # Exercises
 
@@ -366,5 +373,8 @@ Using the spam data set from the kernlab package:
    - accuracy rate
    - sensitivity
    - specificity
+6. **Python challenge**: Save the kernlab spam data from R to a CSV file. Import this data into a Python session. Now Repeat the above exercises but using Python and Scikit Learn.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References

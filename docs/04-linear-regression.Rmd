@@ -575,7 +575,14 @@ grid.arrange(p1, p2, p3, p4, nrow = 2)
 
 Linear regression is usually the first supervised learning algorithm you will learn. The approach provides a solid fundamental understanding of the supervised learning task; however, as we've discussed there are several concerns that result from the assumptions required. Although extensions of linear regression that integrate dimension reduction steps into the algorithm can help address some of the problems with linear regression, more advanced supervised algorithms typically provide greater flexibility and improved accuracy. Nonetheless, understanding linear regression provides a foundation that will serve you well in learning these more advanced methods.
 
-[🏠](https://github.com/misk-data-science/misk-homl)
+# Python
+
+The following resources provide detailed examples of performing linear regression with Python and Scikit Learn:
+
+- Chapter 4 of [Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow](https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow-dp-1492032646/dp/1492032646/ref=dp_ob_title_bk) and the accompanying publicly available [jupyter notebook](https://github.com/ageron/handson-ml2/blob/master/04_training_linear_models.ipynb).
+- Chris Albon's [tutorial](https://chrisalbon.com/machine_learning/linear_regression/linear_regression_using_scikit-learn/) on linear regression.
+- Python Data Science Handbook [chapter on linear regression](https://jakevdp.github.io/PythonDataScienceHandbook/05.06-linear-regression.html).
+- Jordan Crouser's [lab notebook](http://www.science.smith.edu/~jcrouser/SDS293/labs/lab11-py.html) on Principal Components Regression and Partial Least Squares for Smith College Machine Learning course
 
 # Exercises
 
@@ -597,5 +604,8 @@ Using the Boston housing data set from the [pdp package](https://cran.r-project.
 6. Now apply a partial least square model.
    - Perform a grid search over several components.
    - Identify and explain the performance of the optimal model.
+7. **Python challenge**: Repeat the above exercises but using Python and Scikit Learn. Recall that Scikit Learn [provides the boston housing data set](https://chrisalbon.com/machine_learning/basics/loading_scikit-learns_boston_housing_dataset/).
+   
+[🏠](https://github.com/misk-data-science/misk-homl)
 
 # References
