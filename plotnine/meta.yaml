@@ -1,0 +1,64 @@
+{% set name = "plotnine" %}
+{% set version = "0.7.1" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
+  sha256: "02f2b0435dae2e917198c5367fd97b010445d64d9888c6b7e755d3cdfe7ad057"
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
+
+requirements:
+  host:
+    - descartes >=1.1.0
+    - matplotlib >=3.1.1
+    - mizani >=0.7.1
+    - numpy >=1.16.0
+    - pandas >=1.1.0
+    - patsy >=0.5.1
+    - pip
+    - python
+    - scipy >=1.2.0
+    - statsmodels >=0.11.1
+  run:
+    - descartes >=1.1.0
+    - matplotlib >=3.1.1
+    - mizani >=0.7.1
+    - numpy >=1.16.0
+    - pandas >=1.1.0
+    - patsy >=0.5.1
+    - python
+    - scipy >=1.2.0
+    - statsmodels >=0.11.1
+
+test:
+  imports:
+    - plotnine
+    - plotnine.coords
+    - plotnine.data
+    - plotnine.facets
+    - plotnine.geoms
+    - plotnine.guides
+    - plotnine.positions
+    - plotnine.scales
+    - plotnine.stats
+    - plotnine.tests
+    - plotnine.themes
+
+about:
+  home: "https://github.com/has2k1/plotnine"
+  license: "GNU General Public v2 (GPLv2)"
+  license_family: "GPL2"
+  license_file: ""
+  summary: "A grammar of graphics for python"
+  doc_url: ""
+  dev_url: ""
+
+extra:
+  recipe-maintainers:
+    - your-github-id-here

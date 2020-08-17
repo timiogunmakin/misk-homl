@@ -196,9 +196,9 @@ You will always find a debate between which language is "best" for machine learn
 
 First, your objective should be to understand the fundamental machine learning concepts. Second, you should have a solid understanding of how to apply these concepts in either language because which one you use can largely be driven by the culture of the organization you work for.
 
-Consequently, this course will illustrate how to apply machine learning in both languages. Code recipes will be supplied in Python ___and___ R tabs as illustrated here:
+Consequently, this course will illustrate how to apply machine learning in both languages. Code recipes will be supplied in Python (`r fontawesome::fa("python")`) ___and___ R (`r fontawesome::fa("r-project")`) tabs as illustrated here:
 
-## Python
+## `r fontawesome::fa("python")`
 
 [Scikit-learn](https://scikit-learn.org/) is the predominate Python package for machine learning. Unlike R, scikit-learn provides nearly all components required for the modeling process (i.e. sampling, feature engineering, modeling, evaluation). Scikit-learn is part of the SciPy ecosystem, which is a group of Python libraries for mathematics, science and engineering. Other packages that you will commonly use for ML in Python include:
 
@@ -227,7 +227,7 @@ import sklearn
 sklearn.__version__
 ```
 
-## R
+## `r fontawesome::fa("r-project")`
 
 Historically, the R ecosystem provides a wide variety of ML algorithm implementations. This has its benefits; however, this also drawbacks as it requires the users to learn many different formula interfaces and syntax nuances. More recently, development on a group of packages called [Tidymodels](https://www.tidymodels.org/) has helped to make implementation easier. 
 
@@ -276,7 +276,7 @@ The Boston Housing data set is derived from information collected by the U.S. Ce
 - __observations__: 506
 - __objective__: use property attributes to predict the median value of owner-occupied homes
 
-### Python
+### `r fontawesome::fa("python")`
 
 ```{python}
 # Pandas has already been imported
@@ -297,7 +297,7 @@ boston.drop("cmedv", axis=1).head()
 boston["cmedv"].head()
 ```
 
-### R
+### `r fontawesome::fa("r-project")`
 
 ```{r}
 # access data
@@ -324,7 +324,7 @@ A population of women who were at least 21 years old, of Pima Indian heritage an
 - __observations__: 768
 - __objective__: use biological attributes to predict the presence of diabetes
 
-### Python
+### `r fontawesome::fa("python")`
 
 ```{python}
 # Pandas has already been imported
@@ -347,7 +347,7 @@ pima.drop("diabetes", axis=1).head()
 pima["diabetes"].head()
 ```
 
-### R
+### `r fontawesome::fa("r-project")`
 
 ```{r}
 # access data
@@ -374,7 +374,7 @@ The Iris flower data set is a multivariate data set introduced by the British st
 - __observations__: 150
 - __objective__: use plant leaf attributes to predict the type of flower
 
-### Python
+### `r fontawesome::fa("python")`
 
 ```{python}
 # Pandas has already been imported
@@ -397,7 +397,7 @@ iris.drop("Species", axis=1).head()
 iris["Species"].head()
 ```
 
-### R
+### `r fontawesome::fa("r-project")`
 
 ```{r}
 # access data
@@ -424,7 +424,7 @@ The Ames housing data set is an alternative to the Boston housing data set and p
 - __observations__: 2,930
 - __objective__: use property attributes to predict the sale price of a home
     
-### Python
+### `r fontawesome::fa("python")`
 
 ```{python}
 # Pandas has already been imported
@@ -447,7 +447,7 @@ ames.drop("Sale_Price", axis=1).head()
 ames["Sale_Price"].head()
 ```
 
-### R
+### `r fontawesome::fa("r-project")`
     
 ```{r}
 # access data
@@ -474,7 +474,7 @@ The employee attrition data set was originally provided by [IBM Watson Analytics
 - __observations__: 1,470
 - __objective__: use employee attributes to predict if they will attrit (leave the company)
 
-### Python
+### `r fontawesome::fa("python")`
 
 ```{python}
 # Pandas has already been imported
@@ -497,7 +497,7 @@ attrition.drop("Attrition", axis=1).head()
 attrition["Attrition"].head()
 ```
 
-### R
+### `r fontawesome::fa("r-project")`
     
 ```{r import-attrition-data}
 # access data
