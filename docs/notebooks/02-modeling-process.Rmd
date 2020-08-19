@@ -881,6 +881,9 @@ test   <- testing(split)
 # select only numeric features
 train <- train %>% select_if(is.numeric)
 
+# create resampling procedure
+kfold <- vfold_cv(train, v = 10)
+
 # model object
 knn <- nearest_neighbor(neighbors = tune()) %>%
   set_engine("kknn") %>%
