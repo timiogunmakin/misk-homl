@@ -16,7 +16,8 @@ library(tidyverse)
 ames <- AmesHousing::make_ames()
 
 ## attrition data
-churn <- rsample::attrition
+library(modeldata)
+churn <- data(attrition)
 ```
 
 

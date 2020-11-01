@@ -17,6 +17,7 @@ list_of_pkgs <- c(
   "factoextra",    # clustering & PCA visualizations
   "here",          # coordinating paths
   "rsample",       # sampling procedures
+  "modeldata",     # more data
   "recipes",       # feature engineering procedures
   "caret",         # meta modeling package,
   "h2o",           # meta modeling, model stacking, & auto ML

@@ -23,7 +23,9 @@ head(ames$Sale_Price)
 
 ```{r import-attrition-data}
 # access data
-attrition <- rsample::attrition
+# attrition <- rsample::attrition
+library(modeldata)
+data(attrition)
 
 # initial dimension
 dim(attrition)
