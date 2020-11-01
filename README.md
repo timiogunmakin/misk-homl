@@ -7,10 +7,8 @@ Hands-on machine learning for predictive analytics
 
 -----
 
-:spiral_calendar: September XX-XX, 2020  
-:alarm_clock:     09:00 - 17:00  
-:hotel:           TBD  
-:writing_hand:    TBD
+:spiral_calendar: October, 2020  
+:alarm_clock:     16:00 - 18:00 & 18:30 - 20:30
 
 -----
 
