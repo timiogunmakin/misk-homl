@@ -18,8 +18,40 @@ dim(ames)
 # response variable
 head(ames$Sale_Price)
 ```
+
+
+```{r}
+glimpse(ames)
+```
+
+
+```{r}
+library(tidyverse)
+ggplot(ames, aes(Lot_Shape)) +
+  geom_bar()
+```
+
+
+```{r}
+ames %>% 
+ # filter(Lot_Area < 25000) %>% 
+ ggplot(aes(Lot_Area, Sale_Price)) +
+ geom_point()
+
+```
+
+
+```{r}
+ggplot(ames, aes(Sale_Price)) +
+  geom_density()
+
+```
+
+
+
     
 * Employee attrition information originally provided by [IBM Watson Analytics Lab](https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/).
+
 
 ```{r import-attrition-data}
 # access data

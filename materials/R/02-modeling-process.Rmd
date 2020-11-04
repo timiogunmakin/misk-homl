@@ -17,7 +17,8 @@ ames <- AmesHousing::make_ames()
 
 ## attrition data
 library(modeldata)
-churn <- data(attrition)
+data(attrition)
+churn <- attrition
 ```
 
 
@@ -56,15 +57,27 @@ ggplot(train, aes(x = price)) +
 ```{r slide-9}
 # ames data
 set.seed(123)
-ames_split <- initial_split(ames, prop = _____, strata = "Sale_Price")
-ames_train <- training(_____)
-ames_test  <- testing(_____)
+ames_split <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train <- training(ames_split)
+ames_test  <- testing(ames_split)
 
 # attrition data
 set.seed(123)
-churn_split <- initial_split(churn, prop = _____, strata = "Attrition")
-churn_train <- training(_____)
-churn_test  <- testing(_____)
+churn_split <- initial_split(churn, prop = 0.7, strata = "Attrition")
+churn_train <- training(churn_split)
+churn_test  <- testing(churn_split)
+```
+
+
+```{r}
+ggplot(ames_train, aes(x = Sale_Price)) +
+  geom_line(aes(color = "train"),
+            stat = "density",
+            trim = TRUE) + 
+  geom_line(aes(color = "test"),
+            data = ames_test,
+            stat = "density", 
+            trim = TRUE)
 ```
 
 
@@ -79,6 +92,7 @@ Let's put these pieces together and analyze the Ames housing data:
 5. Evaluate performance
 
 ___This grid search takes ~2 min___
+
 
 ```{r slide-35}
 # 1. stratified sampling with the rsample package

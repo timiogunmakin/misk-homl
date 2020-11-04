@@ -45,7 +45,7 @@ model2 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)
 model3 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area : Year_Built, data = ames_train)
 
 # include all possible main effects
-model
+model4 <- lm(Sale_Price ~ ., data = ames_train)
 ```
 
 # Assessing model accuracy 
@@ -259,14 +259,14 @@ vip(cv_pls)
 p1 <- vip(cv_model4, num_features = 25, bar = FALSE) + ggtitle("OLS")
 p2 <- vip(cv_pls, num_features = 25, bar = FALSE) + ggtitle("PLS")
 
-gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 1)
+gridExtra::grid.arrange(p1, p2, nrow = 1)
 ```
 
 # Feature effects 
 
 * feature effects measures the relationship between a feature and the target variable
 * most common approach is a partial dependence plot
-* computs the average response value when all observations use a particular value for a given feature
+* computes the average response value when all observations use a particular value for a given feature
 * we will review this more tomorrow
 
 ```{r slide-35}
