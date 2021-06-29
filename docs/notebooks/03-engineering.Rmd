@@ -10,12 +10,14 @@ bibliography: [references.bib, packages.bib]
 
 <br>
 
-```{r setup, include=FALSE}
+```{r 03-setup, include=FALSE}
 
 # Set global knitr chunk options
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
                       collapse = TRUE, fig.align = 'center')
-reticulate::use_condaenv("misk")
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
 
 # Set the graphical theme
 ggplot2::theme_set(ggplot2::theme_light())
@@ -26,19 +28,21 @@ import plotnine
 plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 ```
 
-Data preprocessing and engineering techniques generally refer to the addition, deletion, or transformation of data.  The time spent on identifying data engineering needs can be significant and requires you to spend substantial time understanding your data...or as Leo Breiman said "live with your data before you plunge into modeling" [@breiman2001statistical p. 201]. Although this course primarily focuses on applying machine learning algorithms, feature engineering can make or break an algorithm’s predictive ability and deserves your continued focus and education.
+Data pre-processing and engineering techniques generally refer to the addition, deletion, or transformation of data.  The time spent on identifying data engineering needs can be significant and requires you to spend substantial time understanding your data...or as Leo Breiman said "live with your data before you plunge into modeling" [@breiman2001statistical p. 201]. Although this course primarily focuses on applying machine learning algorithms, feature engineering can make or break an algorithm’s predictive ability and deserves your continued focus and education.
 
-We will not cover all the potential ways of implementing feature engineering; however, we'll cover several fundamental preprocessing tasks that has the potential to significantly improve modeling performance. Moreover, different models have different sensitivities to the type of target and feature values in the model and we will try to highlight some of these concerns. For more in depth coverage of feature engineering, please refer to @kuhn2019feature and @zheng2018feature.
+We will not cover all the potential ways of implementing feature engineering; however, we'll cover several fundamental pre-processing tasks that has the potential to significantly improve modeling performance. Moreover, different models have different sensitivities to the type of target and feature values in the model and we will try to highlight some of these concerns. For more in depth coverage of feature engineering, please refer to @kuhn2019feature and @zheng2018feature.
+
+# Learning objectives
 
 By the end of this module you will know:
 
-- When and how to transform the response variable ("target engineering")
-- How to deal with missing values
-- When to filter unnecessary features
-- Common ways to transform numeric features
-- Common ways to transform categorical features
-- How to apply dimension reduction
-- How to properly combine multiple preprocessing steps into the modeling process
+- When and how to transform the response variable ("target engineering").
+- How to identify and deal with missing values.
+- When to filter unnecessary features.
+- Common ways to transform numeric features.
+- Common ways to transform categorical features.
+- How to apply dimension reduction.
+- How to properly combine multiple pre-processing steps into the modeling process.
 
 # Prerequisites {.tabset}
 
@@ -68,7 +72,7 @@ from sklearn.decomposition import PCA
 
 # Modeling pre-processing with non-scikit-learn packages
 from category_encoders.ordinal import OrdinalEncoder
-from feature_engine.categorical_encoders import RareLabelCategoricalEncoder
+from feature_engine.encoding import RareLabelEncoder
 
 # Modeling
 from sklearn.model_selection import GridSearchCV
@@ -186,7 +190,7 @@ data.frame(
 In Python we use `TransformedTargetRegressor()` to build a plan for target engineering. This will not return the actual log/box-cox transformed values but, rather, a blueprint to be applied later. In this example we are simply building an object that will apply a Box-Cox transformation to the target variable when we fit our model.
 
 ```{block, type='tip'}
-There is a `sklearn.preprocessing.power_transform` function that can be applied to immediately transform an array. However, later in this module we'll discuss the idea of data leakage and how important it is to create isolated preprocessing steps.
+There is a `sklearn.preprocessing.power_transform` function that can be applied to immediately transform an array. However, later in this module we'll discuss the idea of data leakage and how important it is to create isolated pre-processing steps.
 ```
 
 
@@ -197,7 +201,7 @@ tt
 
 ## `r fontawesome::fa("r-project")`
 
-In R we use `recipes::recipe()` to build a "recipe" of preprocessing steps. This will not return the actual log transformed values but, rather, a blueprint to be applied later.
+In R we use `recipes::recipe()` to build a "recipe" of pre-processing steps. This will not return the actual log transformed values but, rather, a blueprint to be applied later.
 
 ```{r engineering-y_log}
 # log transformation
@@ -234,13 +238,13 @@ ames_raw.isnull().sum()
 Check out the [missingno](https://github.com/ResidentMario/missingno) package to see all the great ways to to visualize missing data!
 ```
 
-```{python, fig.width=11}
-# can you identify patterns of missing data?
+```{python vizualize-missing, fig.width=12, fig.height=6}
+# can you identify patterns of missing data
 # missingness is represented with white
 msno.matrix(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
 ```
 
-```{python, fig.width=11}
+```{python vizualize-missing2, fig.width=12, fig.height=6}
 # which features have most missing?
 # this chart shows the number of observations so small bars (i.e. Pool QC)
 # represent very few observed values (lots of missingness)
@@ -260,13 +264,13 @@ sum(is.na(ames_raw))
 Check out the [naniar](http://naniar.njtierney.com/) package to see all the great ways to to visualize missing data!
 ```
 
-```{r, fig.width=9}
+```{r, fig.width=12}
 # can you identify patterns of missing data?
 # missingness is represented with black
 vis_miss(ames_raw)
 ```
 
-```{r, fig.height=6}
+```{r, fig.height=8}
 # which features have most missing?
 gg_miss_var(ames_raw)
 ```
@@ -274,7 +278,7 @@ gg_miss_var(ames_raw)
 
 ## Imputation {#impute}
 
-_Imputation_ is the process of replacing a missing value with a substituted, "best guess" value. Imputation should be one of the first feature engineering steps you take as it will affect any downstream preprocessing^[For example, standardizing numeric features will include the imputed numeric values in the calculation and one-hot encoding will include the imputed categorical value.]. 
+_Imputation_ is the process of replacing a missing value with a substituted, "best guess" value. Imputation should be one of the first feature engineering steps you take as it will affect any downstream pre-processing^[For example, standardizing numeric features will include the imputed numeric values in the calculation and one-hot encoding will include the imputed categorical value.]. 
 
 ### Estimated statistic {.tabset}
 
@@ -617,7 +621,7 @@ std <- ames_recipe %>%
 
 # Categorical feature engineering
 
-Most models require that the predictors take numeric form.  There are exceptions; for example, tree-based models naturally handle numeric or categorical features.  However, even tree-based models can benefit from preprocessing categorical features.  The following sections will discuss a few of the more common approaches to engineer categorical features.
+Most models require that the predictors take numeric form.  There are exceptions; for example, tree-based models naturally handle numeric or categorical features.  However, even tree-based models can benefit from pre-processing categorical features.  The following sections will discuss a few of the more common approaches to engineer categorical features.
 
 
 ## One-hot & dummy encoding {.tabset}
@@ -784,7 +788,7 @@ The following code snippets show how to lump all neighborhoods that represent le
 
 ```{python}
 # create rare label encoder
-rare_encoder = RareLabelCategoricalEncoder(tol=0.01, replace_with="other")
+rare_encoder = RareLabelEncoder(tol=0.01, replace_with="other")
 ```
 
 ```{python, echo=FALSE}
@@ -842,7 +846,7 @@ We stated at the beginning of this module that we should think of feature engine
 
 ## Sequential steps 
 
-Thinking of feature engineering as a blueprint forces us to think of the ordering of our preprocessing steps. Although each particular problem requires you to think of the effects of sequential preprocessing, there are some general suggestions that you should consider:
+Thinking of feature engineering as a blueprint forces us to think of the ordering of our pre-processing steps. Although each particular problem requires you to think of the effects of sequential pre-processing, there are some general suggestions that you should consider:
 
 - If using a log or Box-Cox transformation, don’t center the data first or do any operations that might make the data non-positive. Alternatively, use the Yeo-Johnson transformation so you don’t have to worry about this.
 - One-hot or dummy encoding typically results in sparse data which many algorithms can operate efficiently on. If you standardize sparse data you will create dense data and you loose the computational efficiency.  Consequently, it's often preferred to standardize your numeric features and then one-hot/dummy encode.
@@ -860,9 +864,9 @@ While your project’s needs may vary, here is a suggested order of potential st
 
 ## Data leakage
 
-_Data leakage_ is when information from outside the training data set is used to create the model. Data leakage often occurs during the data preprocessing period. To minimize this, feature engineering should be done in isolation of each resampling iteration. Recall that resampling allows us to estimate the generalizable prediction error.  Therefore, we should apply our feature engineering blueprint to each resample independently as illustrated below.  That way we are not leaking information from one data set to another (each resample is designed to act as isolated training and test data).  
+_Data leakage_ is when information from outside the training data set is used to create the model. Data leakage often occurs during the data pre-processing period. To minimize this, feature engineering should be done in isolation of each resampling iteration. Recall that resampling allows us to estimate the generalizable prediction error.  Therefore, we should apply our feature engineering blueprint to each resample independently as illustrated below.  That way we are not leaking information from one data set to another (each resample is designed to act as isolated training and test data).  
 
-```{r engineering-minimize-leakage, echo=FALSE, fig.cap="__Figure__: Performing feature engineering preprocessing within each resample helps to minimize data leakage.", out.width='90%'}
+```{r engineering-minimize-leakage, echo=FALSE, fig.cap="__Figure__: Performing feature engineering pre-processing within each resample helps to minimize data leakage.", out.width='90%'}
 knitr::include_graphics("../images/minimize-leakage.png")
 ```
 
@@ -935,7 +939,7 @@ pca = PCA(n_components=30)
 # 5. One-hot encode remaining categorical features.
 encoder = OneHotEncoder(handle_unknown="ignore")
 
-# combine all steps into a preprocessing pipeline
+# combine all steps into a pre-processing pipeline
 preprocessor = ColumnTransformer(
   remainder="passthrough",
   transformers=[
@@ -947,7 +951,7 @@ preprocessor = ColumnTransformer(
   ])
 ```
 
-We can now create a modeling pipeline that includes the preprocessing step and then the modeling step. Similar to `ColumnTransformer`, `Pipeline` takes tuples with the name and object for each step in the order you want them applied.
+We can now create a modeling pipeline that includes the pre-processing step and then the modeling step. Similar to `ColumnTransformer`, `Pipeline` takes tuples with the name and object for each step in the order you want them applied.
 
 ```{python}
 model_pipeline = Pipeline(steps=[
@@ -1077,7 +1081,7 @@ Using the Ames dataset and the same approach shown in the [last section](#engine
    - Why would these feature engineering steps be applicable to the Ames data?
    - Apply these feature engineering steps along with the same cross-validated KNN model. How do your results change?
    
-4. Compare the Python and R preprocessing steps in the last section. Can you spot any discrepencies? If so, resolve them so the pipelines are performing the same steps.
+4. Compare the Python and R pre-processing steps in the last section. Can you spot any discrepencies? If so, resolve them so the pipelines are performing the same steps.
    
 4. Using the [Attrition data set](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#the_data_sets), assess the characteristics of the target and features.
    - Which target/feature engineering steps should be applied?

@@ -10,7 +10,9 @@ bibliography: [references.bib, packages.bib]
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, collapse = TRUE)
-reticulate::use_condaenv("anaconda3")
+#reticulate::use_condaenv("anaconda3")
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
 ```
 
 Machine learning (ML) continues to grow in importance for many organizations across nearly all domains. Some example applications of machine learning in practice include:
@@ -21,7 +23,16 @@ Machine learning (ML) continues to grow in importance for many organizations acr
 * Predicting customer churn so an organization can perform preventative intervention.
 * And many more!
 
-In essence, these tasks all seek to learn from data.  To address each scenario, we can use a given set of _features_ to train an algorithm and extract insights. These algorithms, or _learners_, can be classified according to the amount and type of supervision needed during training.  The two main groups this book focuses on are: ___supervised learners___ which construct predictive models, and ___unsupervised learners___ which build descriptive models. Which type you will need to use depends on the learning task you hope to accomplish.
+In essence, these tasks all seek to learn from data.  To address each scenario, we can use a given set of _features_ to train an algorithm and extract insights. These algorithms, or _learners_, can be classified according to the amount and type of supervision needed during training.  
+
+# Learning objectives
+
+This module will introduce you to some fundamental concepts around ML and this class. By the end of this module you will:
+
+1. Be able to explain the difference between supervised and unsupervised learning.
+2. Know when a problem is considered a regression or classification problem.
+3. Understand the objective and structure of this course and the type of exercises involved.
+4. Be able to import and explore the data sets we'll use through various examples.
 
 # Supervised learning
 
