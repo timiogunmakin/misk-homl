@@ -238,17 +238,42 @@ ames_raw.isnull().sum()
 Check out the [missingno](https://github.com/ResidentMario/missingno) package to see all the great ways to to visualize missing data!
 ```
 
-```{python vizualize-missing, fig.width=12, fig.height=6}
+```{python vizualize-missing, eval=FALSE}
 # can you identify patterns of missing data
 # missingness is represented with white
 msno.matrix(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
 ```
 
-```{python vizualize-missing2, fig.width=12, fig.height=6}
+```{python vizualize-missing-output, fig.width=12, fig.height=6, echo=FALSE}
+# can you identify patterns of missing data
+# missingness is represented with white
+p = msno.matrix(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+p_fig = p.get_figure()
+p_fig.savefig('images/vizualize-missing.png', bbox_inches = 'tight')
+```
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/vizualize-missing.png")
+```
+
+
+```{python vizualize-missing2, eval=FALSE}
 # which features have most missing?
 # this chart shows the number of observations so small bars (i.e. Pool QC)
 # represent very few observed values (lots of missingness)
 msno.bar(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+```
+
+```{python vizualize-missing2-output, fig.width=12, fig.height=6, echo=FALSE}
+# can you identify patterns of missing data
+# missingness is represented with white
+p = msno.bar(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+p_fig = p.get_figure()
+p_fig.savefig('images/vizualize-missing2.png', bbox_inches = 'tight')
+```
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/vizualize-missing2.png")
 ```
 
 ### `r fontawesome::fa("r-project")`
@@ -264,13 +289,13 @@ sum(is.na(ames_raw))
 Check out the [naniar](http://naniar.njtierney.com/) package to see all the great ways to to visualize missing data!
 ```
 
-```{r, fig.width=12}
+```{r, fig.width=12, fig.height=6}
 # can you identify patterns of missing data?
 # missingness is represented with black
 vis_miss(ames_raw)
 ```
 
-```{r, fig.height=8}
+```{r, fig.height=9}
 # which features have most missing?
 gg_miss_var(ames_raw)
 ```

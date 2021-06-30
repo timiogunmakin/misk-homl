@@ -9,8 +9,9 @@ bibliography: [references.bib, packages.bib]
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, collapse = TRUE)
-#reticulate::use_condaenv("anaconda3")
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, cache = TRUE)
+
 library(reticulate)
 use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
 ```

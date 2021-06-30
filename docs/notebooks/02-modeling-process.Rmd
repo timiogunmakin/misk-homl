@@ -11,8 +11,14 @@ bibliography: [references.bib, packages.bib]
 ```{r 02-setup, include=FALSE}
 
 # Set global knitr chunk options
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
-                      collapse = TRUE, fig.align = 'center')
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE, 
+  fig.align = 'center',
+  fig.show = "hold",
+  dpi = 300
+  )
 library(reticulate)
 use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
 
@@ -20,6 +26,10 @@ use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", 
 ggplot2::theme_set(ggplot2::theme_light())
 ```
 
+```{python, echo=FALSE}
+import warnings
+warnings.filterwarnings("ignore")
+```
 
 Much like EDA, the ML process is very iterative and heuristic-based. With minimal knowledge of the problem or data at hand, it is difficult to know which ML method will perform best.  This is known as the _no free lunch_ theorem for ML [@wolpert1996lack].  Consequently, it is common for many ML approaches to be applied, evaluated, and modified before a final, optimal model can be determined. Performing this process correctly provides great confidence in our outcomes. If not, the results will be useless and, potentially, damaging ^[See https://www.fatml.org/resources/relevant-scholarship for many discussions regarding implications of poorly applied and interpreted ML.]. 
 
@@ -139,12 +149,27 @@ train.shape
 
 With sufficient sample size, this sampling approach will typically result in a similar distribution of $Y$ (e.g., `Sale_Price` in the `ames` data) between your <font color="blue">training</font> and <font color="red">test</font> sets, as illustrated below.
 
-```{python}
+```{python py-random-sampling, eval = FALSE}
 (ggplot(train, aes('Sale_Price'))
  + geom_density(color = "blue")
  + geom_density(data = test, color = "red")
  + ggtitle("Random sampling with Python"))
 ```
+
+```{python py-random-sampling-output, echo = FALSE}
+p = (ggplot(train, aes('Sale_Price'))
+ + geom_density(color = "blue")
+ + geom_density(data = test, color = "red")
+ + ggtitle("Random sampling with Python"))
+ 
+p.save(filename="py-random-sampling.png", path = "./images", dpi = 300, 
+       height=5, width=7, units="in", verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="100%"}
+knitr::include_graphics("images/py-random-sampling.png")
+```
+
 
 
 ### `r fontawesome::fa("r-project")`
@@ -162,7 +187,7 @@ dim(train)
 
 With sufficient sample size, this sampling approach will typically result in a similar distribution of $Y$ (e.g., `Sale_Price` in the `ames` data) between your <font color="blue">training</font> and <font color="red">test</font> sets, as illustrated below.
 
-```{r}
+```{r r-random-sampling}
 ggplot(train, aes(Sale_Price)) +
  geom_density(color = "blue") +
  geom_density(data = test, color = "red") +
@@ -766,7 +791,7 @@ abs(results.best_score_)
 results.best_estimator_.get_params().get('n_neighbors')
 ```
 
-```{python, fig.height=3, fig.width=6}
+```{python py-grid-search-results, eval=FALSE}
 # Plot all RMSE results
 all_rmse = pd.DataFrame({'k': range(2, 26), 
                          'RMSE': np.abs(results.cv_results_['mean_test_score'])})
@@ -775,6 +800,23 @@ all_rmse = pd.DataFrame({'k': range(2, 26),
  + geom_line()
  + geom_point()
  + ggtitle("Cross validated grid search results"))
+```
+
+```{python py-grid-search-results-output, echo=FALSE}
+# Plot all RMSE results
+all_rmse = pd.DataFrame({'k': range(2, 26), 
+                         'RMSE': np.abs(results.cv_results_['mean_test_score'])})
+
+p = (ggplot(all_rmse, aes(x='k', y='RMSE'))
+ + geom_line()
+ + geom_point()
+ + ggtitle("Cross validated grid search results"))
+ 
+p.save(filename="py-grid-search-results.png", path = "./images", dpi = 300, verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("images/py-grid-search-results.png")
 ```
 
 
@@ -800,7 +842,7 @@ results <- tune_grid(knn, model_form, resamples = kfold, grid = hyper_grid)
 show_best(results, metric = "rmse")
 ```
 
-```{r}
+```{r r-grid-search-results}
 results %>%
   collect_metrics() %>%
   filter(.metric == "rmse") %>%
@@ -862,7 +904,7 @@ abs(results.best_score_)
 results.best_estimator_.get_params().get('n_neighbors')
 ```
 
-```{python}
+```{python py-final-results}
 # Plot all RMSE results
 all_rmse = pd.DataFrame({'k': range(2, 26), 
                          'RMSE': np.abs(results.cv_results_['mean_test_score'])})
@@ -875,7 +917,7 @@ all_rmse = pd.DataFrame({'k': range(2, 26),
 
 ## `r fontawesome::fa("r-project")`
 
-```{r}
+```{r r-final-results}
 # create train/test split
 set.seed(123)  # for reproducibility
 split  <- initial_split(ames, prop = 0.7)
