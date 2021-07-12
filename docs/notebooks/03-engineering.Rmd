@@ -39,8 +39,7 @@ By the end of this module you will know:
 - When and how to transform the response variable ("target engineering").
 - How to identify and deal with missing values.
 - When to filter unnecessary features.
-- Common ways to transform numeric features.
-- Common ways to transform categorical features.
+- Common ways to transform numeric and categorical features.
 - How to apply dimension reduction.
 - How to properly combine multiple pre-processing steps into the modeling process.
 

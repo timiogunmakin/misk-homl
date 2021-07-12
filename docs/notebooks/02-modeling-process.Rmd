@@ -42,14 +42,12 @@ knitr::include_graphics("../images/modeling_process.png")
 
 # Learning objectives
 
-Before introducing specific algorithms, this module, and the next, introduce concepts that are fundamental to the ML modeling process and that you will see briskly covered in future modules. By the end of this model you will understand the why and the how around:
+Before introducing specific algorithms, this module, and the next, introduce concepts that are fundamental to the ML modeling process and that you will see briskly covered in future modules. By the end of this model you will be able to:
 
-1. Splitting your data into training and test sets.
-2. Creating, training, and fitting a basic model in both R and Python. 
-3. Common model evaluation metrics for regression and classification models.
-4. How to apply _k_-fold resampling procedures to improve our estimated error.
-5. What the bias-variance trade-off is and how hyperparameter tuning helps to balance these concerns.
-6. How to put these steps together for an end-to-end ML process.
+1. Split your data into training and test sets.
+2. Instantiate, train, fit, and evaluate a basic model in both R and Python.
+4. Apply _k_-fold resampling and hyperparameter tuning procedures to improve the robustness and performance of a model.
+5. Put these steps together for an end-to-end ML process.
 
 # Prerequisites {.tabset}
 
