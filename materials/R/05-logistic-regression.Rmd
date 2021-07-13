@@ -18,13 +18,18 @@ library(caret)     # for logistic regression modeling
 
 # Model interpretability packages
 library(vip)       # variable importance
-library(ROCR)      # ROC curve
+library(ROCR)      # ROC curve, may need to additionally install
 ```
 
 To illustrate logistic regression concepts we'll use the employee attrition data, where our intent is to predict the `Attrition` response variable (coded as `"Yes"`/`"No"`). As in the previous module, we'll set aside 30% of our data as a test set to assess our generalizability error.
 
 ```{r}
-df <- attrition %>% mutate_if(is.ordered, factor, ordered = FALSE)
+## attrition data
+library(modeldata)
+data(attrition)
+
+df <- attrition %>% 
+  mutate_if(is.ordered, factor, ordered = FALSE)
 # Create training (70%) and test (30%) sets for the 
 # rsample::attrition data.
 set.seed(123)  # for reproducibility
@@ -32,6 +37,7 @@ churn_split <- initial_split(df, prop = .7, strata = "Attrition")
 churn_train <- training(churn_split)
 churn_test  <- testing(churn_split)
 ```
+
 
 # Simple logistic regression
 
@@ -148,7 +154,7 @@ legend(0.8, 0.2, legend = c("cv_model1", "cv_model3"),
 
 Top 20 influential variables:
 
-```{r glm-vip, fig.cap="Top 20 most important variables for the PLS model."}
+```{r glm-vip, fig.cap="Top 20 most important variables for the Logistic Regression model."}
 vip(cv_model3, num_features = 20)
 ```
 

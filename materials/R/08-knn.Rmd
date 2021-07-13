@@ -24,6 +24,8 @@ split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
 ames_train  <- rsample::training(split)
 
 # create training (70%) set for the rsample::attrition data.
+library(modeldata)
+data(attrition)
 attrit <- attrition %>% mutate_if(is.ordered, factor, ordered = FALSE)
 set.seed(123)
 churn_split <- initial_split(attrit, prop = .7, strata = "Attrition")

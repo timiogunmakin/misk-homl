@@ -166,7 +166,7 @@ cv_glmnet$results %>%
   filter(
     alpha == cv_glmnet$bestTune$alpha,
     lambda == cv_glmnet$bestTune$lambda
-    )
+  )
 ```
 
 ```{r cv-glmnet-plot, fig.height=5}
@@ -199,27 +199,31 @@ vip(cv_glmnet, num_features = 20, geom = "point")
 
 ```{r regularized-top4-pdp, echo=FALSE, fig.height=8, fig.width=12}
 p1 <- pdp::partial(cv_glmnet, pred.var = "Gr_Liv_Area", grid.resolution = 20) %>%
+  as_tibble() %>% 
   mutate(yhat = exp(yhat)) %>%
   ggplot(aes(Gr_Liv_Area, yhat)) +
   geom_line() +
   scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
 
 p2 <- pdp::partial(cv_glmnet, pred.var = "Total_Bsmt_SF", grid.resolution = 20) %>%
+  as_tibble() %>% 
   mutate(yhat = exp(yhat)) %>%
   ggplot(aes(Total_Bsmt_SF, yhat)) +
   geom_line() +
   scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
 
 p3 <- pdp::partial(cv_glmnet, pred.var = "Overall_QualExcellent") %>%
+  as_tibble() %>% 
   mutate(
     yhat = exp(yhat),
     Overall_QualExcellent = factor(Overall_QualExcellent)
-    ) %>%
+  ) %>%
   ggplot(aes(Overall_QualExcellent, yhat)) +
   geom_boxplot() +
   scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
 
 p4 <- pdp::partial(cv_glmnet, pred.var = "Year_Built", grid.resolution = 20) %>%
+  as_tibble() %>% 
   mutate(yhat = exp(yhat)) %>%
   ggplot(aes(Year_Built, yhat)) +
   geom_line() +

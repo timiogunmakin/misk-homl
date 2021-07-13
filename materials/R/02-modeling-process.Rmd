@@ -216,4 +216,3 @@ results %>%
   geom_point() +
   labs(x = "k", y = "RMSE", title = "Cross validated grid search results")
 ```
-

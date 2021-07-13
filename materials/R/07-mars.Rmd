@@ -15,6 +15,7 @@ library(ggplot2)   # for awesome plotting
 # Modeling packages
 library(earth)     # for fitting MARS models
 library(caret)     # for automating the tuning process
+library(rsample)  # for sampling
 
 # Model interpretability packages
 library(vip)       # for variable importance

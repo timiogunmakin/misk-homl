@@ -42,10 +42,15 @@ summary(model1)
 model2 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)
 
 # OLS model with specified interactions
-model3 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area : Year_Built, data = ames_train)
+model3 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area:Year_Built, data = ames_train)
+# Equivalent to Gr_Liv_Area*Year_Built
 
 # include all possible main effects
-model
+model4 <- lm(Sale_Price ~ ., data = ames_train)
+```
+
+```{r eval = FALSE}
+summary(model4)
 ```
 
 # Assessing model accuracy 
@@ -118,14 +123,32 @@ summary(resamples(list(
 
 # Model concerns - multicollinearity
 
+
 ```{r slide-16}
-m1 <- lm(Sale_Price ~ Gr_Liv_Area + TotRms_AbvGrd, data = ames_train)
-m2 <- lm(Sale_Price ~ Gr_Liv_Area, data = ames_train)
-m3 <- lm(Sale_Price ~ TotRms_AbvGrd, data = ames_train)
+m1 <- lm(Sale_Price ~ Gr_Liv_Area + TotRms_AbvGrd, data = ames_train) # 2 predictors
+m2 <- lm(Sale_Price ~ Gr_Liv_Area, data = ames_train)     # only predictor 1
+m3 <- lm(Sale_Price ~ TotRms_AbvGrd, data = ames_train)   # only predictor 1
 
 coef(m1) 
 coef(m2) 
 coef(m3) 
+```
+
+
+```{r}
+# The are highly correlated
+cor(ames_train$Gr_Liv_Area, ames_train$TotRms_AbvGrd )
+
+# simple plot
+plot(ames_train$Gr_Liv_Area, ames_train$TotRms_AbvGrd )
+```
+
+```{r}
+
+# # which(names(ames_train) == "Sale_Price")
+# library(ggcorrplot)
+# corr <- round(cor(ames_train[-79]), 1)
+# ggcorrplot(corr)
 ```
 
 
@@ -166,6 +189,7 @@ Tuning
 - rule of thumb
    - assess 2-*p* in evenly divided segments
    - start with a few and zoom in
+
 
 ```{r slide-22}
 # 1. hypergrid
@@ -252,6 +276,7 @@ vip Package
 ```{r slide-33}
 # MARS model
 vip(cv_pls)
+
 ```
 
 ```{r slide-34}
@@ -259,14 +284,14 @@ vip(cv_pls)
 p1 <- vip(cv_model4, num_features = 25, bar = FALSE) + ggtitle("OLS")
 p2 <- vip(cv_pls, num_features = 25, bar = FALSE) + ggtitle("PLS")
 
-gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 1)
+gridExtra::grid.arrange(p1, p2, nrow = 1)
 ```
 
 # Feature effects 
 
 * feature effects measures the relationship between a feature and the target variable
 * most common approach is a partial dependence plot
-* computs the average response value when all observations use a particular value for a given feature
+* computes the average response value when all observations use a particular value for a given feature
 * we will review this more tomorrow
 
 ```{r slide-35}
@@ -310,6 +335,16 @@ p4 <- pdp::partial(cv_pls, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>%
 
 gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 1)
 ```
+
+
+```{r eval = FALSE}
+coef(model2)[["Gr_Liv_Area"]]
+library(stringr)
+length(coef(model4))
+coef(model4)[213]
+which(str_detect(names(coef(model4)),"Gr_Liv_Area"))
+```
+
 
 Assess the interaction of the top 2 predictors:
 

@@ -98,7 +98,7 @@ dplyr::select(attrition, -Attrition)
 
 # response variable
 head(attrition$Attrition)
-```    
+```
 
 ## Exercises
 
