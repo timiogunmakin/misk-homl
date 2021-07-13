@@ -35,9 +35,7 @@ _Linear regression_\index{linear regression}, a staple of classical statistical 
 By the end of this module you will know how to:
 
 - Apply and interpret simple and multiple linear regression models.
-- Apply and interpret principal component regression models.
-- Apply and interpret partial least squares regression models.
-- Visualize and interpret feature importance of our models.
+- Minimize the effects of collinearity and improve model performance with principal component regression and partial least squares regression models.
 
 # Prerequisites {.tabset}
 
@@ -53,8 +51,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn import compose
+from sklearn import cross_decomposition
+from sklearn import decomposition
 from sklearn import model_selection
 from sklearn import linear_model
+from sklearn import pipeline
 ```
 
 ```{python}
@@ -78,6 +79,7 @@ library(ggplot2)  # for awesome graphics
 
 # Modeling packages
 library(tidymodels)
+library(plsmod)
 
 # Model interpretability packages
 library(vip)      # variable importance
@@ -527,11 +529,362 @@ R's workflow procedure may seem daunting at first but it provides a lot of flexi
 
 # Principal component regression
 
-TBD
+_Collinearity_ refers to the situation in which two or more predictor variables are closely related to one another. The presence of collinearity can pose problems in OLS, since it can be difficult to separate out the individual effects of collinear variables on the response. In fact, collinearity can cause predictor variables to appear as statistically insignificant when in fact they are significant. This obviously leads to an inaccurate interpretation of coefficients and makes it difficult to identify influential predictors. 
+
+In the Ames data, for example, `Garage_Area` and `Garage_Cars` are two variables that have a correlation of `r round(cor(ames_train$Garage_Area, ames_train$Garage_Cars), 2)` and both variables are strongly related to our response variable (`Sale_Price`). If we fit a model with all main effects where both of these variables are included, note the coefficient estimate and p-values below for `Garage_Area` and `Garage_Cars`.
+
+```{r, collinearity-1, echo=FALSE}
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# fit linear model with all features
+full_mod <- 
+  lm_mod %>% 
+  fit(Sale_Price ~ ., data = ames_train)
+```
+
+```{r, echo=FALSE}
+tidy(full_mod) %>%
+  filter(term %in% c("Garage_Area", "Garage_Cars"))
+```
+
+However, if we refit the full model without `Garage_Area`, the coefficient estimate for `Garage_Car` increases nearly two fold and the p-value becomes much more significant.
+
+```{r, collinearity-2, echo=FALSE}
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# fit linear model with all features
+mod_wo_Garage_Area <- 
+  lm_mod %>% 
+  fit(Sale_Price ~ ., data = select(ames_train, -Garage_Area))
+```
+
+```{r, echo=FALSE}
+tidy(mod_wo_Garage_Area) %>%
+  filter(term == "Garage_Cars")
+```
+This reflects the instability in the linear regression model caused by between-predictor relationships; this instability also gets propagated directly to the model predictions. Considering 16 of our 34 numeric predictors have a medium to strong correlation, the biased coefficients of these predictors are likely restricting the predictive accuracy of our model. How can we control for this problem?  One option is to manually remove the offending predictors (one-at-a-time) until all pairwise correlations are below some pre-determined threshold. However, when the number of predictors is large such as in our case, this becomes tedious. Moreover, multicollinearity can arise when one feature is linearly related to two or more features (which is more difficult to detect^[In such cases we can use a statistic called the _variance inflation factor_ which tries to capture how strongly each feature is linearly related to all the others predictors in a model.]). In these cases, manual removal of specific predictors may not be possible. Consequently, this section and the next offer two simple extensions of linear regression where dimension reduction is applied prior to performing linear regression. A later module on regularized regression offers a modified approach that helps to deal with the problem. And future modules provide alternative methods that are less affected by multicollinearity.
+
+As mentioned in the feature engineering module principal components analysis can be used to represent correlated variables with a smaller number of uncorrelated features (called principal components) and the resulting components can be used as predictors in a linear regression model. This two-step process is known as _principal component regression_ (PCR) [@massy1965principal] and is illustrated below. 
+
+```{r pcr-steps, echo=FALSE, out.height="70%", out.width="70%", fig.cap="A depiction of the steps involved in performing principal component regression."}
+knitr::include_graphics("images/pcr-steps.png")
+```
+
+## Implementation {.tabset}
+
+Performing PCR with R and Python is an easy extension from our previous models. Often, we can greatly improve performance by only using a small subset of all principal components as predictors. For starters, we'll just use 10 components. Note that our preprocessing will first normalize all numeric features and then perform PCA on these features. After the PCA we then one-hot encode our categorical features. 
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# create linear model object
+lm_mod = linear_model.LinearRegression()
+
+# create k-fold cross validation object
+kfold = model_selection.KFold(n_splits=5, random_state=8451, shuffle=True)
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create our preprocessing steps which includes performing PCA 
+# with 10 components
+scaler = preprocessing.StandardScaler()
+pca = decomposition.PCA(n_components=10)
+encoder = preprocessing.OneHotEncoder(handle_unknown="ignore")
+num_feat_only = compose.make_column_selector(dtype_include="number")
+cat_feat_only = compose.make_column_selector(dtype_include="object")
+
+# combine all steps into a pre-processing pipeline
+preprocessor = compose.ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+  ("std_encode", scaler, num_feat_only),
+  ("pca_encode", pca, num_feat_only),
+  ("one-hot", encoder, cat_feat_only),
+  ])
+
+# create a pipeline object that combines model with recipe
+model_pipeline = pipeline.Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("lm", lm_mod),
+])
+
+# train and fit our model
+cv_results = model_selection.cross_val_score(
+  estimator=model_pipeline, 
+  X=X_train, 
+  y=y_train, 
+  cv=kfold, 
+  scoring=loss
+  )
+
+# get results
+np.absolute(cv_results.mean())
+```
+
+### `r fontawesome::fa("r-project")`
+
+```{r, message=FALSE, warning=FALSE}
+# create linear model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
+
+# create our preprocessing steps which includes performing PCA 
+# with 10 components
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_pca(all_numeric(), -all_outcomes(), num_comp = 10) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a workflow object that combines model with recipe
+pca_wf <- workflow() %>%
+  add_model(lm_mod) %>%
+  add_recipe(model_form)
+
+# train and fit our model
+set.seed(123)
+pca_fit_rs <- pca_wf %>% 
+  fit_resamples(folds)
+
+# get results
+collect_metrics(pca_fit_rs) %>%
+  filter(.metric == "rmse")
+```
+
+
+## Tuning {.tabset}
+
+In the above example, we simply assumed 10 principal components was satisfactory. This is rarely the case and the optimal number of principal components to use will change depending on the data set and correlation amongst the predictors. However, often, we can greatly improve performance by only using a small subset of all principal components as predictors. Consequently, you can think of the number of principal components as a tuning parameter. The following performs cross-validated PCR with $1, 2, \dots, 26$ principal components, and the plot below illustrates the cross-validated RMSE. You can see a significant drop in prediction error from our previous linear models using just a few principal components.
+
+### `r fontawesome::fa("python")`
+
+To tune our Python model we simply include a `for` loop that iterates over 2, 4, 6, ..., 26 components. 
+
+```{python}
+# create k-fold cross validation object
+kfold = model_selection.KFold(n_splits=5, random_state=8451, shuffle=True)
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create our preprocessing steps
+scaler = preprocessing.StandardScaler()
+encoder = preprocessing.OneHotEncoder(handle_unknown="ignore")
+num_feat_only = compose.make_column_selector(dtype_include="number")
+cat_feat_only = compose.make_column_selector(dtype_include="object")
+
+# create object to save results
+results = {}
+
+# iterate over over 2, 4, 6, ..., 26 components and train model
+for n_comp in range(2, 28, 2):
+  # create PCA object with n components
+  pca = decomposition.PCA(n_components=n_comp)
+  
+# combine all steps into a pre-processing pipeline
+  preprocessor = compose.ColumnTransformer(
+    remainder="passthrough",
+    transformers=[
+    ("std_encode", scaler, num_feat_only),
+    ("pca_encode", pca, num_feat_only),
+    ("one-hot", encoder, cat_feat_only),
+    ])
+
+  # create linear model object
+  lm_mod = linear_model.LinearRegression()
+
+  # create a pipeline object that combines model with recipe
+  model_pipeline = pipeline.Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("lm", lm_mod),
+  ])
+
+  # train and fit our model
+  cv_results = model_selection.cross_val_score(
+    estimator=model_pipeline, 
+    X=X_train, 
+    y=y_train, 
+    cv=kfold, 
+    scoring=loss
+    )
+
+  # get results
+  results[n_comp] = np.absolute(cv_results.mean())
+```
+
+```{python}
+pd.DataFrame.from_dict(
+  results,
+  orient='index',
+  columns=['RMSE']
+  ).rename_axis('n_components').reset_index()
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+To tune our R model, we'll use `tune()` in place of the `num_comp` parameter in `step_pca()`. Our results show that multiple models, all with very low number of components, perform relatively the same.
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+# create linear model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
+
+# create our model recipe with a tuning option for number of components
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_pca(all_numeric(), -all_outcomes(), num_comp = tune()) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a hyper parameter tuning grid for number of components
+hyper_grid <- expand.grid(num_comp = seq(1, 26, by = 2))
+
+# train our model across the hyper parameter grid
+set.seed(8451)
+results <- tune_grid(lm_mod, model_form, resamples = folds, grid = hyper_grid)
+
+# get best results
+show_best(results, metric = "rmse")
+```
+
+# Partial least squares {.tabset}
+
+It's important to note that since PCR is a two step process, the PCA step does not consider any aspects of the response when it selects the components. Consequently, the new predictors produced by the PCA step are not designed to maximize the relationship with the response. Instead, it simply seeks to reduce the variability present throughout the predictor space. If that variability happens to be related to the response variability, then PCR has a good chance to identify a predictive relationship, as in our case. If, however, the variability in the predictor space is not related to the variability of the response, then PCR can have difficulty identifying a predictive relationship when one might actually exists (i.e., we may actually experience a decrease in our predictive accuracy). An alternative approach to reduce the impact of multicollinearity is _partial least squares_ (PLS).
+
+PLS can be viewed as a supervised dimension reduction procedure [@apm]. Similar to PCR, this technique also constructs a set of linear combinations of the inputs for regression, but unlike PCR it uses the response variable to aid the construction of the principal components as illustrated below. Thus, we can think of PLS as a supervised dimension reduction procedure that finds new features that not only captures most of the information in the original features, but also are related to the response.
+
+```{r pcr-vs-pls, echo=FALSE, fig.cap="Figure: A diagram depicting the differences between PCR (left) and PLS (right). PCR finds principal components (PCs) that maximally summarize the features independent of the response variable and then uses those PCs as predictor variables. PLS finds components that simultaneously summarize variation of the predictors while being optimally correlated with the outcome and then uses those PCs as predictors.", out.width="100%"}
+knitr::include_graphics("images/pls-vs-pcr.png")
+```
+
+We illustrate PLS with some exemplar data^[This is actually using the solubility data that is provided by the __AppliedPredictiveModeling__ package [@R-AppliedPredictiveModeling].]. The below plot illustrates that the first two PCs when using PCR have very little relationship to the response variable; however, the first two PCs when using PLS have a much stronger association to the response.
+
+```{r pls-vs-pcr-relationship, echo=FALSE, fig.cap="Figure: Illustration showing that the first two PCs when using PCR have very little relationship to the response variable (top row); however, the first two PCs when using PLS have a much stronger association to the response (bottom row).", fig.align='center', out.width="80%", out.height="80%"}
+knitr::include_graphics("images/pca-vs-pls.png")
+```
+
+```{block, type='note'}
+PLS will compute the principals by taking into consideration the correlation between the features and the response variable. See @esl and @geladi1986partial for a thorough discussion of PLS.
+```
+
+## `r fontawesome::fa("python")`
+
+To perform PLS in Python we use `PLSRegression()` from the `cross_decomposition` module. Note that `PLSRegression()` only accepts a dense matrix so we need to set `sparse=False` when one-hot encoding (by default `OneHotEncoder` returns a sparse matrix). In this example we execute a hyperparameter grid search over 2-26 components. Our results show that PLS performs better than PCR.
+
+```{python}
+# create linear model object
+pls_mod = cross_decomposition.PLSRegression()
+
+# create k-fold cross validation object
+kfold = model_selection.KFold(n_splits=5, random_state=8451, shuffle=True)
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create our preprocessing steps to normalize and one-hot encode
+scaler = preprocessing.StandardScaler()
+encoder = preprocessing.OneHotEncoder(handle_unknown="ignore", sparse=False)
+num_feat_only = compose.make_column_selector(dtype_include="number")
+cat_feat_only = compose.make_column_selector(dtype_include="object")
+
+# combine all steps into a pre-processing pipeline
+preprocessor = compose.ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+    ("std_encode", scaler, num_feat_only),
+    ("one-hot", encoder, cat_feat_only),
+  ])
+
+# create a pipeline object that combines model with recipe
+model_pipeline = pipeline.Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("pls", pls_mod),
+])
+
+# Create grid of hyperparameter values
+hyper_grid = {'pls__n_components': range(2, 28, 2)}
+
+# Tune a knn model using grid search
+grid_search = model_selection.GridSearchCV(
+  model_pipeline, 
+  hyper_grid, 
+  cv=kfold, 
+  scoring=loss
+  )
+  
+results = grid_search.fit(X_train, y_train)
+
+# Best model's cross validated RMSE
+abs(results.best_score_)
+```
+
+The optimal number of components that provided the lowest RMSE is:
+
+```{python}
+# Optimal number of components
+results.best_estimator_.get_params().get('pls__n_components')
+```
+
+
+## `r fontawesome::fa("r-project")`
+
+To perform PLS in R we use `pls()` from the `plsmod` package. Note that `plsmod` requires the `mixOmics` package to be installed.  In this example we execute a hyperparameter grid search over 2-26 components. Our results show that PLS performs quite a bit better than PCR.
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+# create PLS model object with a tuning option for number of components
+pls_mod <- plsmod::pls(num_comp = tune()) %>%  
+  set_engine("mixOmics") %>%
+  set_mode("regression")
+
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
+
+# create our model recipe
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a hyper parameter tuning grid for number of components
+hyper_grid <- expand.grid(num_comp = seq(2, 26, by = 2))
+
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(pls_mod, model_form, resamples = folds, grid = hyper_grid)
+
+# get best results
+show_best(results, metric = "rmse")
+```
+
+# Final thoughts
+
+Linear regression is usually the first supervised learning algorithm you will learn. The approach provides a solid fundamental understanding of the supervised learning task; however, as we’ve discussed there are several concerns that result from the assumptions required. Although extensions of linear regression that integrate dimension reduction steps into the algorithm can help address some of the problems with linear regression, more advanced supervised algorithms typically provide greater flexibility and improved accuracy. Nonetheless, understanding linear regression provides a foundation that will serve you well in learning these more advanced methods.
+
 
 # Exercises
 
-TBD
+Using the Boston housing data set where the response feature is the median value of homes within a census tract (`cmedv`):
+
+1. Pick a single feature and apply a simple linear regression model.
+   - Interpret the feature's coefficient
+   - What is the model's performance? How does it compare to the KNN in the last module?
+2. Pick another feature to add to the model.
+   - Before applying the model why do you think this feature will help?
+   - Apply a linear regression model with the two features and compare to the simple linear model.
+   - Interpret the coefficients.
+3. Now apply a model that includes all the predictors.
+   - How does this model compare to the previous two?
+4. Can you identify any model concerns?
+5. Apply a principal component regression model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+6. Now apply a partial least square model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+
 
 [🏠](https://github.com/misk-data-science/misk-homl)
 
