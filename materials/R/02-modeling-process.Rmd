@@ -1,134 +1,218 @@
 ---
-title: "Supervised Modeling Process"
+title: "Module 02: Modeling Process"
 output: html_notebook
 ---
 
 # Prerequisites
 
-```{r slide-4}
-# Packages required
-library(rsample)
-library(caret)
-library(tidyverse)
-
-# Data required
-## ames data
-ames <- AmesHousing::make_ames()
-
-## attrition data
-library(modeldata)
-data(attrition)
-churn <- attrition
-```
-
-
-# Mechanics of data splitting 
-
-Two most common ways of splitting data include:
-
-* simple random sampling: randomly select observations
-* stratified sampling: preserving distributions
-   - classification: sampling within the classes to preserve the 
-     distribution of the outcome in the training and test sets
-   - regression: determine the quartiles of the data set and sample within those
-      artificial groups
-
-```{r slide-8}
-set.seed(123) # for reproducibility
-split <- initial_split(diamonds, strata = "price", prop = 0.7)
-train <- training(split)
-test  <- testing(split)
-
-# Do the distributions line up? 
-ggplot(train, aes(x = price)) + 
-  geom_line(stat = "density", 
-            trim = TRUE) + 
-  geom_line(data = test, 
-            stat = "density", 
-            trim = TRUE, col = "red")
-```
-
-
-# Your Turn! 
-
-1. Use __rsample__ to split the Ames housing data (`ames`) and the Employee attrition data (`churn`) using stratified sampling and with a 80% split.
-2. Verify that the distribution between training and test sets are similar.
-
-```{r slide-9}
-# ames data
-set.seed(123)
-ames_split <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
-ames_train <- training(ames_split)
-ames_test  <- testing(ames_split)
-
-# attrition data
-set.seed(123)
-churn_split <- initial_split(churn, prop = 0.7, strata = "Attrition")
-churn_train <- training(churn_split)
-churn_test  <- testing(churn_split)
-```
-
+This module leverages the following packages.
 
 ```{r}
-ggplot(ames_train, aes(x = Sale_Price)) +
-  geom_line(aes(color = "train"),
-            stat = "density",
-            trim = TRUE) + 
-  geom_line(aes(color = "test"),
-            data = ames_test,
-            stat = "density", 
-            trim = TRUE)
+# Helper packages
+library(tidyverse)
+
+# Modeling process
+library(tidymodels)
 ```
 
 
-# Putting the process together 
+Data required
+```{r}
+# Ames housing data
+ames = read_csv("../data/ames.csv")
 
-Let's put these pieces together and analyze the Ames housing data:
-
-1. Split into training vs testing data
-2. Specify a resampling procedure
-3. Create our hyperparameter grid
-4. Execute grid search
-5. Evaluate performance
-
-___This grid search takes ~2 min___
+# Job attrition data
+attrition = read_csv("../data/attrition.csv")
+```
 
 
-```{r slide-35}
-# 1. stratified sampling with the rsample package
+# Data splitting
+
+## Simple random sampling
+
+```{r}
+# create train/test split
+set.seed(123)  # for reproducibility
+split  <- initial_split(ames, prop = 0.7)
+train  <- training(split)
+test   <- testing(split)
+
+# dimensions of training data
+dim(train)
+```
+
+```{r}
+ggplot(train, aes(Sale_Price)) +
+ geom_density(color = "blue") +
+ geom_density(data = test, color = "red") +
+ ggtitle("Random sampling with R")
+```
+
+
+## Stratified sampling
+
+```{r}
 set.seed(123)
-split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
-ames_train  <- training(split)
-ames_test   <- testing(split)
+split_strat <- initial_split(attrition, prop = 0.7, strata = "Attrition")
+train_strat <- training(split_strat)
+test_strat  <- testing(split_strat)
+```
 
-# 2. create a resampling method
-cv <- trainControl(
-  method = "repeatedcv", 
-  number = 10, 
-  repeats = 5
-  )
+```{r}
+# orginal response distribution
+table(attrition$Attrition) %>% prop.table()
 
-# 3. create a hyperparameter grid search
-hyper_grid <- expand.grid(k = seq(2, 26, by = 2))
+# response distribution for training data
+table(train_strat$Attrition) %>% prop.table()
 
-# 4. execute grid search with knn model
-#    use RMSE as preferred metric
-knn_fit <- train(
-  Sale_Price ~ ., 
-  data = ames_train, 
-  method = "knn", 
-  trControl = cv, 
-  tuneGrid = hyper_grid,
-  metric = "RMSE"
-  )
+# response distribution for test data
+table(test_strat$Attrition) %>% prop.table()
+```
 
-# 5. evaluate results
-# print model results
-knn_fit
 
-# plot cross validation results
-ggplot(knn_fit$results, aes(k, RMSE)) + 
+# Creating models
+
+```{r}
+knn <- nearest_neighbor(neighbors = 10) %>%
+  set_engine("kknn") %>%
+  set_mode("regression")
+
+m1 <- fit(knn, formula = Sale_Price ~ Gr_Liv_Area + Year_Built, data = train)
+
+m1
+```
+
+```{r}
+m1 %>% predict(new_data = train)
+```
+
+
+# Evaluating models
+
+## Regression model
+
+```{r}
+m1
+```
+
+```{r}
+pred <- m1 %>%  predict(new_data = train)
+
+rmse_vec(truth = train$Sale_Price, estimate = pred$.pred)
+```
+
+## Classification model
+
+```{r}
+# convert response variable to a factor
+train_strat$Attrition <- as.factor(train_strat$Attrition)
+
+# fit model to attrition data
+m2 <- nearest_neighbor(neighbors = 10) %>%
+  set_engine("kknn") %>%
+  set_mode("classification") %>%
+  fit(Attrition ~ DistanceFromHome, data = train_strat)
+
+# make predictions
+pred <- m2 %>%  predict(new_data = train_strat, type = "prob")
+
+# compute AUC
+roc_auc_vec(truth = train_strat$Attrition, estimate = pred$.pred_Yes, event_level = "second")
+```
+
+
+# Resampling
+
+```{r}
+# create 10 fold CV object
+kfold <- vfold_cv(train, v = 10)
+results <- fit_resamples(knn, Sale_Price ~ Gr_Liv_Area + Year_Built, kfold)
+
+# see RMSE for all folds
+collect_metrics(results, summarize = FALSE) %>% filter(.metric == "rmse")
+
+# average RMSE
+collect_metrics(results, summarize = TRUE)
+```
+
+```{r}
+# 10 fold cross validation repated 5 times (total of 50 folds)
+rfk <- vfold_cv(train, v = 10, repeats = 5)
+results <- fit_resamples(knn, Sale_Price ~ Gr_Liv_Area + Year_Built, rfk)
+
+# see RMSE for all folds
+collect_metrics(results, summarize = FALSE) %>% filter(.metric == "rmse")
+
+# average RMSE
+collect_metrics(results, summarize = TRUE)
+```
+
+
+# Hyperparameter tuning
+
+```{r}
+# model object
+knn <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("regression")
+
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(neighbors = seq(2, 25, by = 1))
+
+# model recipe
+model_form <- recipe(Sale_Price ~ Gr_Liv_Area + Year_Built, data = train)
+
+# Tune a knn model using grid search
+results <- tune_grid(knn, model_form, resamples = kfold, grid = hyper_grid)
+
+show_best(results, metric = "rmse")
+```
+
+```{r}
+results %>%
+  collect_metrics() %>%
+  filter(.metric == "rmse") %>%
+  ggplot(aes(neighbors, mean)) +
   geom_line() +
   geom_point() +
-  scale_y_continuous(labels = scales::dollar)
+  labs(x = "k", y = "RMSE", title = "Cross validated grid search results")
+```
+
+# Putting the process together
+
+```{r}
+# create train/test split
+set.seed(123)  # for reproducibility
+split  <- initial_split(ames, prop = 0.7)
+train  <- training(split)
+test   <- testing(split)
+
+# select only numeric features
+train <- train %>% select_if(is.numeric)
+
+# model object
+knn <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("regression")
+
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(neighbors = seq(2, 25, by = 1))
+
+# model recipe - Sale price is a function of all numeric features
+model_form <- recipe(Sale_Price ~ ., data = train)
+
+# Tune a knn model using grid search
+results <- tune_grid(knn, model_form, resamples = kfold, grid = hyper_grid)
+
+# best model
+show_best(results, metric = "rmse")
+
+# plot results
+results %>%
+  collect_metrics() %>%
+  filter(.metric == "rmse") %>%
+  ggplot(aes(neighbors, mean)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "k", y = "RMSE", title = "Cross validated grid search results")
 ```

@@ -1,0 +1,1116 @@
+---
+title: "Feature & Target Engineering"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    css: style.css
+bibliography: [references.bib, packages.bib]
+---
+
+<br>
+
+```{r 03-setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, fig.align = 'center')
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+```
+
+```{python, echo = FALSE}
+import plotnine
+plotnine.themes.theme_set(new=plotnine.themes.theme_light())
+```
+
+Data pre-processing and engineering techniques generally refer to the addition, deletion, or transformation of data.  The time spent on identifying data engineering needs can be significant and requires you to spend substantial time understanding your data...or as Leo Breiman said "live with your data before you plunge into modeling" [@breiman2001statistical p. 201]. Although this course primarily focuses on applying machine learning algorithms, feature engineering can make or break an algorithm’s predictive ability and deserves your continued focus and education.
+
+We will not cover all the potential ways of implementing feature engineering; however, we'll cover several fundamental pre-processing tasks that has the potential to significantly improve modeling performance. Moreover, different models have different sensitivities to the type of target and feature values in the model and we will try to highlight some of these concerns. For more in depth coverage of feature engineering, please refer to @kuhn2019feature and @zheng2018feature.
+
+# Learning objectives
+
+By the end of this module you will know:
+
+- When and how to transform the response variable ("target engineering").
+- How to identify and deal with missing values.
+- When to filter unnecessary features.
+- Common ways to transform numeric and categorical features.
+- How to apply dimension reduction.
+- How to properly combine multiple pre-processing steps into the modeling process.
+
+# Prerequisites {.tabset}
+
+
+## `r fontawesome::fa("python")`
+
+```{python}
+# Helper packages
+import missingno as msno
+import numpy as np
+import pandas as pd
+from plotnine import ggplot, aes, geom_density, geom_line, geom_point, ggtitle
+
+# Modeling pre-processing with scikit-learn functionality
+from sklearn.model_selection import train_test_split
+from sklearn.compose import TransformedTargetRegressor
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.impute import KNNImputer
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.decomposition import PCA
+
+# Modeling pre-processing with non-scikit-learn packages
+from category_encoders.ordinal import OrdinalEncoder
+from feature_engine.encoding import RareLabelEncoder
+
+# Modeling
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.pipeline import Pipeline
+```
+
+```{python}
+# Ames housing data
+ames = pd.read_csv("data/ames.csv")
+
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train[["Sale_Price"]]
+```
+
+## `r fontawesome::fa("r-project")`
+
+```{r}
+# Helper packages
+library(tidyverse)
+library(naniar)
+
+# Modeling process
+library(tidymodels)
+```
+
+```{r}
+# Ames housing data
+ames = read_csv("data/ames.csv")
+
+# create training/test split
+set.seed(123)
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+train  <- training(split)
+test   <- testing(split)
+```
+
+# Target engineering {.tabset}
+
+Although not always a requirement, transforming the response variable can lead to predictive improvement, especially with parametric models which require that certain assumptions about the model be met. For instance, ordinary linear regression models assume that the prediction errors (and hence the response) are normally distributed. This is usually fine, except when the prediction target has heavy tails (i.e., _outliers_) or is skewed in one direction or the other. In these cases, the normality assumption likely does not hold. For example, as we saw in the data splitting section in the last module, the response variable for the Ames housing data (`Sale_Price`) is right (or positively) skewed ranging from `r scales::dollar(min(ames$Sale_Price))` to `r scales::dollar(max(ames$Sale_Price))`. A simple linear model, say $\text{Sale_Price}=\beta_{0} + \beta_{1} \text{Year_Built} + \epsilon$, often assumes the error term $\epsilon$ (and hence `Sale_Price`) is normally distributed; fortunately, a simple log (or similar) transformation of the response can often help alleviate this concern as the below plot illustrates.
+
+```{r engineering-skewed-residuals, fig.width=6, fig.height=3, echo=FALSE, fig.cap="__Figure__: Transforming the response variable to minimize skewness can resolve concerns with non-normally distributed errors."}
+models <- c("Non-log transformed model residuals", 
+            "Log transformed model residuals")
+
+ames_log <- ames %>% mutate(Sale_Price = log(Sale_Price))
+
+list(
+  m1 = lm(Sale_Price ~ Year_Built, data = ames),
+  m2 = lm(Sale_Price ~ Year_Built, data = ames_log)
+) %>%
+  map2_dfr(models, ~ broom::augment(.x) %>% mutate(model = .y)) %>%
+  ggplot(aes(.resid)) +
+    geom_histogram(bins = 75) +
+    facet_wrap(~ model, scales = "free_x") +
+    ylab(NULL) +
+    xlab("Residuals")
+```
+Furthermore, using a log (or other) transformation to minimize the response skewness can be used for shaping the business problem as well.  For example, in the House Prices: Advanced Regression Techniques Kaggle competition^[https://www.kaggle.com/c/house-prices-advanced-regression-techniques], which used the Ames housing data, the competition focused on using a log transformed Sale Price response  because _"...taking logs means that errors in predicting expensive houses and cheap houses will affect the result equally."_ This would be an alternative to using the root mean squared logarithmic error (RMSLE) loss function as discussed in the last module.
+
+There are three common approaches to help correct for positively skewed target variables:
+
+1. normalize with a log transformation. This will transform most right skewed distributions to be approximately normal. 
+
+2. If your response has negative values or zeros then a log transformation will produce `NaN`s and `-Inf`s, respectively (you cannot take the logarithm of a negative number).  If the nonpositive response values are small (say between -0.99 and 0) then you can apply a small offset such as in `log1p()` which adds 1 to the value prior to applying a log transformation. If your data consists of values $\le -1$, use the Yeo-Johnson transformation instead.
+
+3. (__Preferred__) Use a _Box Cox transformation_. A Box Cox transformation is more flexible than (but also includes as a special case) the log transformation and will find an appropriate transformation from a family of power transforms that will transform the variable as close as possible to a normal distribution [@box1964analysis; @carroll1981prediction]. At the core of the Box Cox transformation is an exponent, lambda ($\lambda$), which varies from -5 to 5. All values of $\lambda$ are considered and the optimal value for the given data is estimated from the training data; The "optimal value" is the one which results in the best transformation to an approximate normal distribution. The transformation of the response $Y$ has the form:
+
+$$
+ \begin{equation} 
+ y(\lambda) =
+\begin{cases}
+   \frac{Y^\lambda-1}{\lambda}, & \text{if}\ \lambda \neq 0 \\
+   \log\left(Y\right), & \text{if}\ \lambda = 0.
+\end{cases}
+\end{equation}
+$$
+```{block, type = "tip"}
+If your response has negative values, the Yeo-Johnson transformation is very similar to the Box-Cox but does not require the input variables to be strictly positive.
+```
+
+Below illustrates that the log transformation and Box Cox transformation both do about equally well in transforming `Sale_Price` to look more normally distributed.
+
+```{r engineering-distribution-comparison, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="__Figure__: Response variable transformations.", fig.height=3, fig.width=9}
+# Log transformation
+train_log_y <- log(train$Sale_Price)
+test_log_y  <- log(train$Sale_Price)
+
+# Box Cox transformation
+lambda  <- forecast::BoxCox.lambda(train$Sale_Price)
+train_bc_y <- forecast::BoxCox(train$Sale_Price, lambda)
+test_bc_y  <- forecast::BoxCox(test$Sale_Price, lambda)
+
+# Plot differences
+levs <- c("Normal", "Log_Transform", "BoxCox_Transform")
+data.frame(
+  Normal = train$Sale_Price,
+  Log_Transform = train_log_y,
+  BoxCox_Transform = train_bc_y
+) %>%
+  gather(Transform, Value) %>%
+  mutate(Transform = factor(Transform, levels = levs)) %>% 
+  ggplot(aes(Value, fill = Transform)) +
+    geom_histogram(show.legend = FALSE, bins = 40) +
+    facet_wrap(~ Transform, scales = "free_x")
+```
+
+## `r fontawesome::fa("python")`
+
+In Python we use `TransformedTargetRegressor()` to build a plan for target engineering. This will not return the actual log/box-cox transformed values but, rather, a blueprint to be applied later. In this example we are simply building an object that will apply a Box-Cox transformation to the target variable when we fit our model.
+
+```{block, type='tip'}
+There is a `sklearn.preprocessing.power_transform` function that can be applied to immediately transform an array. However, later in this module we'll discuss the idea of data leakage and how important it is to create isolated pre-processing steps.
+```
+
+
+```{python}
+tt = TransformedTargetRegressor(transformer=PowerTransformer(method='box-cox'))
+tt
+```
+
+## `r fontawesome::fa("r-project")`
+
+In R we use `recipes::recipe()` to build a "recipe" of pre-processing steps. This will not return the actual log transformed values but, rather, a blueprint to be applied later.
+
+```{r engineering-y_log}
+# log transformation
+ames_recipe <- recipe(Sale_Price ~ ., data = train) %>%
+  step_log(all_outcomes())
+
+ames_recipe
+```
+
+# Dealing with missingness
+
+Data quality is an important issue for any project involving analyzing data. Data quality issues deserve an entire book in their own right, and a good reference is [The Quartz guide to bad data](https://github.com/Quartz/bad-data-guide). One of the most common data quality concerns you will run into is missing values.
+
+Data can be missing for many different reasons; however, these reasons are usually lumped into two categories: _informative missingness_ [@apm] and _missingness at random_ [@little2014statistical]. Informative missingness implies a structural cause for the missing value that can provide insight in its own right; whether this be deficiencies in how the data was collected or abnormalities in the observational environment.  Missingness at random implies that missing values occur independent of the data collection process^[@little2014statistical discuss two different kinds of missingness at random; however, we combine them for simplicity as their nuanced differences are distinguished between the two in practice.]. 
+
+The category that drives missing values will determine how you handle them.  For example, we may give values that are driven by informative missingness their own category (e.g., `"None"`) as their unique value may affect predictive performance.  Whereas values that are missing at random may deserve deletion^[If your data set is large, deleting missing observations that have missing values at random rarely impacts predictive performance. However, as your data sets get smaller, preserving observations is critical and alternative solutions should be explored.] or imputation. 
+
+Furthermore, different machine learning models handle missingness differently.  Most algorithms cannot handle missingness (e.g., generalized linear models and their cousins, neural networks, and support vector machines) and, therefore, require them to be dealt with beforehand.  A few models (mainly tree-based), have built-in procedures to deal with missing values.  However, since the modeling process involves comparing and contrasting multiple models to identify the optimal one, you will want to handle missing values prior to applying any models so that your algorithms are based on the same data quality assumptions.
+
+## Visualizing missing values {.tabset}
+
+It is important to understand the distribution of missing values (i.e., `NA`) in any data set. So far, we have been using a pre-processed version of the Ames housing data set. However, if we use the [raw Ames housing data](https://rdrr.io/cran/AmesHousing/man/ames_raw.html), there are actually `r scales::comma(sum(is.na(AmesHousing::ames_raw)))` missing values---there is at least one missing values in each row of the original data! Good visualizations can help us understand patterns in the missing data.
+
+### `r fontawesome::fa("python")`
+
+```{python}
+ames_raw = pd.read_csv("data/ames_raw.csv")
+
+# count missing values
+ames_raw.isnull().sum()
+```
+
+```{block, type="tip"}
+Check out the [missingno](https://github.com/ResidentMario/missingno) package to see all the great ways to to visualize missing data!
+```
+
+```{python vizualize-missing, eval=FALSE}
+# can you identify patterns of missing data
+# missingness is represented with white
+msno.matrix(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+```
+
+```{python vizualize-missing-output, fig.width=12, fig.height=6, echo=FALSE}
+# can you identify patterns of missing data
+# missingness is represented with white
+p = msno.matrix(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+p_fig = p.get_figure()
+p_fig.savefig('images/vizualize-missing.png', bbox_inches = 'tight')
+```
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/vizualize-missing.png")
+```
+
+
+```{python vizualize-missing2, eval=FALSE}
+# which features have most missing?
+# this chart shows the number of observations so small bars (i.e. Pool QC)
+# represent very few observed values (lots of missingness)
+msno.bar(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+```
+
+```{python vizualize-missing2-output, fig.width=12, fig.height=6, echo=FALSE}
+# can you identify patterns of missing data
+# missingness is represented with white
+p = msno.bar(ames_raw, labels=True, filter="bottom", sort="ascending", n=50)
+p_fig = p.get_figure()
+p_fig.savefig('images/vizualize-missing2.png', bbox_inches = 'tight')
+```
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/vizualize-missing2.png")
+```
+
+### `r fontawesome::fa("r-project")`
+
+```{r}
+ames_raw <- read_csv("data/ames_raw.csv")
+
+# total missing values
+sum(is.na(ames_raw))
+```
+
+```{block, type="tip"}
+Check out the [naniar](http://naniar.njtierney.com/) package to see all the great ways to to visualize missing data!
+```
+
+```{r, fig.width=12, fig.height=6}
+# can you identify patterns of missing data?
+# missingness is represented with black
+vis_miss(ames_raw)
+```
+
+```{r, fig.height=9}
+# which features have most missing?
+gg_miss_var(ames_raw)
+```
+
+
+## Imputation {#impute}
+
+_Imputation_ is the process of replacing a missing value with a substituted, "best guess" value. Imputation should be one of the first feature engineering steps you take as it will affect any downstream pre-processing^[For example, standardizing numeric features will include the imputed numeric values in the calculation and one-hot encoding will include the imputed categorical value.]. 
+
+### Estimated statistic {.tabset}
+
+An elementary approach to imputing missing values for a feature is to compute descriptive statistics such as the mean, median, or mode (for categorical) and use that value to replace `NA`s. Although computationally efficient, this approach does not consider any other attributes for a given observation when imputing (e.g., a female patient that is 63 inches tall may have her weight imputed as 175 lbs since that is the average weight across all observations which contains 65% males that have an average a height of 70 inches).  
+
+An alternative is to use grouped statistics to capture expected values for observations that fall into similar groups. However, this becomes infeasible for larger data sets.  Modeling imputation can automate this process for you and the two most common methods include K-nearest neighbor and tree-based imputation, which are discussed next.
+
+However, it is important to remember that imputation should be performed __within the resampling process__ and as your data set gets larger, repeated model-based imputation can compound the computational demands.  Thus, you must weigh the pros and cons of the two approaches.
+
+The following code snippet shows how to impute different features with the median value of a given feature. 
+
+```{block, type="warning"}
+These imputers do not yet perform imputation. At the end of this module we will show you how all these pieces of the feature engineering come together in our ML modeling pipeline.
+```
+
+#### `r fontawesome::fa("python")`
+
+In Python, the [`SimpleImputer`](https://scikit-learn.org/stable/modules/generated/sklearn.impute.SimpleImputer.html) can be used to apply an imputation to all features. However, if you only want to apply imputation to a subset of features then you would use [`ColumnTransformer`](https://scikit-learn.org/stable/modules/generated/sklearn.compose.ColumnTransformer.html) in addition to the `SimpleImputer` strategy.
+
+```{python}
+# median imputation to all features
+a = SimpleImputer(strategy='median')
+
+# median imputation to just numeric predictors
+b = ColumnTransformer([("num_imp", a, selector(dtype_include="number"))])
+
+# median imputation to 1 or more features
+c = ColumnTransformer([("num_imp", a, selector("Gr_Liv_Area"))])
+```
+
+
+#### `r fontawesome::fa("r-project")`
+
+```{block, type="tip"}
+See more imputation options [here](https://recipes.tidymodels.org/reference/index.html#section-step-functions-imputation).
+```
+
+```{r engineering-mean-impute, eval=FALSE}
+# median imputation to all features
+a <- ames_recipe %>%
+  step_medianimpute(all_predictors())
+
+# median imputation to just numeric predictors
+b <- ames_recipe %>%
+  step_medianimpute(all_predictors(), all_numeric())
+
+# median imputation to 1 or more features
+c <- ames_recipe %>%
+  step_medianimpute(Gr_Liv_Area)
+```
+
+
+### K-nearest neighbor {.tabset}
+
+_K_-nearest neighbor (KNN) imputes values by identifying observations with missing values, then identifying other observations that are most similar based on the other available features, and using the values from these nearest neighbor observations to impute missing values.
+
+We discuss KNN for predictive modeling in a later module; the imputation application works in a similar manner.  In KNN imputation, the missing value for a given observation is treated as the targeted response and is predicted based on the average (for quantitative values) or the mode (for qualitative values) of the _k_ nearest neighbors.
+
+As discussed in the KNN modeling module, if all features are quantitative then standard Euclidean distance is commonly used as the distance metric to identify the _k_ neighbors and when there is a mixture of quantitative and qualitative features then Gower's distance [@gower1971general] can be used. KNN imputation is best used on small to moderate sized data sets as it becomes computationally burdensome with larger data sets [@kuhn2019feature].
+
+```{block, type="tip"}
+As we saw in the last module, **k** is a tunable hyperparameter. Suggested values for imputation are 5--10 [@kuhn2019feature].
+```
+
+#### `r fontawesome::fa("python")`
+
+```{python}
+knn_imp = KNNImputer(n_neighbors=6)
+```
+
+#### `r fontawesome::fa("r-project")`
+
+```{r engineering-knn-impute}
+knn_imp <- ames_recipe %>%
+  step_knnimpute(all_predictors(), neighbors = 6)
+```
+
+### Tree-based {.tabset}
+
+Several implementations of decision trees and their derivatives can be constructed in the presence of missing values. Thus, they provide a good alternative for imputation. As discussed in later modules, single trees have high variance but aggregating across many trees creates a robust, low variance predictor. Random forest imputation procedures have been studied [@shah2014comparison; @stekhoven2015missforest]; however, they require significant computational demands in a resampling environment [@kuhn2019feature]. Bagged trees offer a compromise between predictive accuracy and computational burden.
+
+```{block, type="note"}
+Don't worry, we'll discuss decision trees and variants of them indepth in later modules.
+```
+
+Similar to KNN imputation, observations with missing values are identified and the feature containing the missing value is treated as the target and predicted using bagged decision trees.
+
+#### `r fontawesome::fa("python")`
+
+```{block, type="warning"}
+Unfortunately Python does not provide a tree-based approach for imputation. This would have to be done manually. However, KNN & tree-based imputation tends to perform similarly.
+```
+
+#### `r fontawesome::fa("r-project")`
+
+```{r engineering-bagging-impute}
+ames_recipe %>%
+  step_bagimpute(all_predictors())
+```
+
+### Which to use?
+
+The plot below illustrates the differences between mean, KNN, and tree-based imputation on the raw Ames housing data. It is apparent how descriptive statistic methods (e.g., using the mean and median) are inferior to the KNN and tree-based imputation methods. 
+
+```{block, type = "tip"}
+When possible use KNN or tree-based imputation. When data sets become extremely large tree-based imputation can be more efficient.
+```
+
+```{r engineering-imputation-examples, echo=FALSE, fig.cap="__Figure__: Comparison of three different imputation methods. The red points represent actual values which were removed and made missing and the blue points represent the imputed values. Estimated statistic imputation methods (i.e. mean, median) merely predict the same value for each observation and can reduce the signal between a feature and the response; whereas KNN and tree-based procedures tend to maintain the feature distribution and relationship."}
+impute_ames <- train
+set.seed(123)
+index <- sample(seq_along(impute_ames$Gr_Liv_Area), 50)
+actuals <- train[index, ]
+impute_ames$Gr_Liv_Area[index] <- NA
+p1 <- ggplot() +
+  geom_point(data = impute_ames, aes(Gr_Liv_Area, Sale_Price), alpha = .2) +
+  geom_point(data = actuals, aes(Gr_Liv_Area, Sale_Price), color = "red") +
+  scale_x_log10(limits = c(300, 5000)) +
+  scale_y_log10(limits = c(10000, 500000)) +
+  ggtitle("Actual values")
+# Mean imputation
+mean_juiced <- recipe(Sale_Price ~ ., data = impute_ames) %>%
+  step_meanimpute(Gr_Liv_Area) %>%
+  prep(training = impute_ames, retain = TRUE) %>%
+  juice()
+mean_impute <- mean_juiced[index, ]
+  
+p2 <- ggplot() +
+  geom_point(data = actuals, aes(Gr_Liv_Area, Sale_Price), color = "red") +
+  geom_point(data = mean_impute, aes(Gr_Liv_Area, Sale_Price), color = "blue") +
+  scale_x_log10(limits = c(300, 5000)) +
+  scale_y_log10(limits = c(10000, 500000)) +
+  ggtitle("Mean Imputation")
+# KNN imputation
+knn_juiced <- recipe(Sale_Price ~ ., data = impute_ames) %>%
+  step_knnimpute(Gr_Liv_Area) %>%
+  prep(training = impute_ames, retain = TRUE) %>%
+  juice()
+knn_impute <- knn_juiced[index, ]
+  
+p3 <- ggplot() +
+  geom_point(data = actuals, aes(Gr_Liv_Area, Sale_Price), color = "red") +
+  geom_point(data = knn_impute, aes(Gr_Liv_Area, Sale_Price), color = "blue") +
+  scale_x_log10(limits = c(300, 5000)) +
+  scale_y_log10(limits = c(10000, 500000)) +
+  ggtitle("KNN Imputation")
+# Bagged imputation
+bagged_juiced <- recipe(Sale_Price ~ ., data = impute_ames) %>%
+  step_bagimpute(Gr_Liv_Area) %>%
+  prep(training = impute_ames, retain = TRUE) %>%
+  juice()
+bagged_impute <- bagged_juiced[index, ]
+  
+p4 <- ggplot() +
+  geom_point(data = actuals, aes(Gr_Liv_Area, Sale_Price), color = "red") +
+  geom_point(data = bagged_impute, aes(Gr_Liv_Area, Sale_Price), color = "blue") +
+  scale_x_log10(limits = c(300, 5000)) +
+  scale_y_log10(limits = c(10000, 500000)) +
+  ggtitle("Bagged Trees Imputation")
+gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+
+# Feature filtering {.tabset}
+
+In many data analyses and modeling projects we end up with hundreds or even thousands of collected features. From a practical perspective, a model with more features often becomes harder to interpret and is costly to compute.  Some models are more resistant to non-informative predictors (e.g., the Lasso and tree-based methods) than others as illustrated below.^[See @apm Section 19.1 for data set generation.] 
+
+```{r engineering-accuracy-comparison, echo=FALSE, fig.width=10, fig.height=3.5, fig.cap="__Figure__: Test set RMSE profiles when non-informative predictors are added."}
+model_results <- read_csv("data/feature-selection-impacts-results.csv") %>%
+  mutate(type = case_when(
+    model %in% c("lm", "pcr", "pls", "glmnet", "lasso") ~ "Linear models",
+    model %in% c("earth", "svmLinear", "nn") ~ "Non-linear Models",
+    TRUE ~ "Tree-based Models"
+  )) %>%
+  mutate(model = case_when(
+    model == "lm" ~ "Linear regression",
+    model == "earth" ~ "Multivariate adaptive regression splines",
+    model == "gbm" ~ "Gradient boosting machines",
+    model == "glmnet" ~ "Elastic net",
+    model == "lasso" ~ "Lasso",
+    model == "nn" ~ "Neural net",
+    model == "pcr" ~ "Principal component regression",
+    model == "pls" ~ "Partial least squares",
+    model == "ranger" ~ "Random forest",
+    TRUE ~ "Support vector machine"
+  ))
+ggplot(model_results, aes(NIP, RMSE, color = model, lty = model)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ type, nrow = 1) +
+  xlab("Number of additional non-informative predictors")
+```
+
+Although the performance of some of our models are not significantly affected by non-informative predictors, the time to train these models can be negatively impacted as more features are added. The plot below shows the increase in time to perform 10-fold CV on the exemplar data, which consists of 10,000 observations.  We see that many algorithms (e.g., elastic nets, random forests, and gradient boosting machines) become extremely time intensive the more predictors we add.  Consequently, filtering or reducing features prior to modeling may significantly speed up training time. 
+
+```{r engineering-impact-on-time, echo=FALSE, fig.width=10, fig.height=3.5, fig.cap="__Figure__: Impact in model training time as non-informative predictors are added."}
+model_results %>%
+  group_by(model) %>%
+  mutate(
+    time_impact = time / first(time),
+    time_impact = time_impact - 1
+  ) %>%
+  ggplot(aes(NIP, time_impact, color = model, lty = model)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ type, nrow = 1) +
+    scale_y_continuous("Percent increase in training time", 
+                       labels = scales::percent) +
+    xlab("Number of additional non-informative predictors")
+```
+
+Zero and near-zero variance variables are low-hanging fruit to eliminate. Zero variance variables, meaning the feature only contains a single unique value, provides no useful information to a model.  Some algorithms are unaffected by zero variance features.  However, features that have near-zero variance also offer very little, if any, information to a model. Furthermore, they can cause problems during resampling as there is a high probability that a given sample will only contain a single unique value (the dominant value) for that feature. 
+
+```{block, type = "tip"}
+A rule of thumb for detecting near-zero variance features are identifying and removing features with $\leq 5-10$% variance.
+```
+
+For the Ames data, we do not have any zero variance predictors but there are many features that meet the near-zero threshold. The following shows all features where there is less than 5% variance in distinct values.
+
+```{r, echo=FALSE}
+caret::nearZeroVar(train, saveMetrics = TRUE, uniqueCut = 5) %>% 
+  tibble::rownames_to_column() %>% 
+  filter(nzv) %>%
+  arrange(percentUnique)
+```
+
+```{block, type="note"}
+Other feature filtering methods exist; see @saeys2007review for a thorough review. Furthermore, several wrapper methods exist that evaluate multiple models using procedures that add or remove predictors to find the optimal combination of features that maximizes model performance (see, for example, @kursa2010feature, @granitto2006recursive, @maldonado2009wrapper). However, this topic is beyond the scope of this course.
+```
+
+
+## `r fontawesome::fa("python")`
+
+```{block, type="tip"}
+See other feature filtering functions [here](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_selection).
+```
+
+```{python}
+nzv = VarianceThreshold(threshold=0.1)
+```
+
+## `r fontawesome::fa("r-project")`
+
+```{block, type="tip"}
+See other feature filtering functions [here](https://recipes.tidymodels.org/reference/index.html#section-step-functions-filters).
+```
+
+
+```{r}
+nzv <- ames_recipe %>%
+  step_nzv(all_predictors(), unique_cut = 10) # threshold as % (10%)
+```
+
+# Numeric feature engineering
+
+Numeric features can create a host of problems for certain models when their distributions are skewed, contain outliers, or have a wide range in magnitudes. Tree-based models are quite immune to these types of problems in the feature space, but many other models (e.g., GLMs, regularized regression, KNN, support vector machines, neural networks) can be greatly hampered by these issues. Normalizing and standardizing heavily skewed features can help minimize these concerns.
+
+## Skewness {.tabset}
+
+Similar to the process discussed to normalize target variables, parametric models that have distributional assumptions (e.g., GLMs, and regularized models) can benefit from minimizing the skewness of numeric features.  When normalizing many variables, it's best to use the Box-Cox (when feature values are strictly positive) or Yeo-Johnson (when feature values are not strictly positive) procedures as these methods will identify if a transformation is required and what the optimal transformation will be.
+
+```{block, type="tip"}
+Non-parametric models are rarely affected by skewed features; however, normalizing features will not have a negative effect on these models' performance.  For example, normalizing features will only shift the optimal split points in tree-based algorithms.  Consequently, when in doubt, normalize.
+```
+
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# Normalizing approach
+yj = PowerTransformer(method="yeo-johnson")
+
+# Normalize all numeric features
+X_norm = ColumnTransformer([("norm", yj, selector(dtype_include="number"))])
+```
+
+### `r fontawesome::fa("r-project")`
+
+```{r engineering-normalizing}
+# Normalize all numeric features
+X_norm <- ames_recipe %>%
+  step_YeoJohnson(all_predictors(), all_numeric())                 
+```
+
+## Standardization {.tabset}
+
+We must also consider the scale on which the individual features are measured. What are the largest and smallest values across all features and do they span several orders of magnitude? Models that incorporate smooth functions of input features are sensitive to the scale of the inputs. For example, $5X+2$ is a simple linear function of the input _X_, and the scale of its output depends directly on the scale of the input. Many algorithms use linear functions within their algorithms, some more obvious (e.g., GLMs and regularized regression) than others (e.g., neural networks, support vector machines, and principal components analysis). Other examples include algorithms that use distance measures such as the Euclidean distance (e.g., _k_ nearest neighbor, _k_-means clustering, and hierarchical clustering). 
+
+For these models and modeling components, it is often a good idea to _standardize_\index{standardize} the features. Standardizing features includes _centering_ and _scaling_ so that numeric variables have zero mean and unit variance, which provides a common comparable unit of measure across all the variables.
+
+```{r engineering-standardizing, echo=FALSE, fig.cap="__Figure__: Standardizing features allows all features to be compared on a common value scale regardless of their real value differences.", fig.height=3}
+set.seed(123)
+x1 <- tibble(
+  variable = "x1",
+  `Real value` = runif(25, min = -30, max = 5),
+  `Standardized value` = scale(`Real value`) %>% as.numeric()
+)
+set.seed(456)
+x2 <- tibble(
+  variable = "x2",
+  `Real value` = rlnorm(25, log(25)),
+  `Standardized value` = scale(`Real value`) %>% as.numeric()
+)
+set.seed(789)
+x3 <- tibble(
+  variable = "x3",
+  `Real value` = rnorm(25, 150, 15),
+  `Standardized value` = scale(`Real value`) %>% as.numeric()
+)
+x1 %>%
+  bind_rows(x2) %>%
+  bind_rows(x3) %>%
+  gather(key, value, -variable) %>%
+  mutate(variable = factor(variable, levels = c("x3", "x2", "x1"))) %>%
+  ggplot(aes(value, variable)) +
+    geom_point(alpha = .6) +
+    facet_wrap(~ key, scales = "free_x") +
+    ylab("Feature") +
+    xlab("Value")
+```
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# Normalizing approach
+scaler = StandardScaler()
+
+# standardize all numeric features
+std = ColumnTransformer([("norm", scaler, selector(dtype_include="number"))])
+```
+
+### `r fontawesome::fa("r-project")`
+
+```{r engineering-standardizing-recipes}
+# standardize all numeric features
+std <- ames_recipe %>%
+  step_center(predictors(), all_numeric()) %>%
+  step_scale(predictors(), all_numeric())
+```
+
+
+# Categorical feature engineering
+
+Most models require that the predictors take numeric form.  There are exceptions; for example, tree-based models naturally handle numeric or categorical features.  However, even tree-based models can benefit from pre-processing categorical features.  The following sections will discuss a few of the more common approaches to engineer categorical features.
+
+
+## One-hot & dummy encoding {.tabset}
+
+There are many ways to recode categorical variables as numeric. The most common is referred to as one-hot encoding, where we transpose our categorical variables so that each level of the feature is represented as a boolean value.  For example, one-hot encoding the left data frame in the below figure results in `X` being converted into three columns, one for each level. This is called less than _full rank_ encoding .  However, this creates perfect collinearity which causes problems with some predictive modeling algorithms (e.g., ordinary linear regression and neural networks).  Alternatively, we can create a full-rank encoding by dropping one of the levels (level `c` has been dropped). This is referred to as _dummy_ encoding. 
+
+```{r engineering-one-hot, echo=FALSE, fig.cap='__Figure__: Eight observations containing a categorical feature X and the difference in how one-hot and dummy encoding transforms this feature.', out.height="99%", out.width="99%"}
+knitr::include_graphics("../images/ohe-vs-dummy.png")
+```
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# one-hot encoder
+encoder = OneHotEncoder()
+
+# apply to all categorical features
+ohe = ColumnTransformer([("one-hot", encoder, selector(dtype_include="object"))])
+
+# dummy encode
+encoder = OneHotEncoder(drop='first')
+
+# apply to all categorical features
+de = ColumnTransformer([("dummy", encoder, selector(dtype_include="object"))])
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+```{r engineering-tbd2}
+# one-hot encode
+ohe <- ames_recipe %>%
+  step_dummy(all_nominal(), one_hot = TRUE)
+
+# dummy encode
+de <- ames_recipe %>%
+  step_dummy(all_nominal(), one_hot = FALSE)
+```
+
+
+## Label encoding {.tabset}
+
+_Label encoding_ is a pure numeric conversion of the levels of a categorical variable. For example, the `MS_SubClass` variable has 16 levels, which if recoded with label encoding would convert them to integers based on alphabetical order of the feature values.
+
+```{r, echo=FALSE}
+original <- count(train, MS_SubClass) %>%
+  pull(MS_SubClass)
+
+# Label encoded
+recipe(Sale_Price ~ ., data = train) %>%
+  step_integer(MS_SubClass) %>%
+  prep(train) %>%
+  bake(train) %>%
+  count(MS_SubClass) %>%
+  mutate(original_levels = original) %>%
+  select(original_levels, label_encoded_levels = "MS_SubClass")
+```
+
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# create encoder
+encoder = LabelEncoder()
+
+# Label encode a single column
+lbl = ColumnTransformer([("label", encoder, "MS_SubClass")])
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+```{r}
+# Label encode a single column
+lbl <- ames_recipe %>%
+  step_integer(MS_SubClass)
+```
+
+## Ordinal encoding {.tabset}
+
+We should be careful with label encoding unordered categorical features because most models will treat them as ordered numeric features. If a categorical feature is naturally ordered then label encoding is a natural choice (most commonly referred to as ordinal encoding).  For example, the various quality features in the Ames housing data are ordinal in nature (ranging from `Very_Poor` to `Very_Excellent`).
+
+```{r engineering-qual-variables, echo=FALSE}
+train %>% select(ends_with("Qual"))
+```
+
+Ordinal encoding these features provides a natural and intuitive interpretation and can logically be applied to all models.
+
+### `r fontawesome::fa("python")`
+
+Scikit-learn has an [`OrdinalEncoder`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OrdinalEncoder.html); however, it is not very flexible in allowing you to easily specify levels across many features. However, the [Category Encoders package](http://contrib.scikit-learn.org/category_encoders/index.html) provides several scikit-learn style transformers including an [`OrdinalEncoder`](http://contrib.scikit-learn.org/category_encoders/_modules/category_encoders/ordinal.html#OrdinalEncoder) that is more flexible.
+
+```{python}
+# ID all quality features to ordinal encode
+cols = list(X_train.filter(regex=("Qual$|QC$|Cond$")).columns)
+
+# specify levels in order
+lvs = ["Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+       "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent"]
+val = range(0, len(lvs))
+
+# create a level to integer mapping
+lvl_map = dict(zip(lvs, val))
+category_mapping = [{'col': col, 'mapping': lvl_map} for col in cols]
+
+# example of first two mappings
+category_mapping[0:2]
+```
+
+```{python}
+# Apply ordinal encoder
+cat_encoder = OrdinalEncoder(cols=cols, mapping=category_mapping)
+```
+
+```{block, type="note"}
+`OrdinalEncoder` will automatically convert any levels not in the specified levels to a -1.
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+```{r}
+# specify levels in order
+lvls <- c("Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+          "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent")
+
+# apply ordinal encoding to quality features
+ord_lbl <- ames_recipe %>%
+  # 1. convert quality features to factors
+  step_string2factor(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"),
+    levels = lvls
+    ) %>% 
+  # 2. convert any missed levels (i.e. no_pool, no_garage,) to "None"
+  step_unknown(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    new_level = "None"
+    ) %>%
+  # 3. move "None" level to front ('None', 'Very_Poor', ..., 'Very_Excellent')
+  step_relevel(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    ref_level = "None"
+    ) %>%
+  step_integer(ends_with("Qual"), ends_with("QC"), ends_with("_Cond"))
+```
+
+## Lumping {.tabset}
+
+Sometimes features will contain levels that have very few observations.  For example, there are 28 unique neighborhoods represented in the Ames housing data but several of them only have a few observations.   
+
+```{r engineering-overall-qual-levels, echo=FALSE}
+count(train, Neighborhood) %>% arrange(n)
+```
+
+Sometimes we can benefit from collapsing, or "lumping" these into a lesser number of categories.  In the above examples, we may want to collapse all levels that are observed in less than 10% of the training sample into an "other" category.  We can use `step_other()` to do so.  However, lumping should be used sparingly as there is often a loss in model performance [@apm].    
+
+```{block, type="tip"}
+Tree-based models often perform exceptionally well with high cardinality features and are not as impacted by levels with small representation.
+```
+
+The following code snippets show how to lump all neighborhoods that represent less than 1% of observations into an "other" category.
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# create rare label encoder
+rare_encoder = RareLabelEncoder(tol=0.01, replace_with="other")
+```
+
+```{python, echo=FALSE}
+import warnings
+warnings.filterwarnings("ignore")
+```
+
+```{python}
+# demonstrate how some neighborhoods are now represented by "other"
+rare_encoder.fit_transform(X_train)["Neighborhood"].unique()
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+```{r}
+# Lump levels for two features
+rare_encoder <- ames_recipe %>%
+  step_other(Neighborhood, threshold = 0.01, other = "other")
+```
+
+
+## Alternatives
+
+There are several alternative categorical encodings that are implemented in both R and Python that are worth exploring.  For example, target encoding is the process of replacing a categorical value with the mean (regression) or proportion (classification) of the target variable. Count/frequency encoding replaces categories with the number of observations or percentage of observations per category. Hash encoding converts strings to arbitrary digits (similar to label encoding but more robust).
+
+
+# Dimension reduction {.tabset}
+
+Dimension reduction is an alternative approach to filter out non-informative features without manually removing them. This course does not focus indepth on dimension reduction; however, we wanted to highlight that it is very common to include these types of dimension reduction approaches during the feature engineering process.  For example, we may wish to reduce the dimension of our features with principal components analysis and retain the number of components required to explain, say, 95% of the variance and use these components as features in downstream modeling.
+
+## `r fontawesome::fa("python")`
+
+```{python}
+# PCA object - keep 25 components
+pca = PCA(n_components=25)
+
+# apply PCA to all numeric features
+pca_encoder = ColumnTransformer([("pca", pca, selector(dtype_include="number"))])
+```
+
+
+## `r fontawesome::fa("r-project")`
+
+```{r engineering-pca}
+pca_encoder <- ames_recipe %>%
+  step_center(all_numeric()) %>%
+  step_scale(all_numeric()) %>%
+  step_pca(all_numeric(), threshold = .95)
+```
+
+# Proper implementation
+
+We stated at the beginning of this module that we should think of feature engineering as creating a blueprint rather than manually performing each task individually.  This helps us in two ways: (1) thinking sequentially and (2) to apply appropriately within the resampling process.    
+
+## Sequential steps 
+
+Thinking of feature engineering as a blueprint forces us to think of the ordering of our pre-processing steps. Although each particular problem requires you to think of the effects of sequential pre-processing, there are some general suggestions that you should consider:
+
+- If using a log or Box-Cox transformation, don’t center the data first or do any operations that might make the data non-positive. Alternatively, use the Yeo-Johnson transformation so you don’t have to worry about this.
+- One-hot or dummy encoding typically results in sparse data which many algorithms can operate efficiently on. If you standardize sparse data you will create dense data and you loose the computational efficiency.  Consequently, it's often preferred to standardize your numeric features and then one-hot/dummy encode.
+- If you are lumping infrequently occurring categories together, do so before one-hot/dummy encoding.
+- Although you can perform dimension reduction procedures on categorical features, it is common to primarily do so on numeric features when doing so for feature engineering purposes.
+
+While your project’s needs may vary, here is a suggested order of potential steps that should work for most problems:
+
+1. Filter out zero or near-zero variance features.
+2. Perform imputation if required.
+3. Normalize to resolve numeric feature skewness.
+4. Standardize (center and scale) numeric features.
+5. Perform dimension reduction (e.g., PCA) on numeric features.
+6. One-hot or dummy encode categorical features.
+
+## Data leakage
+
+_Data leakage_ is when information from outside the training data set is used to create the model. Data leakage often occurs during the data pre-processing period. To minimize this, feature engineering should be done in isolation of each resampling iteration. Recall that resampling allows us to estimate the generalizable prediction error.  Therefore, we should apply our feature engineering blueprint to each resample independently as illustrated below.  That way we are not leaking information from one data set to another (each resample is designed to act as isolated training and test data).  
+
+```{r engineering-minimize-leakage, echo=FALSE, fig.cap="__Figure__: Performing feature engineering pre-processing within each resample helps to minimize data leakage.", out.width='90%'}
+knitr::include_graphics("../images/minimize-leakage.png")
+```
+
+For example, when standardizing numeric features, each resampled training data should use its own mean and variance estimates and these specific values should be applied to the same resampled test set.  This imitates how real-life prediction occurs where we only know our current data's mean and variance estimates; therefore, on new data that comes in where we need to predict we assume the feature values follow the same distribution of what we've seen in the past.
+
+## Putting the process together {.tabset}
+
+To illustrate how this process works together via R code, let's do a simple re-assessment on the `ames` data set that we did at the end of the last module. However, this time we will start with all features and apply a sequence of simple feature engineering steps. Specifically, our feature engineering steps will include:
+
+1. Remove near-zero variance features that are categorical (aka nominal).
+2. Ordinal encode our quality-based features (which are inherently ordinal).
+3. Center and scale (i.e., standardize) all numeric features.
+4. Perform dimension reduction by applying PCA to all numeric features.
+5. Collapse (aka lump) categorical levels with small representation.
+6. One-hot encode remaining categorical features.
+
+### `r fontawesome::fa("python")`
+
+First, let's create our
+
+1. train/test split
+2. resampling procedure
+3. model object
+4. hyperparameter grid
+
+These items are nothing new and similar to our approach in the last module.
+
+```{python}
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train["Sale_Price"]
+
+# create KNN model object
+knn = KNeighborsRegressor()
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 10 fold CV object
+kfold = KFold(n_splits=10, random_state=123, shuffle=True)
+
+# Create grid of hyperparameter values
+hyper_grid = {'knn__n_neighbors': range(2, 26)}
+```
+
+Next, we create our feature engineering recipe with the 6 steps mentioned above. In Python we can use the `ColumnTransformer` to specify the steps in order. `ColumnTransformer` takes a list of tuples `(<step name>, <encoder>, <columns to apply encoder to>)` in the order that you want to apply them. The `remainder` parameter allows you to keep any columns not mentioned in the encoding steps otherwise by default they will be dropped.
+
+```{python}
+# 1. Remove near-zero variance features that are categorical  
+nzv_encoder = VarianceThreshold(threshold=0.1)
+
+# 2. Ordinal encode our quality-based features 
+ord_cols = list(X_train.filter(regex=("Qual$|QC$|Cond$")).columns)
+lvs = ["Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+       "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent"]
+val = range(0, len(lvs))
+lvl_map = dict(zip(lvs, val))
+category_mapping = [{'col': col, 'mapping': lvl_map} for col in ord_cols]
+ord_encoder = OrdinalEncoder(cols=ord_cols, mapping=category_mapping)
+
+# 3. Center and scale (i.e., standardize) all numeric features
+scaler = StandardScaler()
+
+# 4. Perform dimension reduction by applying PCA to all numeric features
+pca = PCA(n_components=30)
+
+# 5. One-hot encode remaining categorical features.
+encoder = OneHotEncoder(handle_unknown="ignore")
+
+# combine all steps into a pre-processing pipeline
+preprocessor = ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+  ("nzv_encode", nzv_encoder, selector(dtype_include="number")),
+  ("ord_encode", ord_encoder, ord_cols),
+  ("std_encode", scaler, selector(dtype_include="number")),
+  ("pca_encode", pca, selector(dtype_include="number")),
+  ("one-hot", encoder, selector(dtype_include="object")),
+  ])
+```
+
+We can now create a modeling pipeline that includes the pre-processing step and then the modeling step. Similar to `ColumnTransformer`, `Pipeline` takes tuples with the name and object for each step in the order you want them applied.
+
+```{python}
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("knn", knn),
+])
+```
+
+Now we can build our `GridSearchCV` object with our model process objects. This is where the feature engineering actually happens as `grid_search.fit` will apply the feature engineering steps individually within each of the kfold resamples so there is no data leakage.
+
+```{python}
+# Tune a knn model using grid search
+grid_search = GridSearchCV(model_pipeline, hyper_grid, cv=kfold, scoring=loss)
+results = grid_search.fit(X_train, y_train)
+
+# Best model's cross validated RMSE
+abs(results.best_score_)
+```
+
+```{python}
+# Best model's k value
+results.best_estimator_.get_params().get('knn__n_neighbors')
+```
+
+```{python, fig.height=3, fig.width=6, fig.align='center'}
+# Plot all RMSE results
+all_rmse = pd.DataFrame({'k': range(2, 26), 
+                         'RMSE': np.abs(results.cv_results_['mean_test_score'])})
+
+(ggplot(all_rmse, aes(x='k', y='RMSE'))
+ + geom_line()
+ + geom_point()
+ + ggtitle("Cross validated grid search results"))
+```
+
+
+### `r fontawesome::fa("r-project")`
+
+First, let's create our
+
+1. train/test split
+2. resampling procedure
+3. model object
+4. hyperparameter grid
+
+These items are nothing new and similar to our approach in the last module.
+
+```{r}
+# create train/test split
+set.seed(123)  # for reproducibility
+split  <- initial_split(ames, prop = 0.7)
+train  <- training(split)
+test   <- testing(split)
+
+# create resampling procedure
+kfold <- vfold_cv(train, v = 10)
+
+# model object
+knn <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("regression")
+
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(neighbors = seq(2, 25, by = 1))
+```
+
+Next, we create our model and feature engineering recipe with the 6 steps mentioned above.
+
+```{r}
+# model recipe with feature engineering steps
+model_form <- recipe(Sale_Price ~ ., data = train) %>%
+  # 1. Remove near-zero variance features that are categorical 
+  step_nzv(all_nominal()) %>%
+  # 2. Ordinal encode our quality-based features
+  step_string2factor(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"),
+    levels = lvls
+    ) %>% 
+  step_unknown(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    new_level = "None"
+    ) %>%
+  step_relevel(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    ref_level = "None"
+    ) %>%
+  step_integer(ends_with("Qual"), ends_with("QC"), ends_with("_Cond")) %>%
+  # 3. Center and scale (i.e., standardize) all numeric features
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  # 4. Perform dimension reduction by applying PCA to all numeric features.
+  step_pca(all_numeric(), -all_outcomes(), num_comp = 30) %>%
+  # 5. Collapse categorical levels with small representation
+  step_other(all_nominal(), threshold = 0.01, other = "other") %>%
+  # 6. One-hot encode the remaining categorical features.
+  step_dummy(all_nominal(), one_hot = TRUE)
+```
+
+Now we can run `tune_grid` and supply it all our objects. This is where the feature engineering actually happens as `tune_grid` will apply the feature engineering steps individually within each of the kfold resamples so there is no data leakage.
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# Tune a knn model using grid search
+results <- tune_grid(knn, model_form, resamples = kfold, grid = hyper_grid)
+
+# best model
+show_best(results, metric = "rmse")
+
+# plot results
+results %>%
+  collect_metrics() %>%
+  filter(.metric == "rmse") %>%
+  ggplot(aes(neighbors, mean)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "k", y = "RMSE", title = "Cross validated grid search results")
+```
+
+# Exercises
+
+Using the Ames dataset and the same approach shown in the [last section](#engineering-process-example):
+
+1. Rather than use a 70% stratified training split, try an 80% unstratified training split. How does your cross-validated results compare?
+
+2. Rather than numerically encode the quality and condition features (i.e. `step_integer(matches("Qual|Cond|QC"))`), one-hot encode these features.  What is the difference in the number of features in your training set?  Apply the same cross-validated KNN model to this new feature set. How does the performance change? How does the training time change?
+
+3. Identify three new feature engineering steps that are provided by [recipes](https://recipes.tidymodels.org/), [scikit-learn](https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing) or some other open source R/Python package:
+   - Why would these feature engineering steps be applicable to the Ames data?
+   - Apply these feature engineering steps along with the same cross-validated KNN model. How do your results change?
+   
+4. Compare the Python and R pre-processing steps in the last section. Can you spot any discrepencies? If so, resolve them so the pipelines are performing the same steps.
+   
+4. Using the [Attrition data set](https://misk-data-science.github.io/misk-homl/docs/01-introduction.nb.html#the_data_sets), assess the characteristics of the target and features.
+   - Which target/feature engineering steps should be applied?
+   - Create a feature engineering pipeline and apply a KNN grid search. What is the performance of your model?
+
+[🏠](https://github.com/misk-data-science/misk-homl)
+
+# References
