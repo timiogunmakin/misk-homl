@@ -148,16 +148,20 @@ train.shape
 With sufficient sample size, this sampling approach will typically result in a similar distribution of $Y$ (e.g., `Sale_Price` in the `ames` data) between your <font color="blue">training</font> and <font color="red">test</font> sets, as illustrated below.
 
 ```{python py-random-sampling, eval = FALSE}
-(ggplot(train, aes('Sale_Price'))
- + geom_density(color = "blue")
- + geom_density(data = test, color = "red")
+train['id'] = 'train'
+test['id'] = 'test'
+
+(ggplot(pd.concat([train, test]), aes('Sale_Price', color='id'))
+ + geom_density()
  + ggtitle("Random sampling with Python"))
 ```
 
 ```{python py-random-sampling-output, echo = FALSE}
-p = (ggplot(train, aes('Sale_Price'))
- + geom_density(color = "blue")
- + geom_density(data = test, color = "red")
+train['id'] = 'train'
+test['id'] = 'test'
+
+p = (ggplot(pd.concat([train, test]), aes('Sale_Price', color='id'))
+ + geom_density()
  + ggtitle("Random sampling with Python"))
  
 p.save(filename="py-random-sampling.png", path = "./images", dpi = 300, 
@@ -186,10 +190,12 @@ dim(train)
 With sufficient sample size, this sampling approach will typically result in a similar distribution of $Y$ (e.g., `Sale_Price` in the `ames` data) between your <font color="blue">training</font> and <font color="red">test</font> sets, as illustrated below.
 
 ```{r r-random-sampling}
-ggplot(train, aes(Sale_Price)) +
- geom_density(color = "blue") +
- geom_density(data = test, color = "red") +
- ggtitle("Random sampling with R")
+train %>% 
+  mutate(id = 'train') %>% 
+  bind_rows(test %>% mutate(id = 'test')) %>%
+  ggplot(aes(Sale_Price, color = id)) +
+  geom_density() +
+  ggtitle("Random sampling with R")
 ```
 
 
