@@ -9,7 +9,7 @@ assignees: bradleyboehmke
 
 - [ ] Notebook revision complete
 - [ ] Student material updated
-      - [ ] R
-      - [ ] Python
+     - [ ] R
+     - [ ] Python
 - [ ] Slides updated
 - [ ] README hyperlinks updated
