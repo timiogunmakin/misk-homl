@@ -5,360 +5,244 @@ output: html_notebook
 
 # Prereqs 
 
-```{r slide-3}
-# packages required
-library(dplyr)
-library(ggplot2)
-library(rsample)
-library(recipes)
-library(vip)
-library(caret)
+```{r}
+# Helper packages
+library(dplyr)    # for data manipulation
+library(ggplot2)  # for awesome graphics
 
-# ames data
+# Modeling packages
+library(tidymodels)
+library(plsmod)
+
+# Model interpretability packages
+library(vip)      # variable importance
+```
+
+```{r}
+# Ames housing data
 ames <- AmesHousing::make_ames()
 
-# split data
+# create training/test split
 set.seed(123)
-split <- initial_split(ames, strata = "Sale_Price")
-ames_train <- training(split)
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
 ```
 
 # Simple linear regression 
 
-- `lm()` performs OLS in base R
-- `glm()` also performs linear regression but extends to other generalized methods (i.e. logistic regression)
-- `summary(model)` provides many results (i.e. "Residual Standard Error" is the RMSE)
-- No method for resampling (i.e. cross validation) with `lm()`
+```{r}
+# create linear regression model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
 
-```{r slide-6}
-model1 <- lm(Sale_Price ~ Gr_Liv_Area, data = ames_train)
-summary(model1)
+# fit linear model with only Gr_Liv_Area feature
+lm_fit <- 
+  lm_mod %>% 
+  fit(Sale_Price ~ Gr_Liv_Area, data = ames_train)
+```
+
+## Coefficients
+
+```{r}
+lm_fit
 ```
 
 # Multiple linear regression 
 
-```{r slide-7}
-# OLS model with two predictors
-model2 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)
+```{r}
+# create linear regression model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
 
-# OLS model with specified interactions
-model3 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area:Year_Built, data = ames_train)
-# Equivalent to Gr_Liv_Area*Year_Built
-
-# include all possible main effects
-model4 <- lm(Sale_Price ~ ., data = ames_train)
+# fit linear model with only Gr_Liv_Area and Year_Built feature
+lm_fit <- 
+  lm_mod %>% 
+  fit(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)
 ```
 
-```{r eval = FALSE}
-summary(model4)
+## Coefficients
+
+```{r}
+lm_fit
 ```
+
+## Interactions
+
+```{r}
+# create linear regression model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# fit linear model with Gr_Liv_Area and Year_Built main effects and
+# also include an interaction effect (Gr_Liv_Area:Year_Built)
+lm_fit <- 
+  lm_mod %>% 
+  fit(
+    Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area:Year_Built, 
+    data = ames_train
+    )
+
+lm_fit
+```
+
+## Many features
+
+```{r}
+# create linear regression model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
+
+# fit linear model with all features
+lm_fit <- 
+  lm_mod %>% 
+  fit(Sale_Price ~ ., data = ames_train)
+
+tidy(lm_fit)
+```
+
+
 
 # Assessing model accuracy 
 
-We've fit four models to the Ames housing data: 
-
-1. a single predictor, 
-2. two predictors, 
-3. two predictors with interaction,
-4. and all possible main effect predictors. 
-
-___Which model is "best"?___
-
-```{r slide-9}
-# create a resampling method
-cv <- trainControl(
-  method = "repeatedcv", 
-  number = 10, 
-  repeats = 5
-  )
-
-# model 1 CV
-set.seed(123)
-(cv_model1 <- train(
-  Sale_Price ~ Gr_Liv_Area, 
-  data = ames_train, 
-  method = "lm", #<<
-  trControl = cv)
-)
-```
-
-Model using most predictors is marginally superior
-
-```{r slide-10}
-# model 2 CV
-set.seed(123)
-cv_model2 <- train(
-  Sale_Price ~ Gr_Liv_Area + Year_Built, 
-  data = ames_train, 
-  method = "lm",
-  trControl = cv
-  )
-
-# model 3 CV
-set.seed(123)
-cv_model3 <- train(
-  Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area : Year_Built, 
-  data = ames_train, 
-  method = "lm",
-  trControl = cv
-  )
-
-# model 4 CV
-set.seed(123)
-cv_model4 <- train(
-  Sale_Price ~ ., 
-  data = ames_train, 
-  method = "lm",
-  trControl = cv
-  )
-
-# Extract out of sample performance measures
-summary(resamples(list(
-  model1 = cv_model1, 
-  model2 = cv_model2, 
-  model3 = cv_model3,
-  model4 = cv_model4
-)))
-```
-
-# Model concerns - multicollinearity
-
-
-```{r slide-16}
-m1 <- lm(Sale_Price ~ Gr_Liv_Area + TotRms_AbvGrd, data = ames_train) # 2 predictors
-m2 <- lm(Sale_Price ~ Gr_Liv_Area, data = ames_train)     # only predictor 1
-m3 <- lm(Sale_Price ~ TotRms_AbvGrd, data = ames_train)   # only predictor 1
-
-coef(m1) 
-coef(m2) 
-coef(m3) 
-```
-
-
 ```{r}
-# The are highly correlated
-cor(ames_train$Gr_Liv_Area, ames_train$TotRms_AbvGrd )
+ # create linear regression model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
 
-# simple plot
-plot(ames_train$Gr_Liv_Area, ames_train$TotRms_AbvGrd )
+# create three model recipes
+lm1 <- recipe(Sale_Price ~ Gr_Liv_Area, data = ames_train) %>% 
+ step_dummy(all_nominal_predictors())
+lm2 <- recipe(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train) %>% 
+ step_dummy(all_nominal_predictors())
+lm3 <- recipe(Sale_Price ~ ., data = ames_train) %>% 
+ step_dummy(all_nominal_predictors())
+
+# combine model objects and recipes into a workflow object
+preproc <- list(lm1, lm2, lm3)
+models <- list(lm_mod)
+
+model_set <- workflow_set(preproc, models, cross = TRUE)
+model_set
+```
+
+```{r, message=FALSE, warning=FALSE}
+# create our k-fold CV object
+kfold <- vfold_cv(ames_train, v = 10)
+
+# iterate over our workflow object to execute and score the cross 
+# validation procedure
+lm_models <- model_set %>%
+  workflow_map("fit_resamples",
+               seed = 8451,
+               resamples = kfold)
+
+lm_models
 ```
 
 ```{r}
-
-# # which(names(ames_train) == "Sale_Price")
-# library(ggcorrplot)
-# corr <- round(cor(ames_train[-79]), 1)
-# ggcorrplot(corr)
+collect_metrics(lm_models) %>% 
+  filter(.metric == "rmse")
 ```
-
 
 # Principal Component Regression
 
-Feature reduction with PCR improves prediction error by ~ $10K
+```{r}
+# create linear model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
 
-```{r slide-21}
-# 1. hypergrid
-hyper_grid <- expand.grid(ncomp = seq(2, 40, by = 2))
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
 
-# 2. PCR
+# create our preprocessing steps which includes performing PCA 
+# with 10 components
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_pca(all_numeric(), -all_outcomes(), num_comp = 10) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a workflow object that combines model with recipe
+pca_wf <- workflow() %>%
+  add_model(lm_mod) %>%
+  add_recipe(model_form)
+
+# train and fit our model
 set.seed(123)
-cv_pcr <- train(
-  Sale_Price ~ ., 
-  data = ames_train, 
-  trControl = cv,
-  method = "pcr", #<<
-  preProcess = c("zv", "center", "scale"), #<<
-  tuneGrid = hyper_grid, #<<
-  metric = "RMSE"
-  )
+pca_fit_rs <- pca_wf %>% 
+  fit_resamples(folds)
 
-# model with lowest RMSE
-cv_pcr$bestTune
-
-cv_pcr$results %>%
-  filter(ncomp == as.numeric(cv_pcr$bestTune))
-
-# plot cross-validated RMSE
-plot(cv_pcr)
+# get results
+collect_metrics(pca_fit_rs) %>%
+  filter(.metric == "rmse")
 ```
 
+## Tuning
 
-Tuning
+```{r}
+# create linear model object
+lm_mod <- linear_reg() %>%  set_engine("lm")
 
-- The number of PCs is the only hyperparameter
-- rule of thumb
-   - assess 2-*p* in evenly divided segments
-   - start with a few and zoom in
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
 
+# create our model recipe with a tuning option for number of components
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_pca(all_numeric(), -all_outcomes(), num_comp = tune()) %>%
+  step_dummy(all_nominal_predictors())
 
-```{r slide-22}
-# 1. hypergrid
-p <- length(ames_train) - 1
-hyper_grid <- expand.grid(ncomp = seq(2, 80, length.out = 10)) #<<
+# create a hyper parameter tuning grid for number of components
+hyper_grid <- expand.grid(num_comp = seq(1, 26, by = 2))
 
-# 2. PCR
-set.seed(123)
-cv_pcr <- train(
-  Sale_Price ~ ., 
-  data = ames_train, 
-  trControl = cv,
-  method = "pcr", 
-  preProcess = c("zv", "center", "scale"), 
-  tuneGrid = hyper_grid, 
-  metric = "RMSE"
-  )
+# train our model across the hyper parameter grid
+set.seed(8451)
+results <- tune_grid(lm_mod, model_form, resamples = folds, grid = hyper_grid)
 
-# RMSE
-cv_pcr$results %>%
-  filter(ncomp == cv_pcr$bestTune$ncomp)
-
-# plot cross-validated RMSE
-plot(cv_pcr)
+# get best results
+show_best(results, metric = "rmse")
 ```
 
 
 # Partial Least Squares Regression
 
-Using PLS improves prediction error by an additional $500
+```{r}
+# create PLS model object with a tuning option for number of components
+pls_mod <- plsmod::pls(num_comp = tune()) %>%  
+  set_engine("mixOmics") %>%
+  set_mode("regression")
 
-```{r slide-27}
-# PLS
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
+
+# create our model recipe
+model_form <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a hyper parameter tuning grid for number of components
+hyper_grid <- expand.grid(num_comp = seq(2, 26, by = 2))
+
+# train our model across the hyper parameter grid
 set.seed(123)
-cv_pls <- train(
-  Sale_Price ~ ., 
-  data = ames_train, 
-  trControl = cv,
-  method = "pls", #<<
-  preProcess = c("zv", "center", "scale"),
-  tuneGrid = hyper_grid,
-  metric = "RMSE"
-  )
+results <- tune_grid(pls_mod, model_form, resamples = folds, grid = hyper_grid)
 
-# model with lowest RMSE
-cv_pls$bestTune
-
-cv_pls$results %>%
-  filter(ncomp == as.numeric(cv_pls$bestTune))
-
-# plot cross-validated RMSE
-plot(cv_pls)
+# get best results
+show_best(results, metric = "rmse")
 ```
 
 
-# Model Comparison
+# Exercises
 
-```{r slide-31}
-results <- resamples(list(
-  OLS  = cv_model4, 
-  PCR  = cv_pcr, 
-  PLS  = cv_pls
-  ))
+Using the Boston housing data set where the response feature is the median value of homes within a census tract (`cmedv`):
 
-summary(results)$statistics$RMSE
-
-# plot results
-p1 <- bwplot(results, metric = "RMSE")
-p2 <- dotplot(results, metric = "RMSE")
-gridExtra::grid.arrange(p1, p2, nrow = 1)
-```
-
-
-# Feature importance 
-
-vip Package
-
-* variable importance plots illustrate the influence each predictor has
-* many packages have their own vip plots
-* the __vip__ package provides a common output
-* different models measure "importance" differently
-* we'll review this more indepth tomorrow
-
-```{r slide-33}
-# MARS model
-vip(cv_pls)
-
-```
-
-```{r slide-34}
-# all models
-p1 <- vip(cv_model4, num_features = 25, bar = FALSE) + ggtitle("OLS")
-p2 <- vip(cv_pls, num_features = 25, bar = FALSE) + ggtitle("PLS")
-
-gridExtra::grid.arrange(p1, p2, nrow = 1)
-```
-
-# Feature effects 
-
-* feature effects measures the relationship between a feature and the target variable
-* most common approach is a partial dependence plot
-* computes the average response value when all observations use a particular value for a given feature
-* we will review this more tomorrow
-
-```{r slide-35}
-# linear regression model
-pdp::partial(cv_model2, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
-  autoplot()
-```
-
-```{r slide-36}
-# linear regression model
-p1 <- pdp::partial(cv_model2, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
-  autoplot() +
-  ggtitle("OLS with 2 features") +
-  scale_y_continuous("Predicted Sales Price", 
-                     labels = scales::dollar, 
-                     limits = c(0, 600000))
-
-# PLS model
-p2 <- pdp::partial(cv_model4, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
-  autoplot() +
-  ggtitle("OLS with all features") +
-  scale_y_continuous("Predicted Sales Price", 
-                     labels = scales::dollar, 
-                     limits = c(0, 600000))
-
-# Regularized model
-p3 <- pdp::partial(cv_pcr, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
-  autoplot() +
-  ggtitle("PCR") +
-  scale_y_continuous("Predicted Sales Price", 
-                     labels = scales::dollar, 
-                     limits = c(0, 600000))
-
-# MARS model
-p4 <- pdp::partial(cv_pls, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
-  autoplot() +
-  ggtitle("PLS") +
-  scale_y_continuous("Predicted Sales Price", 
-                     labels = scales::dollar, 
-                     limits = c(0, 600000))
-
-gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 1)
-```
-
-
-```{r eval = FALSE}
-coef(model2)[["Gr_Liv_Area"]]
-library(stringr)
-length(coef(model4))
-coef(model4)[213]
-which(str_detect(names(coef(model4)),"Gr_Liv_Area"))
-```
-
-
-Assess the interaction of the top 2 predictors:
-
-```{r slide-37}
-pdp::partial(
-  cv_model2,
-  pred.var = c("Gr_Liv_Area", "Year_Built"),
-  grid.resolution = 10
-  ) %>% 
-  pdp::plotPartial(
-    levelplot = FALSE,
-    zlab = "yhat", 
-    drape = TRUE, 
-    colorkey = TRUE, 
-    screen = list(z = -20, x = -60)
-    )
-```
+1. Pick a single feature and apply a simple linear regression model.
+   - Interpret the feature's coefficient
+   - What is the model's performance? How does it compare to the KNN in the last module?
+2. Pick another feature to add to the model.
+   - Before applying the model why do you think this feature will help?
+   - Apply a linear regression model with the two features and compare to the simple linear model.
+   - Interpret the coefficients.
+3. Now apply a model that includes all the predictors.
+   - How does this model compare to the previous two?
+4. Can you identify any model concerns?
+5. Apply a principal component regression model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.
+6. Now apply a partial least square model.
+   - Perform a grid search over several components.
+   - Identify and explain the performance of the optimal model.

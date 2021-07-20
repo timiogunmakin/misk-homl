@@ -216,3 +216,20 @@ results %>%
   geom_point() +
   labs(x = "k", y = "RMSE", title = "Cross validated grid search results")
 ```
+
+# Exercises
+
+1. Load the Boston housing data set and split it into a training set and test set using a 70-30% split.
+
+   - How many observations are in the training set and test set?
+   - Compare the distribution of `cmedv` between the training set and test set.
+
+2. Fit a KNN model where $k=5$ that uses all available features to predict `cmedv`. How does the MSE/RMSE compare across these models?
+
+3. Perform a 10-fold cross-validated KNN model, repeated 5 times, that uses all available features to predict `cmedv`. 
+
+   - What is the average RMSE across all 50 model iterations?
+   - Plot the distribution of the RMSE across all 50 model iterations.
+   - Describe the results.
+
+4. Now perform a hyperparameter grid search where _k_ ranges from 2--20 and apply 10-fold CV repeated 5 times.
