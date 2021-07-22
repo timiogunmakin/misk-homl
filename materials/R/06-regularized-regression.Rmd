@@ -9,225 +9,200 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Prerequisites
 
-
 ```{r}
 # Helper packages
-library(recipes)   # for feature engineering
-library(tidyverse) # general data munging
+library(tidyverse) # general data munging & visualization
 
 # Modeling packages
-library(glmnet)   # for implementing regularized regression
-library(caret)    # for automating the tuning process
-library(rsample)  # for sampling
+library(tidymodels)
 
 # Model interpretability packages
 library(vip)      # for variable importance
 ```
 
-
-```{r prereqs-data}
-# ames data
+```{r 06-ames-train}
+# Stratified sampling with the rsample package
 ames <- AmesHousing::make_ames()
-# split data
+set.seed(123)  # for reproducibility
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+```
+
+
+# Implementation
+
+## Ridge
+
+```{r}
+# Step 1: create ridge model object
+ridge_mod <- linear_reg(penalty = 1, mixture = 0) %>%
+  set_engine("glmnet")
+
+# Step 2: create model & preprocessing recipe
+model_recipe <- recipe(
+    Sale_Price ~ Gr_Liv_Area + Year_Built + Garage_Cars + Garage_Area, 
+    data = ames_train
+  ) %>%
+  step_normalize(all_predictors())
+  
+# Step 3: fit model workflow
+ridge_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(ridge_mod) %>%
+  fit(data = ames_train)
+
+# Step 4: extract and tidy results
+ridge_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+```
+
+## Lasso
+
+```{r}
+# Step 1: create ridge model object
+lasso_mod <- linear_reg(penalty = 1, mixture = 1) %>%
+  set_engine("glmnet")
+  
+# Step 3: fit model workflow
+lasso_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(lasso_mod) %>%
+  fit(data = ames_train)
+
+# Step 4: extract and tidy results
+lasso_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+```
+
+## Elastic net
+
+```{r}
+# Step 1: create ridge model object
+en_mod <- linear_reg(penalty = 1, mixture = 0.5) %>%
+  set_engine("glmnet")
+  
+# Step 3: fit model workflow
+en_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(en_mod) %>%
+  fit(data = ames_train)
+
+# Step 4: extract and tidy results
+en_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+```
+
+
+# Tuning
+
+## Tuning regularization strength
+
+```{r}
+# create linear model object
+ridge_mod <- linear_reg(penalty = tune(), mixture = 0) %>%
+  set_engine("glmnet")
+
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
+
+# create our model recipe with a tuning option for number of components
+model_recipe <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
+
+# create a hyper parameter tuning grid for penalty
+hyper_grid <- grid_regular(penalty(range = c(-10, 5)), levels = 50)
+
+# train our model across the hyper parameter grid
 set.seed(123)
-split <- initial_split(ames, strata = "Sale_Price")
-ames_train <- training(split)
+results <- tune_grid(ridge_mod, model_recipe, resamples = folds, grid = hyper_grid)
+
+# get best results
+show_best(results, metric = "rmse")
 ```
 
 
-# Data prep
-
-* glmnet only accepts the non-formula XY interface so prior to modeling we need to separate our feature and target sets and
-
-* dummy encode our feature set 
+## Tuning regularization type & strength
 
 ```{r}
-# Create training  feature matrices
-# we use model.matrix(...)[, -1] to discard the intercept
-X <- model.matrix(Sale_Price ~ ., ames_train)[, -1]
+# create linear model object
+mod <- linear_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
 
-# transform y with log transformation
-Y <- log(ames_train$Sale_Price)
-```
+# create k-fold cross validation object
+folds <- vfold_cv(ames_train, v = 5)
 
+# create our model recipe with a tuning option for number of components
+model_recipe <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
 
-# glmnet
-
-Pro Tip: glmnet can auto-generate the appropriate λ values based on the data; the vast majority of the time you will have little need to adjust this default.
-
-Ridge:
-
-```{r}
-ridge <- glmnet(
-  x = X,
-  y = Y,
-  alpha = 0
-)
-
-plot(ridge, xvar = "lambda")
-```
-
-Lasso:
-
-```{r}
-lasso <- glmnet(
-  x = X,
-  y = Y,
-  alpha = 1
-)
-
-plot(lasso, xvar = "lambda")
-```
-
-So which one is better? We can use `cv.glmnet` to provide cross-validated results
-
-Ridge CV model:
-
-```{r}
-ridge <- cv.glmnet(
-  x = X,
-  y = Y,
-  alpha = 0
-)
-
-plot(ridge)
-```
-
-Lasso CV model:
-
-```{r}
-lasso <- cv.glmnet(
-  x = X,
-  y = Y,
-  alpha = 1
-)
-
-plot(lasso)
-```
-
-
-Ridge model results: 
-
-```{r}
-# Ridge model - minimum MSE
-min(ridge$cvm)
-
-# Ridge model - lambda for this min MSE
-ridge$lambda.min 
-
-# Ridge model w/1-SE rule
-ridge$cvm[ridge$lambda == ridge$lambda.1se]
-
-# Ridge model w/1-SE rule -- No. of coef | 1-SE MSE
-ridge$nzero[ridge$lambda == ridge$lambda.1se]
-```
-
-Lasso model results: 
-
-```{r}
-# Lasso model - minimum MSE
-min(lasso$cvm)       
-
-# Lasso model - lambda for this min MSE
-lasso$lambda.min 
-
-# Lasso model - w/1-SE rule
-lasso$cvm[lasso$lambda == lasso$lambda.1se]
-
-# Lasso model w/1-SE rule -- No. of coef | 1-SE MSE
-lasso$nzero[lasso$lambda == lasso$lambda.1se]
-```
-
-
-# Grid search
-
-Often, the optimal model contains an alpha somewhere between 0–1, thus we want to tune both the λ and the alpha parameters. 
-
-```{r cv-glmnet}
-# tuning grid
-hyper_grid <- expand.grid(
-  alpha = seq(0, 1, by = .25),
-  lambda = c(0.1, 10, 100, 1000, 10000)
-)
-
-# perform resampling
-set.seed(123)
-cv_glmnet <- train(
-  x = X,
-  y = Y,
-  method = "glmnet",
-  preProc = c("zv", "center", "scale"),
-  trControl = trainControl(method = "cv", number = 10),
-  tuneLength = 10
-)
-
-# best model
-cv_glmnet$results %>%
-  filter(
-    alpha == cv_glmnet$bestTune$alpha,
-    lambda == cv_glmnet$bestTune$lambda
+# create a hyper parameter tuning grid for penalty
+hyper_grid <- grid_regular(
+  penalty(range = c(-10, 5)), 
+  mixture(), 
+  levels = c(mixture = 5, penalty = 50)
   )
-```
 
-```{r cv-glmnet-plot, fig.height=5}
-# plot results
-plot(cv_glmnet)
-```
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(mod, model_recipe, resamples = folds, grid = hyper_grid)
 
-# Comparing results to previous models
-
-* So how does this compare to our previous best model for the Ames data set? 
-* Keep in mind that for this module we log transformed the response variable (`Sale_Price`). 
-* Consequently, to provide a fair comparison to our previously model(s) we need to re-transform our predicted values.
-
-```{r}
-# predict sales price on training data
-pred <- predict(cv_glmnet, X)
-
-# compute RMSE of transformed predicted
-RMSE(exp(pred), exp(Y))
+# get best results
+show_best(results)
 ```
 
 
 # Feature importance
 
 ```{r}
-vip(cv_glmnet, num_features = 20, geom = "point")
-```
+# identify best model
+lowest_rmse <- results %>%
+  select_best("rmse")
 
-# Partial dependence plots
+# extract best model workflow
+final_model <- finalize_workflow(
+  workflow() %>% add_recipe(model_recipe) %>% add_model(ridge_mod), 
+  lowest_rmse)
 
-```{r regularized-top4-pdp, echo=FALSE, fig.height=8, fig.width=12}
-p1 <- pdp::partial(cv_glmnet, pred.var = "Gr_Liv_Area", grid.resolution = 20) %>%
-  as_tibble() %>% 
-  mutate(yhat = exp(yhat)) %>%
-  ggplot(aes(Gr_Liv_Area, yhat)) +
-  geom_line() +
-  scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
-
-p2 <- pdp::partial(cv_glmnet, pred.var = "Total_Bsmt_SF", grid.resolution = 20) %>%
-  as_tibble() %>% 
-  mutate(yhat = exp(yhat)) %>%
-  ggplot(aes(Total_Bsmt_SF, yhat)) +
-  geom_line() +
-  scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
-
-p3 <- pdp::partial(cv_glmnet, pred.var = "Overall_QualExcellent") %>%
-  as_tibble() %>% 
+# extract feature importance for top 25 most influential features
+top_25_features <- final_model %>%
+  fit(ames_train) %>%
+  pull_workflow_fit() %>% 
+  vi(lambda = lowest_rmse$penalty) %>%
   mutate(
-    yhat = exp(yhat),
-    Overall_QualExcellent = factor(Overall_QualExcellent)
+    Importance = abs(Importance),
+    Variable = fct_reorder(Variable, Importance)
   ) %>%
-  ggplot(aes(Overall_QualExcellent, yhat)) +
-  geom_boxplot() +
-  scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
-
-p4 <- pdp::partial(cv_glmnet, pred.var = "Year_Built", grid.resolution = 20) %>%
-  as_tibble() %>% 
-  mutate(yhat = exp(yhat)) %>%
-  ggplot(aes(Year_Built, yhat)) +
-  geom_line() +
-  scale_y_continuous(limits = c(0, 300000), labels = scales::dollar)
-
-grid.arrange(p1, p2, p3, p4, nrow = 2)
+  top_n(25, wt = Importance)
 ```
+
+```{r}
+ggplot(top_25_features, aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
+
+
+# Exercises
+
+Using the boston housing dataset:
+
+1. Apply a ridge model with glmnet with `medv` being the response variable.
+   - What is the minimum MSE?
+   - What is the minimum MSE within 1 standard error?
+   - What are the lambda values for these MSEs?
+2. Apply a lasso model with glmnet.
+   - What is the minimum MSE?
+   - What is the minimum MSE within 1 standard error?
+   - What are the lambda values for these MSEs?
+3. Perform a grid search across alpha parameter values ranging between 0–1.
+   - What is the optimal alpha and lambda values?
+   - What is the MSE and RMSE for this optimal model?
+   - How does it compare to your previous models?
+4. Plot the top 10 most influential features. Do these features have positive or negative impacts on your response variable?
