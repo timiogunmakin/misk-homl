@@ -20,9 +20,9 @@ Using the same dataset leveraged for [Portfolio Builder Exercise #1](https://mis
    - Identify and explain the performance of the optimal model.
    
 4. Apply a regularized regression model.
-   - Perform a grid search across alpha parameter values ranging between 0–1.
-   - What is the optimal alpha and lambda values?
-   - What is the MSE and RMSE for this optimal model?
+   - Perform a grid search across penalty magnitudes (size of $\lambda$ and type of penalty - ridge, lasso, elastic net).
+   - What are the optimal parameter values?
+   - What is the RMSE for this optimal model?
    - How does it compare to your previous models?
    
 5. Pick the best performing model from above.
