@@ -90,7 +90,7 @@ plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 
 # Exercises
 
-Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISLR")`):
+Using the `hitters` dataset:
 
 1. Apply a MARS model with all features.
 2. How does the model performance compare to your previous models?

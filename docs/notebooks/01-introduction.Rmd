@@ -10,7 +10,7 @@ bibliography: [references.bib, packages.bib]
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
-                      collapse = TRUE, cache = TRUE)
+                      collapse = TRUE)
 
 library(reticulate)
 use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
@@ -525,6 +525,52 @@ dplyr::select(attrition, -Attrition)
 head(attrition$Attrition)
 ```    
     
+## Hitters {.tabset}
+
+This dataset was originally taken from the StatLib library which is maintained at Carnegie Mellon University. The idea was to illustrate if and how major league baseball player's batting performance could predict their salary. The salary data were originally from Sports Illustrated, April 20, 1987. The 1986 and career statistics were obtained from The 1987 Baseball Encyclopedia Update published by Collier Books, Macmillan Publishing Company, New York. Note that the data does contain the players name but this should be removed during analysis and is not a valid feature.
+
+- __problem type__: supervised regression
+- __response variable__: `Salary`
+- __features__: 19 
+- __observations__: 322
+- __objective__: use baseball player's batting attributes to predict their salary.
+
+### `r fontawesome::fa("python")`
+
+```{python}
+# access data
+hitters = pd.read_csv("data/hitters.csv")
+
+# initial dimensions
+hitters.shape
+```
+
+```{python}
+# features
+hitters.drop(["Salary", "Player"], axis=1).head()
+```
+
+```{python}
+# response variable
+hitters["Salary"].head()
+```
+
+### `r fontawesome::fa("r-project")`
+
+```{r import-hitters-r}
+# access data
+hitters <- readr::read_csv("data/hitters.csv") 
+
+# initial dimension
+dim(hitters)
+
+# features
+dplyr::select(hitters, -Salary, -Player)
+
+# response variable
+head(hitters$Salary)
+```
+
 
 # Exercises
 
