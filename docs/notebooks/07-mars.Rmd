@@ -1,0 +1,103 @@
+---
+title: "Multivariate Adaptive Regression Splines"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    css: style.css
+bibliography: [references.bib, packages.bib]
+---
+
+<br>
+
+```{r setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, fig.align = 'center')
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# hidden package requirements
+library(glmnet)
+```
+
+```{python, echo = FALSE}
+import plotnine
+plotnine.themes.theme_set(new=plotnine.themes.theme_light())
+```
+
+# Prerequisites {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+
+# The basic idea
+
+
+
+# Fitting a basic MARS model {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+
+# Tuning {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Feature interpretation {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+
+# Attrition data {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+
+# Final thoughts
+
+
+
+# Exercises
+
+Using the `Hitters` dataset from the ISLR package (`data(Hitters, package = "ISLR")`):
+
+1. Apply a MARS model with all features.
+2. How does the model performance compare to your previous models?
+3. How many of the features are influential? Which 10 features are considered most influential?
+4. Does your model include hinge functions? If so, explain their coefficient and plot their impact on the predicted response variable.
+5. Does your model include interactions? If so, pick the interaction effect that is most influential and explain the coefficient.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
+
+# References
