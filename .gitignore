@@ -175,3 +175,6 @@ dmypy.json
 # Make sure logs and spark stuff don't creep through
 logs/
 spark-warehouse
+
+# ignore py-earth embedded repo
+py-earth
