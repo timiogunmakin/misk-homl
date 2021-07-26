@@ -22,8 +22,8 @@ use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", 
 # Set the graphical theme
 ggplot2::theme_set(ggplot2::theme_light())
 
-# hidden package requirements
-library(glmnet)
+# hidden requirements
+ames <- AmesHousing::make_ames()
 ```
 
 ```{python, echo = FALSE}
@@ -43,12 +43,300 @@ _K_-nearest neighbor (KNN) is a very simple algorithm in which each observation 
 
 ## `r fontawesome::fa("r-project")` 
 
+```{r}
+# Helper packages
+library(tidyverse)   # for data wrangling & plotting
+
+# Modeling packages
+library(tidymodels) 
+
+# Model interpretability packages
+library(vip)         # for variable importance
+library(pdp)         # for variable relationships
+```
 
 # Measuring similarity
 
+The KNN algorithm identifies $k$ observations that are "similar" or nearest to the new record being predicted and then uses the average response value (regression) or the most common class (classification) of those $k$ observations as the predicted output.  
+
+For illustration, consider our Ames housing data.  In real estate, Realtors determine what price they will list (or market) a home for based on "comps" (comparable homes). To identify comps, they look for homes that have very similar attributes to the one being sold.  This can include similar features (e.g., square footage, number of rooms, and style of the home), location (e.g., neighborhood and school district), and many other attributes.  The Realtor will look at the typical sale price of these comps and will usually list the new home at a very similar price to the prices these comps sold for.
+
+As an example, the figure below maps 10 homes (blue) that are most similar to the home of interest (red). These homes are all relatively close to the target home and likely have similar characteristics (e.g., home style, size, and school district). Consequently, the Realtor would likely list the target home around the average price that these comps sold for.  In essence, this is what the KNN algorithm will do.
+
+```{r map-homes, echo=FALSE, fig.width=8, fig.height=5}
+library(leaflet)
+
+df <- recipe(Sale_Price ~ ., data = ames) %>%
+  step_nzv(all_nominal()) %>%
+  step_integer(matches("Qual|Cond|QC|Qu")) %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %>%
+  prep(training = ames, retain = TRUE) %>%
+  juice() %>%
+  select(-Sale_Price)
+
+home <- 11
+k = 10
+index <- as.vector(FNN::knnx.index(df[-home, ], df[home, ], k = k))
+sale_home <- ames[home, ] %>%
+  mutate(type = "target")
+like_homes <- ames[index, ] %>%
+  mutate(type = "like")
+knn_homes <- rbind(sale_home, like_homes)
+
+pal <- colorFactor(c("blue", "red"),
+                   domain = unique(knn_homes$type))
+
+knn_homes %>%
+  filter(Neighborhood != "Stone_Brook") %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(lng = ~Longitude,
+                   lat = ~Latitude,
+                   stroke = FALSE,
+                   color = ~pal(type),
+                   fillOpacity = .75
+                   )
+```
+
+## Distance measures {#knn-distance}
+
+How do we determine the similarity between observations (or homes as in the previous example)? We use distance (or dissimilarity) metrics to compute the pairwise differences between observations.  The most common distance measures are the Euclidean\index{euclidean distance} and Manhattan\index{manhattan distance} distance metrics; both of which measure the distance between observation $x_a$ and $x_b$ for all $j$ features.
+
+\begin{equation}
+ \text{Euclidean: }\sqrt{\sum^P_{j=1}(x_{aj} - x_{bj})^2}
+\end{equation}
+
+\begin{equation}
+ \text{Manhattan: }\sum^P_{j=1} | x_{aj} - x_{bj} | 
+\end{equation}
+
+Euclidean distance is the most common and measures the straight-line distance between two samples (i.e., how the crow flies).  Manhattan measures the point-to-point travel time (i.e., city block) and is commonly used for binary predictors (e.g., one-hot encoded 0/1 indicator variables). A simplified example can be illustrated using the first two homes in our Ames housing data where we focus on only two features (`Gr_Liv_Area` & `Year_Built`). We can see these homes are similar with regards to the year built but have a sizable difference in square footage. 
+  
+```{r distance-btwn-two-houses, echo=FALSE}
+two_houses <- ames[1:2, c("Gr_Liv_Area", "Year_Built")]
+
+ames %>%
+ slice(1:2) %>%
+ mutate(Home = c('Home 1', 'Home 2')) %>%
+ select(Home, Gr_Liv_Area, Year_Built) %>%
+ kableExtra::kable(caption = "Square footage and year built for the first two homes in the Ames housing data.") %>%
+ kableExtra::kable_styling()
+```
+
+The following plots illustrate the concept of how Euclidean distance is more concerned with the direct distance between two coordinates whereas Manhattan is more concerned with the cartesian direction.
+
+```{r difference-btwn-distance-measures, echo=FALSE, fig.height=3, fig.cap="Euclidean (A) versus Manhattan (B) distance."}
+p1 <- ggplot(two_houses, aes(Gr_Liv_Area, Year_Built)) +
+  geom_point() +
+  geom_line(lty = "dashed") +
+  ggtitle("(A) Euclidean distance")
+  
+
+p2 <- ggplot(two_houses, aes(Gr_Liv_Area, Year_Built)) +
+  geom_point() +
+  geom_step(lty = "dashed") +
+  ggtitle("(B) Manhattan distance")
+
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+When we compute these distances we see that although similar, there is still a small difference in the computed similarity measurement. 
+
+```{block, type="tip"}
+When performing KNN it is always worth exploring different similarity differences to see how they influence the results for your analytic problem.
+```
+
+
+```{r, echo=FALSE}
+# Euclidean
+euc <- tibble(
+ Distance = "Euclidean",
+ Value = dist(two_houses, method = "euclidean")
+)
+
+# Manhattan
+man <- tibble(
+ Distance = "Manhattan",
+ Value = dist(two_houses, method = "manhattan")
+)
+
+rbind(euc, man) %>%
+ mutate(Value = round(Value, 2)) %>%
+ kableExtra::kable(caption = "Distance measures for two homes based on square footage and year built.") %>%
+ kableExtra::kable_styling()
+```
+
+There are other metrics to measure the distance between observations. For example, the Minkowski distance is a generalization of the Euclidean and Manhattan distances and is defined as
+
+\begin{equation}
+ \text{Minkowski: }\bigg( \sum^P_{j=1} | x_{aj} - x_{bj} | ^q \bigg)^{\frac{1}{q}},
+\end{equation}
+
+where $q > 0$ [@han2011data]. When $q = 2$ the Minkowski distance equals the Euclidean distance and when $q = 1$ it is equal to the Manhattan distance. The Mahalanobis distance is also an attractive measure to use since it accounts for the correlation between two variables [@de2000mahalanobis].
+
+## Preprocessing
+
+Due to the squaring in the Euclidean distance function, the Euclidean distance is more sensitive to outliers. Furthermore, most distance measures are sensitive to the scale of the features. Data with features that have different scales will bias the distance measures as those predictors with the largest values will contribute most to the distance between two samples.  For example, consider the three homes below: `home1` is a four bedroom built in 2008, `home2` is a two bedroom built in the same year, and `home3` is a three bedroom built a decade earlier.
+
+```{r scale-impacts-distance-hidden, echo=FALSE}
+home1 <- ames %>%
+  mutate(id = row_number()) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  filter(Bedroom_AbvGr == 4 & Year_Built == 2008) %>%
+  slice(1) %>%
+  mutate(Home = "home1") %>%
+  select(Home, everything())
+
+home2 <- ames %>%
+  mutate(id = row_number()) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  filter(Bedroom_AbvGr == 2 & Year_Built == 2008) %>%
+  slice(1) %>%
+  mutate(Home = "home2") %>%
+  select(Home, everything())
+
+home3 <- ames %>%
+  mutate(id = row_number()) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  filter(Bedroom_AbvGr == 3 & Year_Built == 1998) %>%
+  slice(1) %>%
+  mutate(Home = "home3") %>%
+  select(Home, everything())
+
+rbind(home1, home2, home3) %>%
+  kableExtra::kable(caption = "Number of bedrooms and the year built for three different homes.") %>%
+  kableExtra::kable_styling()
+```
+
+The Euclidean distance between `home1` and `home3` is larger due to the larger difference in `Year_Built` with `home2`.  
+
+```{r scale-impacts-distance2, echo=FALSE}
+features <- c("Bedroom_AbvGr", "Year_Built")
+
+# distance between home 1 and 2
+home1_2 <- tibble(Euclidean = dist(rbind(home1[,features], home2[,features])))
+
+# distance between home 1 and 3
+home1_3 <- tibble(Euclidean = dist(rbind(home1[,features], home3[,features])))
+
+rbind(home1_2, home1_3) %>%
+ mutate(Distance_Between = c("Home 1 & 2", "Home 1 & 3")) %>%
+ select(Distance_Between, Euclidean) %>%
+ kableExtra::kable(caption = "Euclidean distance measure between home 1 and homes 2 & 3 based on raw feature values.") %>%
+ kableExtra::kable_styling()
+```
+
+However, `Year_Built` has a much larger range (1875--2010) than `Bedroom_AbvGr` (0--8).  And if you ask most people, especially families with kids, the difference between 2 and 4 bedrooms is much more significant than a 10 year difference in the age of a home. If we standardize these features, we see that the difference between `home1` and `home2`'s standardized value for `Bedroom_AbvGr` is larger than the difference between `home1` and `home3`'s `Year_Built`.  
+
+```{r scaling, echo=FALSE}
+scaled_ames <- recipe(Sale_Price ~ ., ames) %>%
+  step_center(all_numeric()) %>%
+  step_scale(all_numeric()) %>%
+  prep(training = ames, retain = TRUE) %>%
+  juice()
+
+home1_std <- scaled_ames %>%
+  mutate(id = row_number()) %>%
+  filter(id == home1$id) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  mutate(Home = "home1") %>%
+  select(Home, everything())
+
+home2_std <- scaled_ames %>%
+  mutate(id = row_number()) %>%
+  filter(id == home2$id) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  mutate(Home = "home2") %>%
+  select(Home, everything())
+
+home3_std <- scaled_ames %>%
+  mutate(id = row_number()) %>%
+  filter(id == home3$id) %>%
+  select(Bedroom_AbvGr, Year_Built, id) %>%
+  mutate(Home = "home3") %>%
+  select(Home, everything())
+
+rbind(home1_std, home2_std, home3_std) %>%
+  kableExtra::kable(caption = "Standardized values for number of bedrooms and the year built for three different homes.") %>%
+  kableExtra::kable_styling()
+```
+
+And if we compute the Euclidean distance between these standardized home features, we see that now `home1` and `home3` are more similar than `home1` and `home2`.
+
+```{r scale-impacts-distance3, echo=FALSE}
+
+# distance between home 1 and 2
+home1_2_std <- tibble(Euclidean = dist(rbind(home1_std[,features], home2_std[,features])))
+
+# distance between home 1 and 3
+home1_3_std <- tibble(Euclidean = dist(rbind(home1_std[,features], home3_std[,features])))
+
+rbind(home1_2_std, home1_3_std) %>%
+ mutate(Distance_Between = c("Home 1 & 2", "Home 1 & 3")) %>%
+ select(Distance_Between, Euclidean) %>%
+ kableExtra::kable(caption = "Euclidean distance measure between home 1 and homes 2 & 3 based on standardized feature values.") %>%
+ kableExtra::kable_styling()
+```
+
+In addition to standardizing numeric features, all categorical features must be one-hot encoded or encoded using another method (e.g., ordinal encoding) so that all categorical features are represented numerically. Furthermore, the KNN method is very sensitive to noisy predictors since they cause similar samples to have larger magnitudes and variability in distance values.  Consequently, removing irrelevant, noisy features often leads to significant improvement.
 
 # Choosing *k*
 
+The performance of KNNs is very sensitive to the choice of $k$.  This was illustrated in the [hyperparameter tuning section](https://misk-data-science.github.io/misk-homl/docs/notebooks/02-modeling-process.html#Hyperparameter_tuning) of module 2 where low values of $k$ typically overfit and large values often underfit. At the extremes, when $k = 1$, we base our prediction on a single observation that has the closest distance measure.  In contrast, when $k = n$, we are simply using the average (regression) or most common class (classification) across all training samples as our predicted value. 
+
+There is no general rule about the best $k$ as it depends greatly on the nature of the data. For high signal data with very few noisy (irrelevant) features, smaller values of $k$ tend to work best. As more irrelevant features are involved, larger values of $k$ are required to smooth out the noise. To illustrate, we saw in the [final section](https://misk-data-science.github.io/misk-homl/docs/notebooks/03-engineering.html#Putting_the_process_together) of the Feature Engineering module that we optimized the RMSE for the `ames` data with fairly low values of K (Python: $k = 5$; R: $k = 14$).  The `ames` training data has 2051 observations, so such a small $k$ likely suggests a fairly strong signal exists.  In contrast, the Attrition data has approximately 1,028 observations when using a 70% training split and the below figure illustrates that our loss function is not optimized until $k > 300$. Moreover, the max ROC value is approximately 0.80 and the overall proportion of attriting employees to non-attriting is 0.839. This suggest there is likely not a very strong signal in the Attrition data.
+
+```{block, type="tip"}
+When using KNN for classification, it is best to assess odd numbers for $k$ to avoid ties in the event there is equal proportion of response levels (i.e. when k = 2 one of the neighbors could have class "0" while the other neighbor has class "1").
+```
+
+```{r range-k-values, echo=FALSE, fig.height=4, fig.width=7, cache=TRUE, fig.cap="Cross validated search grid results for Attrition training data where 20 values between 1 and 343 are assessed for k. When k = 1, the predicted value is based on a single observation that is closest to the target sample and when k = 343, the predicted value is based on the response with the largest proportion for 1/3 of the training sample."}
+library(caret)
+
+attrit <- read_csv("data/attrition.csv") %>% 
+ mutate_if(is.ordered, factor, ordered = FALSE)
+set.seed(123)
+churn_split <- initial_split(attrit, prop = .7, strata = "Attrition")
+churn_train <- training(churn_split)
+
+# Create blueprint
+blueprint <- recipe(Attrition ~ ., data = churn_train) %>%
+  step_nzv(all_nominal()) %>%
+  step_integer(contains("Satisfaction")) %>%
+  step_integer(WorkLifeBalance) %>%
+  step_integer(JobInvolvement) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+
+# Create a resampling method
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5,
+  classProbs = TRUE,                 
+  summaryFunction = twoClassSummary
+)
+
+# Create a hyperparameter grid search
+hyper_grid <- expand.grid(
+  k = floor(seq(1, nrow(churn_train)/3, length.out = 20))
+)
+
+# Fit knn model and perform grid search
+knn_grid <- train(
+  blueprint, 
+  data = churn_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "ROC"
+)
+
+ggplot(knn_grid)
+```
 
 # Fitting a KNN model {.tabset}
 
