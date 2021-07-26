@@ -1,0 +1,106 @@
+---
+title: "K-Nearest Neighbors"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    css: style.css
+bibliography: [references.bib, packages.bib]
+---
+
+<br>
+
+```{r setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, fig.align = 'center')
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# hidden package requirements
+library(glmnet)
+```
+
+```{python, echo = FALSE}
+import plotnine
+plotnine.themes.theme_set(new=plotnine.themes.theme_light())
+```
+
+_K_-nearest neighbor (KNN) is a very simple algorithm in which each observation is predicted based on its "similarity" to other observations. Unlike most methods in this course, KNN is a _memory-based_ algorithm and cannot be summarized by a closed-form model. This means the training samples are required at run-time and predictions are made directly from the sample relationships. Consequently, KNNs are also known as _lazy learners_ [@cunningham2007k] and can be computationally inefficient.  However, KNNs have been successful in a large number of business problems (see, for example, @jiang2012improved and @mccord2011spam) and are useful for preprocessing purposes as well (as was discussed in the [imputation section of the feature engineering modeul](https://misk-data-science.github.io/misk-homl/docs/notebooks/03-engineering.html#K-nearest_neighbor)).
+
+# Learning objectives
+
+
+# Prerequisites {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Measuring similarity
+
+
+# Choosing *k*
+
+
+# Fitting a KNN model {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Tuning {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Model performance {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Feature interpretation {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Final thoughts
+
+KNNs are a very simplistic, and intuitive, algorithm that can provide average to decent predictive power, especially when the response is dependent on the local structure of the features. However, a major drawback of KNNs is their computation time, which increases by $n \times p$ for each observation. Furthermore, since KNNs are a lazy learner, they require the model be run at prediction time which limits their use for real-time modeling. Some work has been done to minimize this effect; for example the __FNN__ package [@R-fnn] in R provides a collection of fast $k$-nearest neighbor search algorithms and applications such as cover-tree [@beygelzimer2006cover] and kd-tree [@robinson1981kdb].
+
+Although KNNs rarely provide the best predictive performance, they have many benefits, for example, in feature engineering and in data cleaning and preprocessing. We discussed KNN for imputation in Section \@ref(impute).  @bruce2017practical discuss another approach that uses KNNs to add a _local knowledge_ feature.  This includes running a KNN to estimate the predicted output or class and using this predicted value as a new feature for downstream modeling.  However, this approach also invites more opportunities for target leakage.
+
+Other alternatives to traditional KNNs such as using invariant metrics, tangent distance metrics, and adaptive nearest neighbor methods are also discussed in @esl and are worth exploring.
+
+# Exercises
+
+Using the `pima` dataset where the `diabetes` variable is the response variable:
+
+1. Apply a KNN model with all features. Use a grid search to assess values of _k_ ranging from 2-200 that seeks to optimize the "ROC" metric.
+2. Plot the grid search performance.
+3. What value for _K_ optimizes model performance? What does this tell you about your data?
+4. Plot the ROC curve for the optimal model.
+5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+6. Now perform questions 1-5 for the built in `iris` data where `species` is the response variable.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
+
+# References
