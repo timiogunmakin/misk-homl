@@ -32,6 +32,8 @@ import plotnine
 plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 ```
 
+_Tree-based models_ are a class of nonparametric algorithms that work by partitioning the feature space into a number of smaller (non-overlapping) regions with similar response values using a set of _splitting rules_. Predictions are obtained by fitting a simpler model (e.g., a constant like the average response value) in each region. Such _divide-and-conquer_ methods can produce simple rules that are easy to interpret and visualize with _tree diagrams_. As we'll see, decision trees offer many benefits; however, they typically lack in predictive performance compared to more complex algorithms like neural networks and MARS. However, future modules will discuss powerful ensemble algorithms---like random forests and gradient boosting machines---which are constructed by combining together many decision trees in a clever way.  This module will provide you with a strong foundation in decision trees. 
+
 # Learning objectives
 
 By the end of this module you will know:
