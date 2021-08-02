@@ -34,12 +34,48 @@ plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 
 # Learning objectives
 
+By the end of this module you will know:
+
+- How decision tree models partition data and how the depth of a tree impacts performance.
+- Train, fit, tune and assess decision tree models.
+- Identify important features and visualize their influence on the response.
 
 # Prerequisites {.tabset}
 
 
 ## `r fontawesome::fa("python")` 
 
+```{python}
+# Helper packages
+import numpy as np
+import pandas as pd
+from plotnine import *
+from matplotlib import pyplot as plt
+
+# Modeling packages
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import plot_tree
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.inspection import partial_dependence
+```
+
+```{python}
+# Ames housing data
+ames = pd.read_csv("data/ames.csv")
+
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train[["Sale_Price"]]
+```
 
 ## `r fontawesome::fa("r-project")` 
 
@@ -53,6 +89,15 @@ library(tidymodels)
 # Model interpretability packages
 library(vip)         # for variable importance
 library(pdp)         # for variable relationships
+```
+
+```{r ames-train}
+# Stratified sampling with the rsample package
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
 ```
 
 # Structure
@@ -261,40 +306,335 @@ gridExtra::grid.arrange(p1, p2, nrow = 1)
 
 ## Simple model {.tabset}
 
+To illustrate some of the concepts we've mentioned we'll start by implementing models using just the `Gr_Liv_Area` and `Year_Built` features in our Ames housing data.
 
 ### `r fontawesome::fa("python")` 
 
+In Python we use the `DecisionTreeRegressor` and `DecisionTreeClassifier` classes from the `sklearn.tree` module.  In this example we'll fit a shallow tree that is only 3 levels deep.
+
+```{python}
+# Step 1: create model object
+dt_mod = DecisionTreeRegressor(max_depth=3)
+
+# Step 2: fit/train model
+dt_fit = dt_mod.fit(X_train[["Gr_Liv_Area", "Year_Built"]], y_train)
+```
+
+After 3 levels of decision splits, our model has 8 prediction leaf nodes.
+
+```{python}
+dt_fit.get_n_leaves()
+```
+
+We can use the `plot_tree()` function to visualize our tree. This is only useful if we have a relatively small tree to visualize; however, most trees we will build will be far too large to attempt to visualize. In this case, we see that the root node (first node) splits our data based on `X[1]` (`Year_Built`). For those observations where the home is built after 1985 we follow the right half of the decision tree and for those where the home is built in or prior to 1985 we follow the left half of the decision tree.
+
+```{python}
+plot_tree(dt_fit)
+plt.show()
+```
+
+However, to understand how our model is performing we want to perform cross validation. In this example we will not limit the depth of our tree. We see that this single decision tree is not performing spectacularly with the RMSE across our 5 folds equalling about \$50K. 
+
+```{python}
+# create DT model object
+dt_mod = DecisionTreeRegressor()
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 5 fold CV object
+kfold = KFold(n_splits=5, random_state=123, shuffle=True)
+
+# fit model with 5-fold CV
+results = cross_val_score(dt_mod, X_train[["Gr_Liv_Area", "Year_Built"]], 
+                          y_train, cv=kfold, scoring=loss)
+
+
+np.round(np.abs(results))
+```
 
 ### `r fontawesome::fa("r-project")` 
+
+In R we use the `decision_tree()` model and we'll use the `rpart` package as our model engine. In this example we will not set a specific depth of our tree; rather, `rpart` automatically builds a fully deep tree and then prunes it to attempt to find an optimal tree depth.
+
+```{r}
+# Step 1: create ridge model object
+dt_mod <- decision_tree(mode = "regression") %>% set_engine("rpart")
+
+# Step 2: create model recipe
+model_recipe <- recipe(
+    Sale_Price ~ Gr_Liv_Area + Year_Built, 
+    data = ames_train
+  )
+  
+# Step 3: fit model workflow
+dt_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(dt_mod) %>%
+  fit(data = ames_train)
+
+# Step 4: results
+dt_fit
+```
+
+If we plot our tree we see that the root node is the same as the Python example. For those observations where the home is built after 1985 we follow the right half of the decision tree and for those where the home is built in or prior to 1985 we follow the left half of the decision tree.
+
+```{r}
+rpart.plot(dt_fit$fit$fit$fit)
+```
+
+However, to understand how our model is performing we want to perform cross validation. We see that this single decision tree is not performing spectacularly well with the average RMSE across our 5 folds equalling just under \$50K. 
+
+```{r}
+# create resampling procedure
+set.seed(13)
+kfold <- vfold_cv(ames_train, v = 5)
+
+# train model
+results <- fit_resamples(dt_mod, model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+```
 
 
 ## Full model {.tabset}
 
+Next, lets go ahead and fit a full model to include all Ames housing features.
 
 ### `r fontawesome::fa("python")` 
+
+In Python we must convert our categorical features to numeric values. For this example we'll simply dummy encode them using Pandas `get_dummies()`. We see some improvement in our model performance as our average cross validated RMSE is now in the low \$40K range.
+
+```{python}
+# create new feature set with encoded features
+X_train_encoded = pd.get_dummies(X_train)
+
+# fit model with 5-fold CV
+results = cross_val_score(dt_mod, X_train_encoded, y_train, cv=kfold, scoring=loss)
+
+np.abs(np.mean(results))
+```
+
 
 
 ### `r fontawesome::fa("r-project")` 
 
+In R, we do not need to one-hot encode our features as rpart will naturally handle categorical features. By including all features we see some improvement in our model performance as our average cross validated RMSE is now in the low \$40K range.
+
+```{r}
+# create model recipe with all features
+full_model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  )
+
+# train model
+results <- fit_resamples(dt_mod, full_model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+```
+
 
 # Tuning {.tabset}
 
+As previously mentioned, the tree depth is the primary factor that impacts performance. We can control tree depth via a few different parameters:
+
+1. Max depth: we can explicitly state the maximum depth a tree can be grown.
+2. Minimium observations for a split: The minimum number of samples required to split an internal node. This limits a tree from continuing to grow as the number of observations in a give node becomes smaller.
+3. Cost complexity parameter: acts as a regularization mechanism by penalizing the objective function.
+
+There is not one best approach to use and often different combinations of these parameter settings improves model performance. The following will demonstrate a small grid search across 3 different values for each of these parameters ($3^3 = 27$ total setting combinations). 
+
+Note that each language has additional default parameters that often differ so we can find a combination of values that optimizes the Python implementation, which differs from the optimal R implementation.  In both examples we see the optimal model decreases our average CV RMSE into the mid-to-upper \$30K range.
+
+```{block, type='tip'}
+It is common to run additional grid searches after the first grid search. These additional grid searches uses the first grid search to find parameter values that perform well and then continue to analyze additional ranges around these values.
+```
 
 ## `r fontawesome::fa("python")` 
 
+```{python}
+# create model object
+dt_mod = DecisionTreeRegressor()
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 5 fold CV object
+kfold = KFold(n_splits=5, random_state=123, shuffle=True)
+
+# Create grid of hyperparameter values
+hyper_grid = {
+  'ccp_alpha': [1e-1, 1e-5, 1e-10],
+  'max_depth': [1, 8, 15],
+  'min_samples_split': [2, 21, 40]
+  }
+```
+
+```{python}
+grid_search = GridSearchCV(dt_mod, hyper_grid, cv=kfold, scoring=loss)
+results = grid_search.fit(X_train_encoded, y_train)
+
+# Optimal penalty parameter in grid search
+results.best_estimator_
+```
+
+```{python}
+# Best model's cross validated RMSE
+round(abs(results.best_score_), 2)
+```
 
 ## `r fontawesome::fa("r-project")` 
+
+
+```{r}
+# create model object with tuning options
+dt_mod <- decision_tree(
+  mode = "regression",
+  cost_complexity = tune(),
+  tree_depth = tune(),
+  min_n = tune()
+  ) %>% 
+  set_engine("rpart")
+
+# create the hyperparameter grid
+hyper_grid <- grid_regular(
+ cost_complexity(), 
+ tree_depth(),
+ min_n()
+ )
+
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(dt_mod, full_model_recipe, resamples = kfold, grid = hyper_grid)
+
+# get best results
+show_best(results, metric = "rmse", n = 10)
+```
 
 
 # Feature interpretation {.tabset}
 
+We can use a similar approach as we have in the past to find the most influential features in our decision tree models. For both R and Python we see similar features that appear to be leading influencers in our models. And the partial dependence plots show our relationships are no longer assuming any type of linear relationship.
 
 ## `r fontawesome::fa("python")` 
 
+```{python, eval=FALSE}
+# create final model object
+best_mod = results.best_estimator_
+best_mod_fit = best_mod.fit(X_train_encoded, y_train)
+
+# extract feature importances
+vi = pd.DataFrame({'feature': X_train_encoded.columns,
+                   'importance': best_mod_fit.feature_importances_})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+(ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+```
+
+```{python py-dt-vip-output, echo=FALSE}
+# create final model object
+best_mod = results.best_estimator_
+best_mod_fit = best_mod.fit(X_train_encoded, y_train)
+
+# extract feature importances
+vi = pd.DataFrame({'feature': X_train_encoded.columns,
+                   'importance': best_mod_fit.feature_importances_})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+p = (ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+ 
+p.save(filename="py-dt-vip-output.png", path = "./images", dpi = 300, verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("images/py-dt-vip-output.png")
+```
+
+```{python, eval=FALSE}
+pd_results = partial_dependence(
+  best_mod_fit, X_train_encoded, "Garage_Cars", kind='average',
+  percentiles=(0, 1)) 
+  
+pd_output = pd.DataFrame({'Garage_Cars': pd_results['values'][0],
+                          'yhat': pd_results['average'][0]})
+                          
+(ggplot(pd_output, aes('Garage_Cars', 'yhat'))
+  + geom_line())
+```
+
+```{python py-dt-pdp-output, echo=FALSE}
+pd_results = partial_dependence(
+  best_mod_fit, X_train_encoded, "Garage_Cars", kind='average',
+  percentiles=(0, 1)) 
+  
+pd_output = pd.DataFrame({'Garage_Cars': pd_results['values'][0],
+                          'yhat': pd_results['average'][0]})
+                          
+p = (ggplot(pd_output, aes('Garage_Cars', 'yhat'))
+  + geom_line())
+ 
+p.save(filename="py-dt-pdp-output.png", path = "./images", dpi = 300, verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("images/py-dt-pdp-output.png")
+```
 
 ## `r fontawesome::fa("r-project")` 
 
+```{r}
+best_model <- select_best(results, 'rmse')
 
+final_model <- decision_tree(
+  mode = "regression",
+  cost_complexity = best_model$cost_complexity,
+  tree_depth = best_model$tree_depth,
+  min_n = best_model$min_n
+  ) %>% 
+  set_engine("rpart")
+
+final_fit <- workflow() %>%
+  add_recipe(full_model_recipe) %>%
+  add_model(final_model) %>%
+  fit(data = ames_train)
+
+final_fit %>%
+  pull_workflow_fit() %>%
+  vip(20)
+```
+
+```{r}
+# prediction function
+pdp_pred_fun <- function(object, newdata) {
+  mean(predict(object, newdata, type = "numeric")$.pred)
+}
+
+# use the pdp package to extract partial dependence predictions
+# and then plot
+final_fit %>%
+  pdp::partial(
+   pred.var = "Overall_Qual", 
+   pred.fun = pdp_pred_fun,
+   grid.resolution = 10, 
+   train = ames_train
+  ) %>%
+  ggplot(aes(yhat, Overall_Qual)) +
+  geom_col() +
+  scale_x_continuous(labels = scales::dollar)
+```
 
 # Final thoughts
 
@@ -312,11 +652,10 @@ Using the Boston housing data set, where the response feature is the median valu
 
 1. Apply a decision tree model with all features.
 2. How many internal splitting nodes optimize model performance?
-3. What are the predicted values and SEE in the terminal nodes?
+3. Can you identify the predicted values and SEE in the terminal nodes?
 4. Identify the first feature split node and explain how it is splitting this feature.
 5. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
 6. Now perform 1-5 to the Attrition dataset, which is classification model rather than a regression model.
-7. **Python challenge**: Repeat the above exercises but using Python and Scikit Learn. Recall that Scikit Learn [provides the Boston housing data set](https://chrisalbon.com/machine_learning/basics/loading_scikit-learns_boston_housing_dataset/).
 
 [🏠](https://github.com/misk-data-science/misk-homl)
 
