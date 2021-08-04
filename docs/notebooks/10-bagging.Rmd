@@ -29,6 +29,8 @@ library(rpart.plot)
 
 ```{python, echo = FALSE}
 import plotnine
+import warnings
+warnings.filterwarnings("ignore")
 plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 ```
 
@@ -39,14 +41,48 @@ In an earlier module we learned about bootstrapping as a resampling procedure, w
 
 By the end of this module you will know:
 
-* TBD
-* TBD
-* TBD
+* How and why bagging improves decision tree performance.
+* How to implement bagging and ensure you are optimizing bagging performance.
+* How to identify influential features and their effects on the response variable.
 
 # Prerequisites {.tabset}
 
 ## `r fontawesome::fa("python")` 
 
+```{python}
+# Helper packages
+import numpy as np
+import pandas as pd
+from plotnine import *
+
+# Modeling packages
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import BaggingRegressor
+from sklearn.model_selection import train_test_split
+from category_encoders.ordinal import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.inspection import partial_dependence
+from sklearn.pipeline import Pipeline
+```
+
+```{python}
+# Ames housing data
+ames = pd.read_csv("data/ames.csv")
+
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train[["Sale_Price"]]
+```
 
 ## `r fontawesome::fa("r-project")` 
 
@@ -186,10 +222,60 @@ Think of the OOB estimate of generalization performance as an unstructured, but 
 
 ## Basic implementation {.tabset}
 
+Recall in the decision tree module that our optimally tuned single decision tree model was obtaining a mid-\$30K RMSE. In this first implementation we'll perform the same process; however, instead of a single decision tree we'll use bagging to create and aggregate performance across **5** bagged trees.  In both examples (R & Python) we improve performance over the individual decision tree as our RMSE is around \$30K.
+
 ### `r fontawesome::fa("python")` 
 
+In Python we use `BaggingRegressor` and `BaggingClassifier` to performing bagging and we specify the number of bagged estimators (trees in this example) with `n_estimators`. However, in this example we are going to ordinal encode our Quality/Condition features (i.e. `Overall_Qual`, `Garage_Qual`, `Kitchen_Qual`) and, as usually, we need to one-hot encode our remaining nominal features.
+
+```{python}
+# Ordinal encode our quality-based features 
+ord_cols = list(X_train.filter(regex=("Qual$|QC$|Cond$")).columns)
+lvs = ["Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+       "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent"]
+val = range(0, len(lvs))
+lvl_map = dict(zip(lvs, val))
+category_mapping = [{'col': col, 'mapping': lvl_map} for col in ord_cols]
+ord_encoder = OrdinalEncoder(cols=ord_cols, mapping=category_mapping)
+
+# one hot encode remaining nominal features
+encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+# combine into a pre-processing pipeline
+preprocessor = ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+   ("ord_encode", ord_encoder, ord_cols),
+   ("one-hot", encoder, selector(dtype_include="object")),
+   ]
+  )
+```
+
+```{python}
+# create bagging estimator
+dt_bag = BaggingRegressor(base_estimator=DecisionTreeRegressor(), n_estimators=5)
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("dt_bag", dt_bag),
+])
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 5 fold CV object
+kfold = KFold(n_splits=5, random_state=123, shuffle=True)
+
+# fit model with 5-fold CV
+results = cross_val_score(model_pipeline, X_train, y_train, cv=kfold, scoring=loss)
+
+np.abs(np.mean(results))
+```
 
 ### `r fontawesome::fa("r-project")` 
+
+In R we use `baguette::bag_tree`, which can be applied to decision tree or MARS models. 
 
 ```{r}
 # create model recipe with all features
@@ -220,14 +306,41 @@ collect_metrics(results)
 
 One thing to note is that typically, the more trees the better. As we add more trees we’re averaging over more high variance decision trees. Early on, we see a dramatic reduction in variance (and hence our error) but eventually the error will typically flatline and stabilize signaling that a suitable number of trees has been reached. Often, we need only 50–100 trees to stabilize the error (in other cases we may need 500 or more). 
 
-Consequently, we can tree the number of trees as a tuning parameter where are focus is to make sure we are using enough trees for our error metric to converge at a optimal value (minimize in our case). However, rarely do we run the risk of including too many trees as we typically will not see our error metric degrade after adding more trees than necessary. 
+Consequently, we can treat the number of trees as a tuning parameter where are focus is to make sure we are using enough trees for our error metric to converge at a optimal value (minimize RMSE in our case). However, rarely do we run the risk of including too many trees as we typically will not see our error metric degrade after adding more trees than necessary. 
 
 ```{block, type='tip'}
 The primary concern is compute efficiency, we want enough trees to reach an optimal resampling error; however, not more trees than necessary as it will slow down computational efficiency.
 ```
 
+In this example we use a hyperparameter grid to assess 5, 25, 50, 100, and 200 trees. In both examples we see an initial decrease but as we start using 50+ trees we only see marginal changes in our RMSE, suggesting we have likely reached enough trees to minimize the RMSE and any additional differences are likely due to the standard error that occurs during the bootstrapping process.
 
 ### `r fontawesome::fa("python")` 
+
+```{python}
+# create bagging estimator but with undefined number of bagged trees
+dt_bag = BaggingRegressor(base_estimator=DecisionTreeRegressor())
+
+# Create grid of hyperparameter values
+hyper_grid = {'dt_bag__n_estimators': [5, 25, 50, 100, 200]}
+
+# Tune a knn model using grid search
+grid_search = GridSearchCV(model_pipeline, hyper_grid, cv=kfold, scoring=loss, n_jobs=-1)
+results = grid_search.fit(X_train, y_train)
+
+np.abs(results.cv_results_['mean_test_score'])
+```
+
+```{python}
+# Best model's cross validated RMSE
+abs(results.best_score_)
+```
+
+```{python}
+# Best model's number of trees
+n_trees = results.best_estimator_.get_params().get('dt_bag__n_estimators')
+n_trees
+```
+
 
 
 ### `r fontawesome::fa("r-project")` 
@@ -259,12 +372,148 @@ show_best(results, metric = "rmse")
 
 # Feature interpretation {.tabset}
 
+Unfortunately, due to the bagging process, models that are normally perceived as interpretable are no longer so. However, we can still make inferences about how features are influencing our model. Recall in the decision tree module that we measure feature importance based on the sum of the reduction in the loss function (e.g., SSE) attributed to each variable at each split in a given tree.
+
+For bagged decision trees, this process is similar. For each tree, we compute the sum of the reduction of the loss function across all splits. We then aggregate this measure across all trees for each feature. The features with the largest average decrease in SSE (for regression) are considered most important. 
+
+The following extracts the feature importance for our best performing bagged decision trees. In both cases we see that `Overall_Qual` is the most influential feature. We can then plot the partial dependence of this feature to see how it influences the predicted values. In both examples we see that as overall quality increase we see a significant increase in the predicted sale price.
+
 ## `r fontawesome::fa("python")` 
+
+```{python, eval=FALSE}
+# create final model object
+X_encoded = preprocessor.fit_transform(X_train)
+dt_bag = BaggingRegressor(
+  base_estimator=DecisionTreeRegressor(), 
+  n_estimators=n_trees
+  )
+dt_bag_fit = dt_bag.fit(X_encoded, y_train)
+
+# extract feature importances
+feature_importances = [tree.feature_importances_ for tree in dt_bag_fit.estimators_ ]
+avg_feature_importances = np.mean(feature_importances, axis=0)
+vi = pd.DataFrame({'feature': preprocessor.get_feature_names(),
+                   'importance': avg_feature_importances})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+(ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+```
+
+```{python, echo=FALSE}
+# create final model object
+X_encoded = preprocessor.fit_transform(X_train)
+dt_bag = BaggingRegressor(
+  base_estimator=DecisionTreeRegressor(), 
+  n_estimators=n_trees
+  )
+dt_bag_fit = dt_bag.fit(X_encoded, y_train)
+
+# extract feature importances
+feature_importances = [tree.feature_importances_ for tree in dt_bag_fit.estimators_ ]
+avg_feature_importances = np.mean(feature_importances, axis=0)
+vi = pd.DataFrame({'feature': preprocessor.get_feature_names(),
+                   'importance': avg_feature_importances})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+p = (ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+ 
+p.save(filename="py-bagged-dt-vi-output.png", path = "./images", dpi = 300, verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="90%"}
+knitr::include_graphics("images/py-bagged-dt-vi-output.png")
+```
+
+```{python, eval=FALSE}
+X_encoded = pd.DataFrame(X_encoded, columns=preprocessor.get_feature_names())
+pd_results = partial_dependence(
+  dt_bag_fit, X_encoded, "ord_encode__Overall_Qual", kind='average',
+  percentiles=(0, 1)) 
+  
+pd_output = pd.DataFrame({'ord_encode__Overall_Qual': pd_results['values'][0],
+                          'yhat': pd_results['average'][0]})
+                          
+(ggplot(pd_output, aes('ord_encode__Overall_Qual', 'yhat'))
+  + geom_line())
+```
+
+```{python, echo=FALSE}
+X_encoded = pd.DataFrame(X_encoded, columns=preprocessor.get_feature_names())
+pd_results = partial_dependence(
+  dt_bag_fit, X_encoded, "ord_encode__Overall_Qual", kind='average',
+  percentiles=(0, 1)) 
+  
+pd_output = pd.DataFrame({'ord_encode__Overall_Qual': pd_results['values'][0],
+                          'yhat': pd_results['average'][0]})
+                          
+p = (ggplot(pd_output, aes('ord_encode__Overall_Qual', 'yhat'))
+  + geom_line())
+p.save(filename="py-bagged-dt-pdp-output.png", path = "./images", dpi = 300, verbose = False)
+```
+
+```{r, echo=FALSE, fig.align='center', out.width="70%", out.height="70%"}
+knitr::include_graphics("images/py-bagged-dt-pdp-output.png")
+```
 
 
 ## `r fontawesome::fa("r-project")` 
 
+```{r cache=TRUE}
+# identify best model
+lowest_rmse <- results %>%
+  select_best("rmse")
 
+# finalize best model...
+final_model <- bag_tree() %>%
+ set_engine("rpart", times = lowest_rmse$times) %>%
+ set_mode("regression")
+
+# ...and fit
+final_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(final_model) %>%
+  fit(data = ames_train)
+
+# plot top 20 influential variables
+vi <- final_fit$fit$fit$fit$imp %>%
+ slice_max(order_by = value, n = 20)
+
+ggplot(vi, aes(value, reorder(term, value))) +
+ geom_col() +
+ ylab(NULL) +
+ xlab("Feature importance")
+```
+
+
+```{r cache=TRUE, fig.width=10, fig.height=4.5}
+# prediction function
+pdp_pred_fun <- function(object, newdata) {
+  predict(object, newdata, type = "numeric")$.pred
+}
+
+# use the pdp package to extract partial dependence predictions
+# and then plot
+final_fit %>%
+  pdp::partial(
+   pred.var = "Overall_Qual", 
+   pred.fun = pdp_pred_fun,
+   grid.resolution = 10, 
+   train = ames_train
+  ) %>%
+  ggplot(aes(Overall_Qual, yhat)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = scales::dollar)
+```
 
 
 # Final thoughts {#bagging-thoughts}
