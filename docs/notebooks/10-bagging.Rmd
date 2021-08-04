@@ -56,12 +56,21 @@ library(tidyverse)   # for data wrangling & plotting
 
 # Modeling packages
 library(tidymodels) 
+library(baguette)
 
 # Model interpretability packages
 library(vip)         # for variable importance
 library(pdp)         # for variable relationships
 ```
 
+```{r ames-train}
+# Stratified sampling with the rsample package
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
+```
 
 # Why and when bagging works
 
@@ -182,6 +191,30 @@ Think of the OOB estimate of generalization performance as an unstructured, but 
 
 ### `r fontawesome::fa("r-project")` 
 
+```{r}
+# create model recipe with all features
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  )
+
+# create bagged CART model object and
+# start with 5 bagged trees
+tree_mod <- bag_tree() %>%
+  set_engine("rpart", times = 5) %>%
+  set_mode("regression")
+
+# create resampling procedure
+set.seed(13)
+kfold <- vfold_cv(ames_train, v = 5)
+
+# train model
+results <- fit_resamples(tree_mod, model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+```
+
 
 ## Tuning {.tabset}
 
@@ -199,8 +232,30 @@ The primary concern is compute efficiency, we want enough trees to reach an opti
 
 ### `r fontawesome::fa("r-project")` 
 
+```{r cache=TRUE}
+# create model recipe with all features
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  )
+
+# create bagged CART model object with
+# tuning option set for number of bagged trees
+tree_mod <- bag_tree() %>%
+  set_engine("rpart", times = tune()) %>%
+  set_mode("regression")
+
+# create the hyperparameter grid
+hyper_grid <- expand.grid(times = c(5, 25, 50, 100, 200))
+
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(tree_mod, model_recipe, resamples = kfold, grid = hyper_grid)
 
 
+# model results
+show_best(results, metric = "rmse")
+```
 
 # Feature interpretation {.tabset}
 
@@ -208,6 +263,8 @@ The primary concern is compute efficiency, we want enough trees to reach an opti
 
 
 ## `r fontawesome::fa("r-project")` 
+
+
 
 
 # Final thoughts {#bagging-thoughts}
