@@ -1,0 +1,404 @@
+---
+title: "Random Forests"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    css: style.css
+bibliography: [references.bib, packages.bib]
+---
+
+<br>
+
+```{r setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, fig.align = 'center')
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# hidden requirements
+library(rpart)
+library(rpart.plot)
+library(ranger)
+```
+
+```{python, echo = FALSE}
+import plotnine
+import warnings
+warnings.filterwarnings("ignore")
+plotnine.themes.theme_set(new=plotnine.themes.theme_light())
+```
+
+_Random forests_ are a modification of bagged decision trees that build a large collection of _de-correlated_ trees to further improve predictive performance. They have become a very popular "out-of-the-box" or "off-the-shelf" learning algorithm that enjoys good predictive performance with relatively little hyperparameter tuning. Many modern implementations of random forests exist; however, Leo Breiman's algorithm [@breiman2001random] has largely become the authoritative procedure. This module will cover the fundamentals of random forests.
+
+
+# Learning objectives
+
+By the end of this module you will know:
+
+* How to implement a random forest model along with the hyperparameters that are commonly toggled in these algorithms.
+* Multiple strategies for performing a grid search.
+* How to identify influential features and their effects on the response variable.
+
+# Prerequisites {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+```{r}
+# Helper packages
+library(tidyverse)   # for data wrangling & plotting
+
+# Modeling packages
+library(tidymodels) 
+
+# Model interpretability packages
+library(vip)         # for variable importance
+library(pdp)         # for variable relationships
+```
+
+```{r ames-train}
+# Stratified sampling with the rsample package
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
+```
+
+# Extending bagging
+
+Random forests are built using the same fundamental principles as decision trees and bagging. Bagging trees introduces a random component into the tree building process by building many trees on bootstrapped copies of the training data. Bagging then aggregates the predictions across all the trees; this aggregation reduces the variance of the overall procedure and results in improved predictive performance. However, as we saw in the last module, simply bagging trees results in tree correlation that limits the effect of variance reduction. 
+
+Random forests help to reduce tree correlation by injecting more randomness into the tree-growing process.^[See @esl for a mathematical explanation of the tree correlation phenomenon.] More specifically, while growing a decision tree during the bagging process, random forests perform _split-variable randomization_ where each time a split is to be performed, the search for the split variable is limited to a random subset of $m_{try}$ of the original $p$ features.  Typical default values are $m_{try} = \frac{p}{3}$ (regression) and $m_{try} = \sqrt{p}$ (classification) but this should be considered a tuning parameter.  
+
+The basic algorithm for a regression or classification random forest can be generalized as follows:
+
+```
+1.  Given a training data set
+2.  Select number of trees to build (n_trees)
+3.  for i = 1 to n_trees do
+4.  |  Generate a bootstrap sample of the original data
+5.  |  Grow a regression/classification tree to the bootstrapped data
+6.  |  for each split do
+7.  |  | Select m_try variables at random from all p variables
+8.  |  | Pick the best variable/split-point among the m_try
+9.  |  | Split the node into two child nodes
+10. |  end
+11. | Use typical tree model stopping criteria to determine when a 
+    | tree is complete (but do not prune)
+12. end
+13. Output ensemble of trees 
+```
+
+```{block, type='tip'}
+When $m_{try} = p$, the algorithm is equivalent to bagging decision trees.
+```
+
+Since the algorithm randomly selects a bootstrap sample to train on ___and___ a random sample of features to use at each split, a more diverse set of trees is produced which tends to lessen tree correlation beyond bagged trees and often dramatically increase predictive power.
+
+# Out-of-the-box performance {.tabset}
+
+Random forests have become popular because they tend to provide very good out-of-the-box performance. Although they have several hyperparameters that can be tuned, the default values tend to produce good results. Moreover, @probst2018tunability illustrated that among the more popular machine learning algorithms, random forests have the least variability in their prediction accuracy when tuning. 
+
+```{r out-of-box-rf, echo=FALSE}
+# number of features
+n_features <- length(setdiff(names(ames_train), "Sale_Price"))
+
+# train a default random forest model
+ames_rf1 <- ranger::ranger(
+  Sale_Price ~ ., 
+  data = ames_train,
+  mtry = floor(n_features / 3),
+  respect.unordered.factors = "order",
+  seed = 123
+)
+
+# get OOB RMSE
+default_rmse <- sqrt(ames_rf1$prediction.error)
+```
+
+For example, if we train a random forest model with all hyperparameters set to their default values, we get an RMSE of `r scales::dollar(round(default_rmse))` which is comparable to some of the best model's we've run thus far (without any tuning).
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+# Hyperparameters
+
+Although random forests perform well out-of-the-box, there are several tunable hyperparameters that we should consider when training a model. Although we briefly discuss the main hyperparameters, @probst2019hyperparameters provide a much more thorough discussion.  The main hyperparameters to consider include:
+
+(1) The number of trees in the forest
+(2) The number of features to consider at any given split: $m_{try}$
+(3) The complexity of each tree
+(4) The sampling scheme
+(5) The splitting rule to use during tree construction
+
+From this list (1) and (2) typically have the largest impact on predictive accuracy and should always be tuned. (3) and (4) tend to have marginal impact on predictive accuracy but are still worth exploring. They also have the ability to influence computational efficiency. (5) tends to have the smallest impact on predictive accuracy and is used primarily to increase computational efficiency.
+
+## Number of trees
+
+The first consideration is the number of trees within your random forest. Although not technically a hyperparameter, the number of trees needs to be sufficiently large to stabilize the error rate. A good rule of thumb is to start with 10 times the number of features as illustrated below); however, as you adjust other hyperparameters such as $m_{try}$ and node size, more or fewer trees may be required. More trees provide more robust and stable error estimates and variable importance measures; however, the impact on computation time increases linearly with the number of trees.
+
+```{block, type='tip'}
+Start with $p \times 10$ trees and adjust as necessary.
+```
+
+
+```{r tuning-trees, echo=FALSE, fig.cap="Figure: The Ames data has 80 features and starting with 10 times the number of features typically ensures the error estimate converges.", fig.height=3.5, fig.width=6}
+# number of features
+n_features <- ncol(ames_train) - 1
+
+# tuning grid
+tuning_grid <- expand.grid(
+  trees = seq(10, 1000, by = 20),
+  rmse  = NA
+)
+
+for(i in seq_len(nrow(tuning_grid))) {
+
+  # Fit a random forest
+  fit <- ranger::ranger(
+    formula = Sale_Price ~ ., 
+    data = ames_train, 
+    num.trees = tuning_grid$trees[i],
+    mtry = floor(n_features / 3),
+    respect.unordered.factors = 'order',
+    verbose = FALSE,
+    seed = 123
+  )
+  
+  # Extract OOB RMSE
+  tuning_grid$rmse[i] <- sqrt(fit$prediction.error)
+  
+}
+
+ggplot(tuning_grid, aes(trees, rmse)) +
+  geom_line(size = 1) +
+  ylab("OOB Error (RMSE)") +
+  xlab("Number of trees")
+```
+
+
+## $m_{try}$ {#mtry}
+
+The hyperparameter that controls the split-variable randomization feature of random forests is often referred to as $m_{try}$ and it helps to balance low tree correlation with reasonable predictive strength. With regression problems the default value is often $m_{try} = \frac{p}{3}$ and for classification $m_{try} = \sqrt{p}$. However, when there are fewer relevant predictors (e.g., noisy data) a higher value of $m_{try}$ tends to perform better because it makes it more likely to select those features with the strongest signal. When there are many relevant predictors, a lower $m_{try}$ might perform better.
+
+```{block, type='tip'}
+Start with five evenly spaced values of $m_{try}$ across the range 2--$p$ centered at the recommended default as illustrated below. For the Ames data, an mtry value slightly lower (21) than the default (26) improves performance.
+```
+
+```{r tuning-mtry, echo=FALSE, fig.cap="Figure: For the Ames data, an mtry value slightly lower (21) than the default (26) improves performance.", fig.height=3.5}
+tuning_grid <- expand.grid(
+  trees = seq(10, 1000, by = 20),
+  mtry  = floor(c(seq(2, 80, length.out = 5), 26)),
+  rmse  = NA
+)
+for(i in seq_len(nrow(tuning_grid))) {
+  fit <- ranger(
+  formula    = Sale_Price ~ ., 
+  data       = ames_train, 
+  num.trees  = tuning_grid$trees[i],
+  mtry       = tuning_grid$mtry[i],
+  respect.unordered.factors = 'order',
+  verbose    = FALSE,
+  seed       = 123
+)
+  
+  tuning_grid$rmse[i] <- sqrt(fit$prediction.error)
+  
+}
+labels <- tuning_grid %>%
+  filter(trees == 990) %>%
+  mutate(mtry = as.factor(mtry))
+tuning_grid %>%
+  mutate(mtry = as.factor(mtry)) %>%
+  ggplot(aes(trees, rmse, color = mtry)) +
+  geom_line(size = 1, show.legend = FALSE) +
+  ggrepel::geom_text_repel(data = labels, aes(trees, rmse, label = mtry), nudge_x = 50, show.legend = FALSE) +
+  ylab("OOB Error (RMSE)") +
+  xlab("Number of trees")
+```
+
+## Tree complexity
+
+Random forests are built on individual decision trees; consequently, most random forest implementations have one or more hyperparameters that allow us to control the depth and complexity of the individual trees.  This will often include hyperparameters such as node size, max depth, max number of terminal nodes, or the required node size to allow additional splits. Node size is probably the most common hyperparameter to control tree complexity and most implementations use the default values of one for classification and five for regression as these values tend to produce good results [@diaz2006gene; @goldstein2011random]. However, @segal2004machine showed that if your data has many noisy predictors and higher $m_{try}$ values are performing best, then performance may improve by increasing node size (i.e., decreasing tree depth and complexity). Moreover, if computation time is a concern then you can often decrease run time substantially by increasing the node size and have only marginal impacts to your error estimate as illustrated below.
+
+```{block, type='tip'}
+When adjusting node size start with three values between 1--10 and adjust depending on impact to accuracy and run time. Increasing node size to reduce tree complexity will often have a larger impact on computation speed (right) than on your error estimate.
+```
+
+```{r tuning-node-size, echo=FALSE, fig.cap="Figure: Increasing node size to reduce tree complexity will often have a larger impact on computation speed (right) than on your error estimate.", fig.width=10, fig.height=3.5, message=FALSE, warning=FALSE}
+tuning_grid <- expand.grid(
+  min.node.size = 1:20,
+  run_time  = NA,
+  rmse = NA
+)
+
+for(i in seq_len(nrow(tuning_grid))) {
+  fit_time <- system.time({
+    fit <- ranger(
+    formula    = Sale_Price ~ ., 
+    data       = ames_train, 
+    num.trees  = 1000,
+    mtry       = 26,
+    min.node.size = tuning_grid$min.node.size[i],
+    respect.unordered.factors = 'order',
+    verbose    = FALSE,
+    seed       = 123
+  )
+})
+  
+  tuning_grid$run_time[i] <- fit_time[[3]]
+  tuning_grid$rmse[i] <- sqrt(fit$prediction.error)
+  
+}
+
+min_node_size <- tuning_grid %>% 
+  mutate(
+    error_first = first(rmse),
+    runtime_first = first(run_time),
+    `Error Growth` = (rmse / error_first) - 1,
+    `Run Time Reduction` = (run_time / runtime_first) - 1
+    )
+
+p1 <-  ggplot(min_node_size, aes(min.node.size, `Error Growth`)) +
+  geom_smooth(size = 1, se = FALSE, color = "black") +
+  scale_y_continuous("Percent growth in error estimate", labels = scales::percent) +
+  xlab("Minimum node size") +
+  ggtitle("A) Impact to error estimate")
+
+p2 <-  ggplot(min_node_size, aes(min.node.size, `Run Time Reduction`)) +
+  geom_smooth(size = 1, se = FALSE, color = "black") +
+  scale_y_continuous("Reduction in run time", labels = scales::percent) +
+  xlab("Minimum node size") +
+  ggtitle("B) Impact to run time")
+
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+## Sampling scheme
+
+The default sampling scheme for random forests is bootstrapping where 100% of the observations are sampled with replacement (in other words, each bootstrap copy has the same size as the original training data); however, we can adjust both the sample size and whether to sample with or without replacement. The sample size parameter determines how many observations are drawn for the training of each tree. Decreasing the sample size leads to more diverse trees and thereby lower between-tree correlation, which can have a positive effect on the prediction accuracy. Consequently, if there are a few dominating features in your data set, reducing the sample size can also help to minimize between-tree correlation. 
+
+Also, when you have many categorical features with a varying number of levels, sampling with replacement can lead to biased variable split selection [@janitza2016pitfalls; @strobl2007bias]. Consequently, if you have categories that are not balanced, sampling without replacement provides a less biased use of all levels across the trees in the random forest.
+
+```{block, type='tip'}
+Assess 3--4 values of sample sizes ranging from 25%--100% and if you have unbalanced categorical features try sampling without replacement. The Ames data has several imbalanced categorical features such as neighborhood, zoning, overall quality, and more. Consequently, sampling without replacement appears to improve performance as it leads to less biased split variable selection and more uncorrelated trees.
+```
+
+
+```{r tuning-sampling-scheme, echo=FALSE, fig.cap="Figure: The Ames data has several imbalanced categorical features such as neighborhood, zoning, overall quality, and more. Consequently, sampling without replacement appears to improve performance as it leads to less biased split variable selection and more uncorrelated trees.", fig.height=3.5, fig.width=6}
+tuning_grid <- expand.grid(
+  sample.fraction = seq(.05, .95, by = .05),
+  replace  = c(TRUE, FALSE),
+  rmse = NA
+)
+
+for(i in seq_len(nrow(tuning_grid))) {
+  fit <- ranger(
+    formula    = Sale_Price ~ ., 
+    data       = ames_train, 
+    num.trees  = 1000,
+    mtry       = 26,
+    sample.fraction = tuning_grid$sample.fraction[i],
+    replace = tuning_grid$replace[i],
+    respect.unordered.factors = 'order',
+    verbose    = FALSE,
+    seed       = 123
+  )
+
+  tuning_grid$rmse[i] <- sqrt(fit$prediction.error)
+  
+}
+
+tuning_grid %>%
+  ggplot(aes(sample.fraction, rmse, color = replace)) +
+  geom_line(size = 1) +
+  scale_x_continuous("Sample Fraction", breaks = seq(.1, .9, by = .1), labels = scales::percent) +
+  ylab("OOB Error (RMSE)") +
+  scale_color_discrete("Sample with Replacement") +
+  theme(legend.position = c(0.8, 0.85),
+        legend.key = element_blank(),
+        legend.background = element_blank())
+```
+
+## Split rule
+
+Recall the default splitting rule during random forests tree building consists of selecting, out of all splits of the (randomly selected $m_{try}$) candidate variables, the split that minimizes the Gini impurity (in the case of classification) and the SSE (in case of regression). However, @strobl2007bias illustrated that these default splitting rules favor the selection of features with many possible splits (e.g., continuous variables or categorical variables with many categories) over variables with fewer splits (the extreme case being binary variables, which have only one possible split). _Conditional inference trees_ [@hothorn2006unbiased] implement an alternative splitting mechanism that helps to reduce this variable selection bias.^[Conditional inference trees are available in the __partykit__ [@hothorn2015partykit] and __ranger__ packages in R; however, there is not a current implementation available in Python.] However, ensembling conditional inference trees has yet to be proven superior with regards to predictive accuracy and they take a lot longer to train.
+
+To increase computational efficiency, splitting rules can be randomized where only a random subset of possible splitting values is considered for a variable [@geurts2006extremely]. If only a single random splitting value is randomly selected then we call this procedure _extremely randomized trees_. Due to the added randomness of split points, this method tends to have no improvement, or often a negative impact, on predictive accuracy.  
+
+Regarding runtime, extremely randomized trees are the fastest as the cutpoints are drawn completely randomly, followed by the classical random forest, while for conditional inference forests the runtime is the largest [@probst2019hyperparameters].
+
+```{block, type='tip'}
+If you need to increase computation time significantly try completely randomized trees; however, be sure to assess predictive accuracy to traditional split rules as this approach often has a negative impact on your loss function.
+```
+
+
+# Tuning strategies {#rf-tuning-strategy}
+
+## Cartesian grid search {.tabset}
+
+As we introduce more complex algorithms with greater number of hyperparameters, we should become more strategic with our tuning strategies. One way to become more strategic is to consider how we proceed through our grid search.  Up to this point, all our grid searches have been _full Cartesian grid searches_ where we assess every combination of hyperparameters of interest. We could continue to do the same; for example, the next code block searches across 120 combinations of hyperparameter settings.
+
+
+### `r fontawesome::fa("python")` 
+
+
+### `r fontawesome::fa("r-project")` 
+
+
+## Random grid search {.tabset}
+
+
+### `r fontawesome::fa("python")` 
+
+
+### `r fontawesome::fa("r-project")` 
+
+
+
+# Feature interpretation {.tabset}
+
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+# Final thoughts
+
+Random forests provide a very powerful out-of-the-box algorithm that often has great predictive accuracy. They come with all the benefits of decision trees (with the exception of surrogate splits) and bagging but greatly reduce instability and between-tree correlation. And due to the added split variable selection attribute, random forests are also faster than bagging as they have a smaller feature search space at each tree split. However, random forests will still suffer from slow computational speed as your data sets get larger but, similar to bagging, the algorithm is built upon independent steps, and most modern implementations allow for parallelization to improve training time.
+
+# Exercises
+
+Using the Boston housing data set, where the response feature is the median value of homes within a census tract (`cmedv`):
+
+1. Apply a default random forest model with the same features you used in the bagging module. How does the out-of-the-box random forest model perform compared to the bagging module?
+2. Assess the number of trees in your random forest model.
+   - How many trees are applied?
+   - Was it enough to stabilize the loss function or do you need to add more?
+3. Perform a full cartesian grid search across various values of:
+   - $m_{try}$
+   - tree complexity (i.e. max depth, node size)
+   - sampling scheme
+4. How long did the above grid search take? Which model gave the best performance?
+5. Now run a random grid search across the same hyperparameter grid but restrict the time or number of models to run to 50% of the models ran in the full cartesian. How does the random grid search results compare?
+6. Pick your best random forest model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+7. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+8. Now perform 1-7 to the Attrition dataset, which is classification model rather than a regression model.
+
+[🏠](https://github.com/misk-data-science/misk-homl)
+
+
+# References
