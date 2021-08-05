@@ -126,7 +126,7 @@ ames_rf1 <- ranger::ranger(
 default_rmse <- sqrt(ames_rf1$prediction.error)
 ```
 
-For example, if we train a random forest model with all hyperparameters set to their default values, we get an RMSE of `r scales::dollar(round(default_rmse))` which is comparable to some of the best model's we've run thus far (without any tuning).
+For example, if we train a random forest model with all hyperparameters set to their default values, we get RMSEs comparable to some of the best model's we've run thus far (without any tuning).
 
 ## `r fontawesome::fa("python")` 
 
@@ -154,7 +154,7 @@ Start with $p \times 10$ trees and adjust as necessary.
 ```
 
 
-```{r tuning-trees, echo=FALSE, fig.cap="Figure: The Ames data has 80 features and starting with 10 times the number of features typically ensures the error estimate converges.", fig.height=3.5, fig.width=6}
+```{r tuning-trees, echo=FALSE, fig.cap="Figure: The Ames data has 80 features and starting with 10 times the number of features typically ensures the error estimate converges.", fig.height=3.5, fig.width=6, cache=TRUE}
 # number of features
 n_features <- ncol(ames_train) - 1
 
@@ -197,7 +197,7 @@ The hyperparameter that controls the split-variable randomization feature of ran
 Start with five evenly spaced values of $m_{try}$ across the range 2--$p$ centered at the recommended default as illustrated below. For the Ames data, an mtry value slightly lower (21) than the default (26) improves performance.
 ```
 
-```{r tuning-mtry, echo=FALSE, fig.cap="Figure: For the Ames data, an mtry value slightly lower (21) than the default (26) improves performance.", fig.height=3.5}
+```{r tuning-mtry, echo=FALSE, fig.cap="Figure: For the Ames data, an mtry value slightly lower (21) than the default (26) improves performance.", fig.height=3.5, cache=TRUE}
 tuning_grid <- expand.grid(
   trees = seq(10, 1000, by = 20),
   mtry  = floor(c(seq(2, 80, length.out = 5), 26)),
@@ -237,7 +237,7 @@ Random forests are built on individual decision trees; consequently, most random
 When adjusting node size start with three values between 1--10 and adjust depending on impact to accuracy and run time. Increasing node size to reduce tree complexity will often have a larger impact on computation speed (right) than on your error estimate.
 ```
 
-```{r tuning-node-size, echo=FALSE, fig.cap="Figure: Increasing node size to reduce tree complexity will often have a larger impact on computation speed (right) than on your error estimate.", fig.width=10, fig.height=3.5, message=FALSE, warning=FALSE}
+```{r tuning-node-size, echo=FALSE, fig.cap="Figure: Increasing node size to reduce tree complexity will often have a larger impact on computation speed (right) than on your error estimate.", fig.width=10, fig.height=3.5, message=FALSE, warning=FALSE, cache=TRUE}
 tuning_grid <- expand.grid(
   min.node.size = 1:20,
   run_time  = NA,
@@ -297,7 +297,7 @@ Assess 3--4 values of sample sizes ranging from 25%--100% and if you have unbala
 ```
 
 
-```{r tuning-sampling-scheme, echo=FALSE, fig.cap="Figure: The Ames data has several imbalanced categorical features such as neighborhood, zoning, overall quality, and more. Consequently, sampling without replacement appears to improve performance as it leads to less biased split variable selection and more uncorrelated trees.", fig.height=3.5, fig.width=6}
+```{r tuning-sampling-scheme, echo=FALSE, fig.cap="Figure: The Ames data has several imbalanced categorical features such as neighborhood, zoning, overall quality, and more. Consequently, sampling without replacement appears to improve performance as it leads to less biased split variable selection and more uncorrelated trees.", fig.height=3.5, fig.width=6, cache=TRUE}
 tuning_grid <- expand.grid(
   sample.fraction = seq(.05, .95, by = .05),
   replace  = c(TRUE, FALSE),
