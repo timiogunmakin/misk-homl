@@ -50,6 +50,39 @@ By the end of this module you will know:
 
 ## `r fontawesome::fa("python")` 
 
+```{python}
+# Helper packages
+import numpy as np
+import pandas as pd
+from plotnine import *
+
+# Modeling packages
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from category_encoders.ordinal import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.inspection import partial_dependence
+from sklearn.pipeline import Pipeline
+```
+
+```{python}
+# Ames housing data
+ames = pd.read_csv("data/ames.csv")
+
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train[["Sale_Price"]]
+```
 
 ## `r fontawesome::fa("r-project")` 
 
@@ -132,6 +165,30 @@ For example, if we train a random forest model with all hyperparameters set to t
 
 
 ## `r fontawesome::fa("r-project")` 
+
+```{r}
+# create model recipe with all features
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  )
+
+# create bagged CART model object and
+# start with 5 bagged trees
+rf_mod <- rand_forest(mode = "regression") %>%
+  set_engine("ranger")
+
+# create resampling procedure
+set.seed(13)
+kfold <- vfold_cv(ames_train, v = 5)
+
+# train model
+results <- fit_resamples(rf_mod, model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+```
+
 
 # Hyperparameters
 
@@ -357,9 +414,56 @@ As we introduce more complex algorithms with greater number of hyperparameters, 
 
 ### `r fontawesome::fa("r-project")` 
 
+To perform a grid search across various random forest hyperparameters we will use `rand_forest()` with the engine set to `"ranger"`, which is a fast C implementation of random forests. One thing you will note is that `rand_forest()` accepts three hyperparameters; however, ranger allows for additional hyperparameters.  We can pass additional hyperparameters that a specific "engine" accepts by including them in `set_engine()`. This is why you see tuning parameters in both `rand_forest()` and `set_engine()`.
+
+```{block, type='warning'}
+The following grid search results in a search over 120 different hyperparameter combinations, which results in a grid search time of 64 minutes!
+```
+
+
+```{r cache=TRUE}
+# create model recipe with all features
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  )
+
+# create random forest model object with tuning option
+rf_mod <- rand_forest(
+  mode = "regression", 
+  trees = 1000,
+  mtry = tune(),
+  min_n = tune()
+  ) %>%
+  set_engine(
+    "ranger",
+    replace = tune(),
+    sample.fraction = tune(),
+    respect.unordered.factors = 'order',
+    seed = 123
+    )
+
+# create the hyperparameter grid
+hyper_grid <- expand.grid(
+  mtry = floor(n_features * c(.05, .15, .25, .333, .4)),
+  min_n = c(1, 3, 5, 10),
+  replace = c(TRUE, FALSE),
+  sample.fraction = c(.5, .63, .8)
+  )
+
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(rf_mod, model_recipe, resamples = kfold, grid = hyper_grid)
+
+
+# model results
+show_best(results, metric = "rmse")
+```
+
 
 ## Random grid search {.tabset}
 
+Unfortunately cartesian grid searches become very slow as our hyperparameter combinations increase.
 
 ### `r fontawesome::fa("python")` 
 
