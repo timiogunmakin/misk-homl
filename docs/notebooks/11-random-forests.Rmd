@@ -463,22 +463,148 @@ show_best(results, metric = "rmse")
 
 ## Random grid search {.tabset}
 
-Unfortunately cartesian grid searches become very slow as our hyperparameter combinations increase.
+Unfortunately cartesian grid searches become very slow as our hyperparameter combinations increase. An alternative is approach is to use a _random grid search_, which allows you to jump from one random combination of hyperparameters. Although using a random discrete search path will likely not find the optimal model, it typically does a good job of finding a very good model. 
+
+An even more advanced approach is to add _early stopping_ rules that allow you to stop the grid search once a certain condition is met (e.g., a certain number of models have been trained, a certain runtime has elapsed, or the accuracy has stopped improving by a certain amount).
 
 ### `r fontawesome::fa("python")` 
 
 
 ### `r fontawesome::fa("r-project")` 
 
+To perform a random grid search we can simply sample a certain percent of observations from our hyperparameter grid. The following samples 30% of our hyperparameter combinations and performs a grid search across these sampled parameters. We see that our results are close to our previous cartesian search.
+
+```{r cache=TRUE}
+# take a random subset of our hyperparameter grid
+set.seed(123)
+sampled_ids <- sample(1:nrow(hyper_grid), floor(nrow(hyper_grid)*.3))
+sampled_grid <- hyper_grid[sampled_ids, ]
+
+# train our model across the hyper parameter grid
+set.seed(123)
+results <- tune_grid(rf_mod, model_recipe, resamples = kfold, grid = sampled_grid)
+
+# model results
+show_best(results, metric = "rmse")
+```
+
+We could advance this random search by adding early stopping. In R there are some packages that provide built in early stopping (i.e. H2O, Xgboost). However, for tidymodels we need to manually build this option. There are many different approaches we could take this:
+
+* Stop after running X number of models
+* Stop after our model does not improve upon the past X number of models
+* Stop after we have seen X% improvement in model performance
+
+In this example, we stop after running at least 5 models and if we haven't seen at least 10% improvement in the RMSE.
+
+
+```{r cache=TRUE}
+# create empty vector to hold RMSE results
+results <- c()
+
+for (row in 1:nrow(sampled_grid)) {
+  # train model with sampled grid parameters
+  rf_mod <- rand_forest(
+  mode = "regression", 
+  trees = 1000,
+  mtry = sampled_grid[row, "mtry"],
+  min_n = sampled_grid[row, "min_n"]
+  ) %>%
+  set_engine(
+    "ranger",
+    replace = sampled_grid[row, "replace"],
+    sample.fraction = sampled_grid[row, "sample.fraction"],
+    respect.unordered.factors = 'order',
+    seed = 123
+    )
+  
+  # train model
+  fit_results <- fit_resamples(rf_mod, model_recipe, kfold)
+
+  # get RMSE and add to results vector
+  rmse <- collect_metrics(fit_results) %>% filter(.metric == "rmse") %>% pluck("mean")
+  results <- c(results, rmse)
+  
+  # print results along the way
+  cat("Model", row, "--> RMSE ==", rmse, "\n")
+  
+  # Test if the current rmse improves upon the past three 5 scores
+  # If not then stop the process
+  threshold <- min(results) * 0.9
+  if ((row >= 5) && (rmse > threshold)) {
+    break
+  }
+}
+```
+
+And we can identify the best model's hyperparameter settings with:
+
+```{r}
+sampled_grid[which.min(results), ]
+```
 
 
 # Feature interpretation {.tabset}
 
+Computing feature importance and feature effects for random forests follow the same procedure as discussed in the bagging module. However, in addition to the impurity-based measure of feature importance where we base feature importance on the average total reduction of the loss function for a given feature across all trees, random forests also typically include a _permutation-based_ importance measure. In the permutation-based approach, for each tree, the OOB sample is passed down the tree and the prediction accuracy is recorded. Then the values for each variable (one at a time) are randomly permuted and the accuracy is again computed. The decrease in accuracy as a result of this randomly shuffling of feature values is averaged over all the trees for each predictor. The variables with the largest average decrease in accuracy are considered most important.
+
+```{block, type = "tip"}
+Once you’ve identified the optimal parameter values from the grid search, you will want to re-run your model with these hyperparameter values and crank up the number of trees, which will help create more stables values of variable importance.
+```
 
 ## `r fontawesome::fa("python")` 
 
 
 ## `r fontawesome::fa("r-project")` 
+
+Once we have our (near) optimal model we can use those parameters and re-run our model. For simplicity, we can re-run our model using the `ranger()` from the **ranger** package. This is the same engine we were using with tidymodels but since we are simply trying to understand variable importance we don't need to worry about cross-validation.
+
+```{r feature-importance}
+# re-run model with impurity-based variable importance
+rf_impurity <- ranger(
+  formula = Sale_Price ~ ., 
+  data = ames_train, 
+  num.trees = 2000,
+  mtry = 26,
+  min.node.size = 1,
+  sample.fraction = .5,
+  replace = FALSE,
+  importance = "impurity",
+  respect.unordered.factors = "order",
+  verbose = FALSE,
+  seed  = 123
+)
+
+# re-run model with permutation-based variable importance
+rf_permutation <- ranger(
+  formula = Sale_Price ~ ., 
+  data = ames_train, 
+  num.trees = 2000,
+  mtry = 26,
+  min.node.size = 1,
+  sample.fraction = .5,
+  replace = FALSE,
+  importance = "permutation",
+  respect.unordered.factors = "order",
+  verbose = FALSE,
+  seed  = 123
+)
+```
+
+The resulting VIPs are displayed below. Typically, you will not see the same variable importance order between the two options; however, you will often see similar variables at the top of the plots (and also the bottom). Consequently, in this example, we can comfortably state that there appears to be enough evidence to suggest that three variables stand out as most influential:
+
+- `Overall_Qual`  
+- `Gr_Liv_Area`  
+- `Neighborhood`
+
+Looking at the next ~10 variables in both plots, you will also see some commonality in influential variables (e.g., `Garage_Cars`, `Exter_Qual`, `Total_Bsmt_SF`, and `Year_Built`).
+
+```{r feature-importance-plot, fig.cap="Top 25 most important variables based on impurity (left) and permutation (right).", fig.height=4.5, fig.width=10}
+p1 <- vip::vip(rf_impurity, num_features = 25, bar = FALSE)
+p2 <- vip::vip(rf_permutation, num_features = 25, bar = FALSE)
+
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
 
 # Final thoughts
 
