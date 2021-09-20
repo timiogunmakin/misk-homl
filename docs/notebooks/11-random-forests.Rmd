@@ -55,6 +55,8 @@ By the end of this module you will know:
 import numpy as np
 import pandas as pd
 from plotnine import *
+from scipy.stats import uniform
+from scipy.stats import randint
 
 # Modeling packages
 from sklearn.ensemble import RandomForestRegressor
@@ -68,6 +70,7 @@ from sklearn.compose import make_column_selector as selector
 from sklearn.model_selection import KFold
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.inspection import partial_dependence
 from sklearn.pipeline import Pipeline
 ```
@@ -163,8 +166,57 @@ For example, if we train a random forest model with all hyperparameters set to t
 
 ## `r fontawesome::fa("python")` 
 
+In Python we use RandomForestRegressor and RandomForestClassifier to performing random forest models. Similar to the bagging example in the last module we are going to ordinal encode our Quality/Condition features (i.e. Overall_Qual, Garage_Qual, Kitchen_Qual) and, as usually, we need to one-hot encode our remaining nominal features. 
+
+```{python}
+# Ordinal encode our quality-based features 
+ord_cols = list(X_train.filter(regex=("Qual$|QC$|Cond$")).columns)
+lvs = ["Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+       "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent"]
+val = range(0, len(lvs))
+lvl_map = dict(zip(lvs, val))
+category_mapping = [{'col': col, 'mapping': lvl_map} for col in ord_cols]
+ord_encoder = OrdinalEncoder(cols=ord_cols, mapping=category_mapping)
+
+# one hot encode remaining nominal features
+encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+# combine into a pre-processing pipeline
+preprocessor = ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+   ("ord_encode", ord_encoder, ord_cols),
+   ("one-hot", encoder, selector(dtype_include="object")),
+   ]
+  )
+```
+
+```{python}
+# create random forest estimator
+rf_mod = RandomForestRegressor()
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("rf_mod", rf_mod),
+])
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 5 fold CV object
+kfold = KFold(n_splits=5, random_state=123, shuffle=True)
+
+# fit model with 5-fold CV
+results = cross_val_score(model_pipeline, X_train, y_train, cv=kfold, scoring=loss)
+
+np.abs(np.mean(results))
+```
+
 
 ## `r fontawesome::fa("r-project")` 
+
+In R we will want to use the [ranger](https://github.com/imbs-hl/ranger) package as our random forest engine.
 
 ```{r}
 # create model recipe with all features
@@ -411,6 +463,43 @@ As we introduce more complex algorithms with greater number of hyperparameters, 
 
 ### `r fontawesome::fa("python")` 
 
+To perform a regular cartesian grid search we create the hyperparameter grid and use `GridSearchCV` as we have done in the past.
+
+```{block, type='warning'}
+The following grid search results in a search over 120 different hyperparameter combinations, which results in a grid search time of 30 minutes!
+```
+
+```{python}
+# create random forest estimator with 1,000 trees
+rf_mod = RandomForestRegressor(n_estimators=1000)
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("rf_mod", rf_mod),
+])
+
+# Create grid of hyperparameter values
+hyper_grid = {
+  'rf_mod__max_features': [.05, .15, .25, .333, .4],
+  'rf_mod__min_samples_leaf': [1, 3, 5, 10],
+  'rf_mod__bootstrap': [True, False],
+  'rf_mod__max_samples': [.5, .63, .8]
+  }
+  
+# Tune a knn model using grid search
+grid_search = GridSearchCV(model_pipeline, hyper_grid, cv=kfold, scoring=loss, n_jobs=-1)
+results = grid_search.fit(X_train, y_train)
+
+# best model score
+np.abs(results.best_score_)
+```
+
+```{python}
+# best hyperparameter values
+results.best_params_
+```
+
 
 ### `r fontawesome::fa("r-project")` 
 
@@ -469,6 +558,39 @@ An even more advanced approach is to add _early stopping_ rules that allow you t
 
 ### `r fontawesome::fa("python")` 
 
+In Python we use `RandomSearchCV` to search across `n_iter` randomly sampled combinations of hyperparameter values. An important thing to note is that `RandomSearchCV` uses a `param_distributions` parameter, which is slightly different then the hyperparameter grid supplied in `GridSearchCV`. In this case, we supply a dictionary of hyperparameter distributions to be sampled from. In this example, we use `scipy.stats.uniform` to uniformly sample from a distribution for the `max_features`, `min_samples_leaf`, and `max_samples` features.
+
+The following searches across 20 randomly sampled value combinations of our hyperparameters and achieves near-similar results as the full grid search but in a fraction of the time.
+
+```{python}
+# Create grid of hyperparameter values
+hyper_distributions = {
+  'rf_mod__max_features': uniform(.05, .35),
+  'rf_mod__min_samples_leaf': randint(1, 9),
+  'rf_mod__bootstrap': [True, False],
+  'rf_mod__max_samples': uniform(.5, .3)
+  }
+  
+# Tune a knn model using grid search
+random_search = RandomizedSearchCV(
+  model_pipeline, 
+  param_distributions=hyper_distributions, 
+  n_iter=20,
+  cv=kfold, 
+  scoring=loss, 
+  n_jobs=-1, 
+  random_state=13
+  )
+random_search_results = random_search.fit(X_train, y_train)
+
+# best model score
+np.abs(random_search_results.best_score_)
+```
+
+```{python}
+# best hyperparameter values
+random_search_results.best_params_
+```
 
 ### `r fontawesome::fa("r-project")` 
 
@@ -552,6 +674,53 @@ Once you’ve identified the optimal parameter values from the grid search, you 
 ```
 
 ## `r fontawesome::fa("python")` 
+
+The following shows how to plot the default feature importance values provided by `RandomForestRegressor`, which is based averaging the decrease in impurity over all the trees in the random forest model.
+
+```{block, type = "tip"}
+For a deep dive into the different ways to compute feature importance for random forests in Python check out this [article](https://towardsdatascience.com/explaining-feature-importance-by-example-of-a-random-forest-d9166011959e).
+```
+
+
+```{python}
+# create final model object
+X_encoded = preprocessor.fit_transform(X_train)
+final_model = RandomForestRegressor(
+  n_estimators=1000,
+  max_features=0.21,
+  max_samples=0.65,
+  min_samples_leaf=1,
+  bootstrap=False
+)
+final_model_fit = final_model.fit(X_encoded, y_train)
+
+# extract feature importances
+vi = pd.DataFrame({'feature': preprocessor.get_feature_names(),
+                   'importance': final_model_fit.feature_importances_})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+(ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+```
+
+And as we have done in the past we can build upon this to assess how some of our important features influence the predicted values. For example, the following looks at the third most influential feature (`Gr_Liv_Area`) and produces a partial dependence plot.
+
+```{python}
+X_encoded = pd.DataFrame(X_encoded, columns=preprocessor.get_feature_names())
+pd_results = partial_dependence(
+  final_model_fit, X_encoded, "Gr_Liv_Area", kind='average',
+  percentiles=(0, 1)) 
+  
+pd_output = pd.DataFrame({'Gr_Liv_Area': pd_results['values'][0],
+                          'yhat': pd_results['average'][0]})
+                          
+(ggplot(pd_output, aes('Gr_Liv_Area', 'yhat'))
+  + geom_line())
+```
 
 
 ## `r fontawesome::fa("r-project")` 
