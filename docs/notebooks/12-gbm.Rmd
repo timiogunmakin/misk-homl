@@ -47,6 +47,47 @@ By the end of this module you will know:
 
 # Prerequisites
 
+## `r fontawesome::fa("python")` 
+
+```{python}
+# Helper packages
+import numpy as np
+import pandas as pd
+from plotnine import *
+
+# Modeling packages
+```
+
+```{python}
+# Ames housing data
+ames = pd.read_csv("data/ames.csv")
+
+# create train/test split
+train, test = train_test_split(ames, train_size=0.7, random_state=123)
+
+# separate features from labels and only use numeric features
+X_train = train.drop("Sale_Price", axis=1)
+y_train = train[["Sale_Price"]]
+```
+
+## `r fontawesome::fa("r-project")` 
+
+```{r gbm-pkg-req}
+# Helper packages
+library(tidyverse)   # for data wrangling & plotting
+
+# Modeling packages
+library(xgboost)  # implementing gradient boosting
+library(rsample)  # sampling procedure
+```
+
+```{r gbm-ames-train}
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
+```
 
 # How boosting works
 
