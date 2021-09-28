@@ -35,21 +35,224 @@ warnings.filterwarnings("ignore")
 plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 ```
 
+Gradient boosting machines (GBMs) are an extremely popular machine learning algorithm that have proven successful across many domains and is one of the leading methods for winning Kaggle competitions. Whereas random forests build an ensemble of deep independent trees, GBMs build an ensemble of shallow trees in sequence with each tree learning and improving on the previous one. Although shallow trees by themselves are rather weak predictive models, they can be "boosted" to produce a powerful "committee" that, when appropriately tuned, is often hard to beat with other algorithms. This module will cover the fundamentals to understanding and implementing the popular XGBoost implementation of GBMs.
 
 # Learning objectives
 
+By the end of this module you will know:
+
+* What attributes make up gradient boosted machines.
+* How to implement an XGBoost gradient boosted tree model along with how to smartly approach hyperparameter tuning.
+* How to identify influential features and their effects on the response variable.
 
 # Prerequisites
 
 
 # How boosting works
 
+Several supervised machine learning algorithms are based on a single predictive model, for example: ordinary linear regression, penalized regression models, single decision trees, and support vector machines. Bagging and random forests, on the other hand, work by combining multiple models together into an overall ensemble. New predictions are made by combining the predictions from the individual base models that make up the ensemble (e.g., by averaging in regression). Since averaging reduces variance, bagging (and hence, random forests) are most effectively applied to models with low bias and high variance (e.g., an overgrown decision tree). While boosting is a general algorithm for building an ensemble out of simpler models (typically decision trees), it is more effectively applied to models with high bias and low variance! Although boosting, like bagging, can be applied to any type of model, it is often most effectively applied to decision trees (which we'll assume from this point on).
 
 ## A sequential ensemble approach
 
+The main idea of boosting is to add new models to the ensemble ___sequentially___. In essence, boosting attacks the bias-variance-tradeoff by starting with a _weak_ model (e.g., a decision tree with only a few splits) and sequentially _boosts_ its performance by continuing to build new trees, where each new tree in the sequence tries to fix up where the previous one made the biggest mistakes (i.e., each new tree in the sequence will focus on the training rows where the previous tree had the largest prediction errors); see the image below. 
+
+```{r sequential-fig, echo=FALSE, fig.align='center', fig.cap="Sequential ensemble approach.", out.height="75%", out.width="75%"}
+
+knitr::include_graphics("images/boosted-trees-process.png")
+```
+
+Let's discuss the important components of boosting in closer detail.
+
+__The base learners__:  Boosting is a framework that iteratively improves _any_ weak learning model.  Many gradient boosting applications allow you to "plug in" various classes of weak learners at your disposal. In practice however, boosted algorithms almost always use decision trees as the base-learner. Consequently, this module will discuss boosting in the context of decision trees.
+
+__Training weak models__: A weak model is one whose error rate is only slightly better than random guessing.  The idea behind boosting is that each model in the sequence slightly improves upon the performance of the previous one (essentially, by focusing on the rows of the training data where the previous tree had the largest errors or residuals).  With regards to decision trees, shallow trees (i.e., trees with relatively few splits) represent a weak learner.  In boosting, trees with 1--6 splits are most common. 
+
+__Sequential training with respect to errors__: Boosted trees are grown sequentially; each tree is grown using information from previously grown trees to improve performance. This is illustrated in the following algorithm for boosting regression trees. By fitting each tree in the sequence to the previous tree's residuals, we're allowing each new tree in the sequence to focus on the previous tree's mistakes:
+
+1. Fit a decision tree to the data: $F_1\left(x\right) = y$,
+2. We then fit the next decision tree to the residuals of the previous: $h_1\left(x\right) = y - F_1\left(x\right)$,
+3. Add this new tree to our algorithm: $F_2\left(x\right) = F_1\left(x\right) + h_1\left(x\right)$,
+4. Fit the next decision tree to the residuals of $F_2$: $h_2\left(x\right) = y - F_2\left(x\right)$,
+5. Add this new tree to our algorithm: $F_3\left(x\right) = F_2\left(x\right) + h_2\left(x\right)$,
+6. Continue this process until some mechanism (i.e. cross validation) tells us to stop.
+
+The final model here is a stagewise additive model of *b* individual trees:
+
+$$ f\left(x\right) =  \sum^B_{b=1}f^b\left(x\right) \tag{1} $$
+
+The figure below illustrates with a simple example where a single predictor ($x$) has a true underlying sine wave relationship (blue line) with *y* along with some irreducible error.  The first tree fit in the series is a single decision stump (i.e., a tree with a single split). Each successive decision stump thereafter is fit to the previous one's residuals. Initially there are large errors, but each additional decision stump in the sequence makes a small improvement in different areas across the feature space where errors still remain. 
+
+```{r boosting-in-action, fig.height=6, fig.width=10, echo=FALSE, fig.cap="Figure: Boosted regression decision stumps as 0-1024 successive trees are added."}
+# Load required packages
+library(tidyr)
+library(dplyr)
+library(rpart)
+library(ggplot2)
+
+# Simulate sine wave data
+set.seed(1112)  # for reproducibility
+df <- tibble::tibble(
+  x = seq(from = 0, to = 2 * pi, length = 1000),
+  y = sin(x) + rnorm(length(x), sd = 0.5),
+  truth = sin(x)
+)
+
+# Function to boost `rpart::rpart()` trees
+rpartBoost <- function(x, y, data, num_trees = 100, learn_rate = 0.1, tree_depth = 6) {
+  x <- data[[deparse(substitute(x))]]
+  y <- data[[deparse(substitute(y))]]
+  G_b_hat <- matrix(0, nrow = length(y), ncol = num_trees + 1)
+  r <- y
+  for(tree in seq_len(num_trees)) {
+    g_b_tilde <- rpart(r ~ x, control = list(cp = 0, maxdepth = tree_depth))
+    g_b_hat <- learn_rate * predict(g_b_tilde)
+    G_b_hat[, tree + 1] <- G_b_hat[, tree] + matrix(g_b_hat)
+    r <- r - g_b_hat
+    colnames(G_b_hat) <- paste0("tree_", c(0, seq_len(num_trees)))
+  }
+  cbind(df, as.data.frame(G_b_hat)) %>%
+    gather(tree, prediction, starts_with("tree")) %>%
+    mutate(tree = stringr::str_extract(tree, "\\d+") %>% as.numeric())
+}
+
+# Plot boosted tree sequence
+rpartBoost(x, y, data = df, num_trees = 2^10, learn_rate = 0.05, tree_depth = 1) %>%
+  filter(tree %in% c(0, 2^c(0:10))) %>%
+  ggplot(aes(x, prediction)) +
+    ylab("y") +
+    geom_point(data = df, aes(x, y), alpha = .1) +
+    geom_line(data = df, aes(x, truth), color = "blue") +
+    geom_line(colour = "red", size = 1) +
+    facet_wrap(~ tree, nrow = 3)
+```
 
 ## Gradient descent {#gbm-gradient}
 
+Many algorithms in regression, including decision trees, focus on minimizing some function of the residuals; most typically the SSE loss function, or equivalently, the MSE or RMSE (this is accomplished through simple calculus and is the approach taken with least squares).  The boosting algorithm for regression discussed in the previous section outlines the approach of sequentially fitting regression trees to the residuals from the previous tree.  This specific approach is how gradient boosting minimizes the mean squared error (SSE) loss function (for SSE loss, the gradient is nothing more than the residual error).  However, we often wish to focus on other loss functions such as mean absolute error (MAE)---which is less sensitive to outliers---or to be able to apply the method to a classification problem with a loss function such as deviance, or log loss. The name ___gradient___ boosting machine comes from the fact that this procedure can be generalized to loss functions other than SSE.
+
+Gradient boosting is considered a ___gradient descent___ algorithm. Gradient descent is a very generic optimization algorithm capable of finding optimal solutions to a wide range of problems. The general idea of gradient descent is to tweak parameter(s) iteratively in order to minimize a cost function. Suppose you are a downhill skier racing your friend.  A good strategy to beat your friend to the bottom is to take the path with the steepest slope. This is exactly what gradient descent does---it measures the local gradient of the loss (cost) function for a given set of parameters ($\Theta$) and takes steps in the direction of the descending gradient. As the below figure illustrates, once the gradient is zero, we have reached a minimum.
+
+```{r gradient-descent-fig, echo=FALSE, fig.height=3, fig.width=5, fig.cap="Figure: Gradient descent is the process of gradually decreasing the cost function (i.e. MSE) by tweaking parameter(s) iteratively until you have reached a minimum."}
+
+# create data to plot
+x <- seq(-5, 5, by = .05)
+y <- x^2 + 3
+df <- data.frame(x, y)
+step <- 5
+step_size <- .2
+for(i in seq_len(18)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+steps <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y)) %>%
+  dplyr::slice(1:18)
+# plot
+ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = df[c(5, which.min(df$y)), ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = filter(df, y == min(y)), aes(x, y), size = 4, shape = 21, fill = "yellow") +
+  geom_point(data = steps, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = steps, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Initial value", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[which.min(df$y), "x"], y = 1, label = "Minimium", hjust = -0.1, vjust = .8) +
+  annotate("text", x = df[5, "x"], y = df[5, "y"], label = "Learning step", hjust = -.8, vjust = 0)
+```
+Gradient descent can be performed on any loss function that is differentiable.  Consequently, this allows GBMs to optimize different loss functions as desired (see @esl, p. 360 for common loss functions). An important parameter in gradient descent is the size of the steps which is controlled by the _learning rate_. If the learning rate is too small, then the algorithm will take many iterations (steps) to find the minimum. On the other hand, if the learning rate is too high, you might jump across the minimum and end up further away than when you started. 
+
+```{r learning-rate-fig, echo=FALSE, fig.width=10, fig.height=3.5, fig.cap="Figure: A learning rate that is too small will require many iterations to find the minimum. A learning rate too big may jump over the minimum."}
+
+# create too small of a learning rate
+step <- 5
+step_size <- .05
+for(i in seq_len(10)) {
+  next_step <- max(step) + round(diff(range(max(step), which.min(df$y))) * step_size, 0)
+  step <- c(step, next_step)
+  next
+}
+too_small <- df[step, ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+# plot
+p1 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_small[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_small, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_small, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = df[5, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("b) too small")
+# create too large of a learning rate
+too_large <- df[round(which.min(df$y) * (1 + c(-.9, -.6, -.2, .3)), 0), ] %>%
+  mutate(x2 = lag(x), y2 = lag(y))
+# plot
+p2 <- ggplot(df, aes(x, y)) +
+  geom_line(size = 1.5, alpha = .5) +
+  theme_classic() +
+  scale_y_continuous("Loss function", limits = c(0, 30)) +
+  xlab(expression(theta)) +
+  geom_segment(data = too_large[1, ], aes(x = x, y = y, xend = x, yend = -Inf), lty = "dashed") +
+  geom_point(data = too_large, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) +
+  geom_curve(data = too_large, aes(x = x, y = y, xend = x2, yend = y2), curvature = 1, lty = "dotted") +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", x = too_large[1, "x"], y = 1, label = "Start", hjust = -0.1, vjust = .8) +
+  ggtitle("a) too big")
+gridExtra::grid.arrange(p2, p1, nrow = 1)
+```
+
+Moreover, not all cost functions are _convex_ (i.e., bowl shaped). There may be local minimas, plateaus, and other irregular terrain of the loss function that makes finding the global minimum difficult.  ___Stochastic gradient descent___ can help us address this problem by sampling a fraction of the training observations (typically without replacement) and growing the next tree using that subsample.  This makes the algorithm faster but the stochastic nature of random sampling also adds some random nature in descending the loss function's gradient.  Although this randomness does not allow the algorithm to find the absolute global minimum, it can actually help the algorithm jump out of local minima and off plateaus to get sufficiently near the global minimum. 
+
+```{r stochastic-gradient-descent-fig, echo=FALSE, fig.align='center', fig.cap="Figure: Stochastic gradient descent will often find a near-optimal solution by jumping out of local minimas and off plateaus."}
+
+# create random walk data
+set.seed(123)
+x <- sample(seq(3, 5, by = .05), 10, replace = TRUE)
+set.seed(123)
+y <- seq(2, 28, length.out = 10)
+
+random_walk <- data.frame(
+  x = x,
+  y = y[order(y, decreasing = TRUE)]
+)
+
+optimal <- data.frame(x = 0, y = 0)
+
+# plot
+ggplot(df, aes(x, y)) + 
+  coord_polar() +
+  theme_minimal() +
+  theme(
+    axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  xlab(expression(theta[1])) +
+  ylab(expression(theta[2])) +
+  geom_point(data = random_walk, aes(x, y), size = 3, shape = 21, fill = "blue", alpha = .5) + 
+  geom_point(data = optimal, aes(x, y), size = 2, shape = 21, fill = "yellow") + 
+  geom_path(data = random_walk, aes(x, y), lty = "dotted") +
+  annotate("text", x = random_walk[1, "x"], y = random_walk[1, "y"], label = "Start", hjust = 1, vjust = -1) +
+  annotate("text", x = optimal[1, "x"], y = optimal[1, "y"], label = "Minimum", hjust = -.2, vjust = 1) +
+  ylim(c(0, 28)) + 
+  xlim(-5, 5)
+```
+
+As we'll see in the sections that follow, there are several hyperparameter tuning options available in stochastic gradient boosting (some control the gradient descent and others control the tree growing process). If properly tuned (e.g., with _k_-fold CV) GBMs can lead to some of the most flexible and accurate predictive models you can build!
 
 # Basic GBM
 
