@@ -1,5 +1,5 @@
 ---
-title: "Random Forests"
+title: "Gradient Boosting"
 output:
   html_document:
     toc: yes
@@ -45,7 +45,7 @@ By the end of this module you will know:
 * How to implement an XGBoost gradient boosted tree model along with how to smartly approach hyperparameter tuning.
 * How to identify influential features and their effects on the response variable.
 
-# Prerequisites
+# Prerequisites  {.tabset}
 
 ## `r fontawesome::fa("python")` 
 
@@ -56,6 +56,20 @@ import pandas as pd
 from plotnine import *
 
 # Modeling packages
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from category_encoders.ordinal import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.compose import ColumnTransformer
+from sklearn.compose import make_column_selector as selector
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.inspection import partial_dependence
+from sklearn.pipeline import Pipeline
 ```
 
 ```{python}
@@ -97,7 +111,7 @@ Several supervised machine learning algorithms are based on a single predictive 
 
 The main idea of boosting is to add new models to the ensemble ___sequentially___. In essence, boosting attacks the bias-variance-tradeoff by starting with a _weak_ model (e.g., a decision tree with only a few splits) and sequentially _boosts_ its performance by continuing to build new trees, where each new tree in the sequence tries to fix up where the previous one made the biggest mistakes (i.e., each new tree in the sequence will focus on the training rows where the previous tree had the largest prediction errors); see the image below. 
 
-```{r sequential-fig, echo=FALSE, fig.align='center', fig.cap="Sequential ensemble approach.", out.height="75%", out.width="75%"}
+```{r sequential-fig, echo=FALSE, fig.align='center', fig.cap="Figure: Sequential ensemble approach.", out.height="75%", out.width="75%"}
 
 knitr::include_graphics("images/boosted-trees-process.png")
 ```
@@ -297,43 +311,486 @@ As we'll see in the sections that follow, there are several hyperparameter tunin
 
 # Basic GBM
 
+There are multiple variants of boosting algorithms with the original focused on classification problems [@apm]. Throughout the 1990's many approaches were developed with the most successful being the AdaBoost algorithm [@freund1999adaptive]. In 2000, Friedman related AdaBoost to important statistical concepts (e.g., loss functions and additive modeling), which allowed him to generalize the boosting framework to regression problems and multiple loss functions [@friedman2001greedy]. This led to the typical GBM model that we think of today and that most modern implementations are built on.
 
 ## Hyperparameters {#hyper-gbm1}
 
+A simple GBM model contains two categories of hyperparameters: _boosting hyperparameters_ and _tree-specific hyperparameters_.   The two main boosting hyperparameters include:
 
-## Implementation
+* __Number of trees__: The total number of trees in the sequence or ensemble. The averaging of independently grown trees in bagging and random forests makes it very difficult to overfit with too many trees.  However, GBMs function differently as each tree is grown in sequence to fix up the past tree's mistakes.  For example, in regression, GBMs will chase residuals as long as you allow them to. Also, depending on the values of the other hyperparameters, GBMs often require many trees (it is not uncommon to have many thousands of trees) but since they can easily overfit we must find the optimal number of trees that minimize the loss function of interest with cross validation.
+* __Learning rate__: Determines the contribution of each tree on the final outcome and controls how quickly the algorithm proceeds down the gradient descent (learns). Values range from 0--1 with typical values between 0.001--0.3. Smaller values make the model robust to the specific characteristics of each individual tree, thus allowing it to generalize well. Smaller values also make it easier to stop prior to overfitting; however, they increase the risk of not reaching the optimum with a fixed number of trees and are more computationally demanding. This hyperparameter is also commonly referred to as _shrinkage_. Generally, the smaller this value, the more accurate the model can be but also will require more trees in the sequence.
+
+The two main tree hyperparameters in a simple GBM model include:
+
+* __Tree depth__: Controls the depth of the individual trees. Typical values range from a depth of 3--8 but it is not uncommon to see a tree depth of 1 [@esl]. Smaller depth trees such as decision stumps are computationally efficient (but require more trees); however, higher depth trees allow the algorithm to capture unique interactions but also increase the risk of over-fitting. Note that larger $n$ or $p$ training data sets are more tolerable to deeper trees.
+* __Minimum number of observations in terminal nodes__: Also, controls the complexity of each tree. Since we tend to use shorter trees this rarely has a large impact on performance. Typical values range from 5--15 where higher values help prevent a model from learning relationships which might be highly specific to the particular sample selected for a tree (overfitting) but smaller values can help with imbalanced target classes in classification problems.
+
+## Implementation {.tabset}
+
+The following implementations will first show you how to apply a basic, default XGBoost model to your data and then we'll show you how to tune the hyperparameters mentioned in the previous section.
+
+### `r fontawesome::fa("python")` 
+
+First, similar to the previous modules, we are going to ordinal encode our Quality/Condition features (i.e. `Overall_Qual`, `Garage_Qual`, `Kitchen_Qual`) and, as usual, we need to one-hot encode our remaining nominal features.
+
+```{python}
+# Ordinal encode our quality-based features 
+ord_cols = list(X_train.filter(regex=("Qual$|QC$|Cond$")).columns)
+lvs = ["Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+       "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent"]
+val = range(0, len(lvs))
+lvl_map = dict(zip(lvs, val))
+category_mapping = [{'col': col, 'mapping': lvl_map} for col in ord_cols]
+ord_encoder = OrdinalEncoder(cols=ord_cols, mapping=category_mapping)
+
+# one hot encode remaining nominal features
+encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+# combine into a pre-processing pipeline
+preprocessor = ColumnTransformer(
+  remainder="passthrough",
+  transformers=[
+   ("ord_encode", ord_encoder, ord_cols),
+   ("one-hot", encoder, selector(dtype_include="object")),
+   ]
+  )
+```
+
+To apply a default XGBoost regression model we use `XGBRegressor()` as shown below:
+
+```{python}
+# create GBM estimator
+xgb_mod = xgb.XGBRegressor()
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("xgb_mod", xgb_mod),
+])
+
+# define loss function
+loss = 'neg_root_mean_squared_error'
+
+# create 5 fold CV object
+kfold = KFold(n_splits=5, random_state=123, shuffle=True)
+
+# fit model with 5-fold CV
+results = cross_val_score(model_pipeline, X_train, y_train, cv=kfold, scoring=loss)
+
+np.abs(np.mean(results))
+```
+
+Due to the many hyperparameters in GBMs it is far more efficient to use a random grid search rather than a full cartesian search. For brevity, in the following example we search across 20 random combinations of number of trees (`n_estimators`), learning rate, max depth, and minimum observations required in nodes (`min_child_weight`).
+
+We see that the optimal model of the random search had an RMSE of 22881 and used 5,000 trees, `min_child_weight` of 1, tree depth of 3, and a learning rate of 0.1. 
+
+```{block, type='tip'}
+At this point, it would probably be wise to follow up with another search that uses the `learning_rate`, `max_depth`, and `min_child_weight` of the optimal model but search across additional trees to see if adding more trees improves performance. For brevity we'll leave this as an exercise for the reader.
+```
 
 
-## General tuning strategy {#tuning-strategy}
+```{python, eval=FALSE}
+# define hyperparameters
+hyper_grid = {
+  'xgb_mod__n_estimators': [1000, 2500, 5000],
+  'xgb_mod__learning_rate': [0.001, 0.01, 0.1],
+  'xgb_mod__max_depth': [3, 5, 7, 9],
+  'xgb_mod__min_child_weight': [1, 5, 15] 
+}
+
+# create random search object
+random_search = RandomizedSearchCV(
+    model_pipeline, 
+    param_distributions=hyper_grid, 
+    n_iter=20, 
+    cv=kfold, 
+    scoring=loss, 
+    n_jobs=-1, 
+    random_state=13
+)
+
+# execute random search
+random_search_results = random_search.fit(X_train, y_train)
+
+# best model score
+np.abs(random_search_results.best_score_)
+## 22881.028505504495
+```
+
+```{python, eval=FALSE}
+# best hyperparameter values
+random_search_results.best_params_
+## {'xgb_mod__n_estimators': 5000, 'xgb_mod__min_child_weight': 1,
+## 'xgb_mod__max_depth': 3, xgb_mod__learning_rate': 0.1}
+```
+
+
+### `r fontawesome::fa("r-project")` 
+
+
 
 
 # Stochastic GBMs
 
+An important insight made by Breiman (@breiman1996bagging; @breiman2001random) in developing his bagging and random forest algorithms was that training the algorithm on a random subsample of the training data set offered additional reduction in tree correlation and, therefore, improvement in prediction accuracy. @friedman2002stochastic used this same logic and updated the boosting algorithm accordingly. This procedure is known as _stochastic gradient boosting_ and helps reduce the chances of getting stuck in local minimas, plateaus, and other irregular terrain of the loss function so that we may find a near global optimum.
 
-## Stochastic hyperparameters {#hyper-gbm2}
+## Stochastic hyperparameters
 
+There are a few variants of stochastic gradient boosting that can be used, all of which have additional hyperparameters: 
 
-## Implementation {#stochastic-gbm-h2o}
+* Subsample rows before creating each tree
+* Subsample columns before creating each tree
+* Subsample columns before creating each level in a tree
+* Subsample columns before considering each split in each tree
+
+Generally, aggressive subsampling of rows, such as selecting only 50% or less of the training data, has shown to be beneficial and typical values range between 0.5--0.8. Subsampling of columns and the impact to performance largely depends on the nature of the data and if there is strong multicollinearity or a lot of noisy features. Similar to the $m_{try}$ parameter in random forests, if there are fewer relevant predictors (more noisy data) higher values of column subsampling tends to perform better because it makes it more likely to select those features with the strongest signal. When there are many relevant predictors, a lower values of column subsampling tends to perform well.
+
+When adding in a stochastic procedure you can either include it in the same hyperparameter tuning we did for a basic GBM as in the previous section, or once you've found the optimal basic model you can follow it with an additional tuning step and add in stochastic hyperparamters. In our experience, we have not seen strong interactions between the stochastic hyperparameters and the other boosting and tree-specific hyperparameters.
+
+## Implementation {.tabset}
+
+The following takes the best basic GBM model found in the previous section and builds upon it by adding stochastic components. We perform another grid search across the four primary stochastic parameters available in XGBoost: (1) `subsample` rows before each tree and subsampling columns before each tree (`colsample_bytree`), level (`colsample_bylevel`), and split (`colsample_bynode`).
+
+### `r fontawesome::fa("python")` 
+
+First, we recreate the XBGoost model object and add in the parameter values based on the random search in the previous section. We then apply another random search across 3 values for different stochastic hyperparameters. Again, for brevity, we look at 20 random combinations of these stochastic hyperparameters.
+
+```{block, type="tip"}
+This grid search may take up to 20 minutes!
+```
+
+The results indicate that adding some stochastic elements provides a slight improvement in our results.
+
+```{python, eval=FALSE}
+# create GBM estimator with previous parameter settings
+xgb_mod = xgb.XGBRegressor(
+    n_estimators=5000,
+    learning_rate=0.1,
+    max_depth=3,
+    min_child_weight=1
+)
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("xgb_mod", xgb_mod),
+])
+
+# define stochastic hyperparameters
+stochastic_hyper_grid = {
+  'xgb_mod__subsample': [0.5, 0.75, 1],
+  'xgb_mod__colsample_bytree': [0.5, 0.75, 1],
+  'xgb_mod__colsample_bylevel': [0.5, 0.75, 1],
+  'xgb_mod__colsample_bynode': [0.5, 0.75, 1]
+}
+
+stochastic_random_search = RandomizedSearchCV(
+    model_pipeline, 
+    param_distributions=stochastic_hyper_grid, 
+    n_iter=20, 
+    cv=kfold, 
+    scoring=loss, 
+    n_jobs=-1, 
+    random_state=13
+)
+
+# execute random search
+stochastic_random_search_results = stochastic_random_search.fit(X_train, y_train)
+
+# best model score
+np.abs(stochastic_random_search_results.best_score_)
+## 21990.50340555188
+```
+
+```{python, eval=FALSE}
+# best hyperparameter values
+stochastic_random_search_results.best_params_
+## {'xgb_mod__subsample': 1,'xgb_mod__colsample_bytree': 0.75,
+## 'xgb_mod__colsample_bynode': 0.75,'xgb_mod__colsample_bylevel': 0.75}
+```
+
+### `r fontawesome::fa("r-project")` 
+
 
 
 # Regularized GBMs
 
+XGBoost provides multiple regularization parameters to help reduce model complexity and guard against overfitting.
 
 ## Regularization hyperparameters
 
+The first, `gamma`, is a pseudo-regularization hyperparameter known as a Lagrangian multiplier and controls the complexity of a given tree. `gamma` specifies a minimum loss reduction required to make a further partition on a leaf node of the tree. When `gamma` is specified, XGBoost will grow the tree to the max depth specified but then prune the tree to find and remove splits that do not meet the specified `gamma`. `gamma` tends to be worth exploring as your trees in your GBM become deeper and when you see a significant difference between the train and test CV error. The value of `gamma` ranges from $0-\infty$ (0 means no constraint while large numbers mean a higher regularization). What quantifies as a large `gamma` value is dependent on the loss function but generally lower values between 1--20 will do if `gamma` is influential.
 
-## Implementation
+Two more traditional regularization parameters include `alpha` and `lambda`. `alpha` provides an $L_1$ regularization (reference [lasso](https://misk-data-science.github.io/misk-homl/docs/notebooks/06-regularized-regression.html#Lasso_penalty)) and `lambda` provides an $L_2$ regularization (reference [ridge](https://misk-data-science.github.io/misk-homl/docs/notebooks/06-regularized-regression.html#Ridge_penalty)). Setting both of these to greater than 0 results in an elastic net regularization; similar to `gamma`, these parameters can range from $0-\infty$. These regularization parameters limits how extreme the weights (or influence) of the leaves in a tree can become. 
+
+All three hyperparameters (`gamma`, `alpha`, `lambda`) work to constrain model complexity and reduce overfitting. Although `gamma` is more commonly implemented, your tuning strategy should explore the impact of all three. Below illustrates how regularization can make an overfit model more conservative on the training data which, in some circumstances, can result in improvements to the validation error.
+
+```{r xgboost-learning-curve, echo=FALSE, fig.width=6, fig.cap="Figure: When a GBM model significantly overfits to the training data (blue), adding regularization (dotted line) causes the model to be more conservative on the training data, which can improve the cross-validated test error (red).", fig.height=3.5, fig.width=6}
+library(tidyr)
+library(ggplot2)
+library(recipes)
+
+library(rsample)
+# create Ames training data
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+
+xgb_prep <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_integer(all_nominal()) %>%
+  prep(training = ames_train, retain = TRUE) %>%
+  juice()
+
+X <- as.matrix(xgb_prep[setdiff(names(xgb_prep), "Sale_Price")])
+Y <- xgb_prep$Sale_Price
+
+set.seed(123)
+without_reg <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 150,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  params = list(
+    eta = 0.1,
+    max_depth = 32,
+    min_child_weight = 1),
+  verbose = 0,
+)  
+
+set.seed(123)
+with_reg <- xgb.cv(
+  data = X,
+  label = Y,
+  nrounds = 150,
+  objective = "reg:linear",
+  early_stopping_rounds = 50, 
+  nfold = 10,
+  params = list(
+    eta = 0.1,
+    max_depth = 128,
+    lambda = 10,
+    max_depth = 3,
+    min_child_weight = 3,
+    subsample = 0.5,
+    colsample_bytree = 0.5,
+    min_child_weight = 1),
+  verbose = 0,
+)  
+
+df1 <- without_reg$evaluation_log %>%
+  select(iter, `train error` = train_rmse_mean, `test error` = test_rmse_mean) %>%
+  mutate(Regularization = FALSE)
+
+df2 <- with_reg$evaluation_log %>%
+  select(iter, `train error` = train_rmse_mean, `test error` = test_rmse_mean) %>%
+  mutate(Regularization = TRUE)
+  
+df1 %>% 
+  rbind(df2) %>%
+  gather(`Validation set`, rmse, `train error`, `test error`) %>%
+  mutate(rmse = (rmse - min(rmse)) / (max(rmse) - min(rmse))) %>%
+  ggplot(aes(iter, rmse, color = `Validation set`, lty = Regularization)) +
+  geom_line() +
+  scale_y_continuous("Normalized RMSE", limits = c(0, 0.25)) +
+  scale_x_continuous("Iteration", limits = c(0, max(df2$iter)))
+```
+
+## Implementation {.tabset}
+
+The following illustrates a grid search across various regularization hyperparameter values. First, we recreate the XGBoost model object using the basic and stochastic parameters uncovered in the previous sections. We then search across four different values of the three primary regularization parameters (`gamma`, `alpha`, `lambda`).
+
+When performing the initial search it is best practice to start searching across a logarithmic scale of values. This will often point you to whether low values (i.e. 0.1, 10) are helpful or if very large values of regularization (i.e. 1,000, 10,000) are helpful.  It is not uncommon to then follow up with additional grid searches that focus in on more values around that optimal value found in the first grid search.
 
 
-# Feature interpretation
+### `r fontawesome::fa("python")` 
+
+In this example, regularization does not appear to improve overall performance as we see a slight increase in our RMSE.
+
+```{block, type="tip"}
+This grid search may take up to 20 minutes!
+```
+
+```{python, eval=FALSE}
+# create stochastic GBM estimator
+xgb_mod = xgb.XGBRegressor(
+    n_estimators=5000,
+    learning_rate=0.1,
+    max_depth=3,
+    min_child_weight=1,
+    subsample=1,
+    colsample_bytree=0.75,
+    colsample_bylevel=0.75,
+    colsample_bynode=0.75
+)
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("xgb_mod", xgb_mod),
+])
+
+# define regularization hyperparameters
+regularization_hyper_grid = {
+  'xgb_mod__gamma': [0, 0.1, 10, 1000],
+  'xgb_mod__alpha': [0, 0.1, 10, 1000],
+  'xgb_mod__lambda': [0, 0.1, 10, 1000]
+}
+
+regularization_random_search = RandomizedSearchCV(
+    model_pipeline, 
+    param_distributions=regularization_hyper_grid, 
+    n_iter=20, 
+    cv=kfold, 
+    scoring=loss, 
+    n_jobs=-1, 
+    random_state=13
+)
+
+# execute random search
+regularization_random_search_results = regularization_random_search.fit(X_train, y_train)
+
+# best model score
+np.abs(regularization_random_search_results.best_score_)
+## 22488.72653394142
+```
+
+
+### `r fontawesome::fa("r-project")` 
+
+
+# Tuning strategy {.tabset}
+
+The general tuning strategy for exploring XGBoost hyperparameters follows:
+
+1. Crank up the number of trees and tune learning rate (with early stopping if possible)
+2. Tune tree-specific hyperparameters
+3. Explore stochastic GBM attributes
+4. If substantial overfitting occurs (e.g., large differences between train and CV error) explore regularization hyperparameters
+5. If you find hyperparameter values that are substantially different from default settings, be sure to retune the learning rate
+6. Obtain final "optimal" model and re-tune the number of trees.
+
+This strategy follows, generally, the sections previously shown. Consequently, as a final step we can take the final hyperparameter settings found from the previous section and perform one last tuning to ensure the number of trees is optimal.
+
+## `r fontawesome::fa("python")` 
+
+In this example we see that we actually get the best performance with a lower number of trees. We could actually perform another search that assesses even less number of trees, which could provide compute efficiencies. However, we'll leave that as an exercise for the reader.
+
+```{python, eval=FALSE}
+# create final GBM estimator
+xgb_mod = xgb.XGBRegressor(
+    learning_rate=0.1,
+    max_depth=3,
+    min_child_weight=1,
+    subsample=1,
+    colsample_bytree=0.75,
+    colsample_bylevel=0.75,
+    colsample_bynode=0.75
+)
+
+# create modeling pipeline
+model_pipeline = Pipeline(steps=[
+  ("preprocessor", preprocessor),
+  ("xgb_mod", xgb_mod),
+])
+
+# define hyperparameters
+hyper_grid = {'xgb_mod__n_estimators': [2000, 3000, 4000, 5000, 6000, 7000, 8000]}
+
+final_search = GridSearchCV(
+    model_pipeline, 
+    hyper_grid, 
+    cv=kfold, 
+    scoring=loss, 
+    n_jobs=-1
+)
+
+# execute search
+final_search_results = final_search.fit(X_train, y_train)
+
+# best model score
+np.abs(final_search_results.best_score_)
+## 21948.509842280964
+```
+
+```{python, eval=FALSE}
+final_search_results.best_params_
+## {'xgb_mod__n_estimators': 2000}
+```
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+
+# Feature interpretation {.tabset}
+
+Computing feature importance and feature effects for XGBoost models follow the same procedure as discussed in previous modules.
+
+## `r fontawesome::fa("python")` 
+
+```{block, type='tip'}
+There are multiple ways to compute feature importance with the Python API for XGBoost. Check out this [article](https://mljar.com/blog/feature-importance-xgboost/) for details.
+```
+
+
+```{python}
+# preprocess training data
+X_encoded = preprocessor.fit_transform(X_train)
+
+# create final model object
+final_model = xgb.XGBRegressor(
+    n_estimators=5000,
+    learning_rate=0.1,
+    max_depth=3,
+    min_child_weight=1,
+    subsample=1,
+    colsample_bytree=0.75,
+    colsample_bylevel=0.75,
+    colsample_bynode=0.75
+)
+
+final_model_fit = final_model.fit(X_encoded, y_train)
+
+# extract feature importances
+vi = pd.DataFrame({'feature': preprocessor.get_feature_names(),
+                   'importance': final_model_fit.feature_importances_})
+
+# get top 20 influential features
+top_20_features = vi.nlargest(20, 'importance')
+
+# plot feature importance
+(ggplot(top_20_features, aes(x='importance', y='reorder(feature, importance)'))
+ + geom_point()
+ + labs(y=None))
+```
+
+
+## `r fontawesome::fa("r-project")` 
+
 
 
 # Final thoughts
 
+GBMs are one of the most powerful ensemble algorithms that are often first-in-class with predictive accuracy. Although they are less intuitive and more computationally demanding than many other machine learning algorithms, they are essential to have in your toolbox. 
+
+Although we discussed the most popular GBM algorithms, realize there are alternative algorithms not covered here. For example LightGBM [@ke2017lightgbm] is a gradient boosting framework that focuses on _leaf-wise_ tree growth versus the traditional level-wise tree growth. This means as a tree is grown deeper, it focuses on extending a single branch versus growing multiple branches. CatBoost [@dorogush2018catboost] is another gradient boosting framework that focuses on using efficient methods for encoding categorical features during the gradient boosting process. Both frameworks are available in Python and R.
 
 # Exercises
 
+Using the Boston housing data set, where the response feature is the median value of homes within a census tract (`cmedv`):
 
+1. Apply a basic GBM model with the same features you used in the random forest module. 
+   - Apply the default hyperparameter settings with a learning rate set to 0.10. How does model performance compare to the random forest module?
+   - How many trees were applied? Was this enough to stabilize the loss function or do you need to add more?
+   - Tune the tree-based hyperparameters described for basic GBMs. Did your model performance improve?
+2. Apply a stochastic GBM model. Tune the hyperparameters using the suggested tuning strategy for stochastic GBMs. Did your model performance improve?
+3. Apply regularization to your XGBoost model. Did regularization improve performance?
+4. Pick your best GBM model. Which 10 features are considered most influential? Are these the same features that have been influential in previous models?
+5. Create partial dependence plots for the top two most influential features. Explain the relationship between the feature and the predicted values.
+6. Now perform 1-5 to the Attrition dataset, which is classification model rather than a regression model.
 
 [🏠](https://github.com/misk-data-science/misk-homl)
 
