@@ -88,11 +88,10 @@ y_train = train[["Sale_Price"]]
 
 ```{r gbm-pkg-req}
 # Helper packages
-library(tidyverse)   # for data wrangling & plotting
+library(tidyverse)
 
 # Modeling packages
-library(xgboost)  # implementing gradient boosting
-library(rsample)  # sampling procedure
+library(tidymodels)
 ```
 
 ```{r gbm-ames-train}
@@ -427,7 +426,102 @@ random_search_results.best_params_
 
 ### `r fontawesome::fa("r-project")` 
 
+First, unlike random forests in R, XGBoost in R requires all features to be numeric. Consequently, we need to ordinal encode our Quality/Condition features (i.e. `Overall_Qual`, `Garage_Qual`, `Kitchen_Qual`) and, as usual, we need to one-hot encode our remaining nominal features. The following recipe follows similar procedures we applied in the feature engineering module.
 
+```{r}
+# create model recipe with all features
+lvls <- c("Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+          "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent")
+
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  ) %>%
+  step_string2factor(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"),
+    levels = lvls
+    ) %>% 
+  step_unknown(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    new_level = "None"
+    ) %>%
+  step_relevel(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    ref_level = "None"
+    ) %>%
+  step_integer(ends_with("Qual"), ends_with("QC"), ends_with("_Cond")) %>%
+  step_dummy(all_nominal(), one_hot = TRUE)
+```
+
+Next, we use `boost_tree()` with the `xgboost` engine to apply a default XGBoost model.
+
+```{r}
+# create XGBost model object
+xgb_mod <- boost_tree() %>% 
+  set_engine("xgboost") %>% 
+  set_mode("regression")
+
+# create resampling procedure
+set.seed(13)
+kfold <- vfold_cv(ames_train, v = 5)
+
+# train model
+results <- fit_resamples(xgb_mod, model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+```
+
+Due to the many hyperparameters in GBMs it is far more efficient to use a random grid search rather than a full cartesian search. For brevity, in the following example we search across 20 random combinations of number of `trees`, learning rate (`learn_rate`), max depth (`tree_depth`), and minimum observations required in nodes (`min_n`). 
+
+Here, we use `parameters()` to extract the hyperparameters we plan to tune in `xgb_mod` and then we use `grid_latin_hypercube` to create our random design.
+
+```{block, type='tip'}
+Read more about working with tidymodel parameters and creating different grid search designs [here](https://www.tmwr.org/grid-search.html#irregular-grids).
+```
+
+```{r}
+# create model object
+xgb_mod <- boost_tree(
+  trees = tune(),
+  learn_rate = tune(),
+  tree_depth = tune(),
+  min_n = tune()
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("regression")
+
+# create grid search design
+hyper_grid <- parameters(xgb_mod) %>%
+  grid_latin_hypercube(size = 20)
+```
+
+Now we can perform our grid search. We see that the optimal model of the random search had an RMSE of 26752 and used 81 trees, `min_n` of 23, tree depth of 9, and a learning rate of 0.0683. 
+
+```{block, type='warning'}
+This grid search takes 40 minutes!
+```
+
+```{block, type='tip'}
+At this point, it would probably be wise to follow up with another search that uses the `learning_rate`, `tree_depth`, and `min_n` of the optimal model but search across additional trees to see if adding more trees improves performance. For brevity we'll leave this as an exercise for the reader.
+```
+
+```{r, eval=FALSE}
+# perform grid search
+results <- tune_grid(xgb_mod, model_recipe, resamples = kfold, grid = hyper_grid)
+
+# model results
+show_best(results, metric = "rmse")
+## # A tibble: 5 x 10
+##   trees min_n tree_depth learn_rate .metric .estimator   mean     n std_err
+##   <int> <int>      <int>      <dbl> <chr>   <chr>       <dbl> <int>   <dbl>
+## 1    81    23          9    0.0683  rmse    standard   26752.     5   2856.
+## 2   529    24          7    0.0263  rmse    standard   26923.     5   2849.
+## 3  1076    37          2    0.00847 rmse    standard   27461.     5   2667.
+## 4  1718     6          6    0.00110 rmse    standard   43209.     5   2171.
+## 5   774    31          2    0.00172 rmse    standard   65370.     5   2610.
+## # … with 1 more variable: .config <chr>
+```
 
 
 # Stochastic GBMs
@@ -449,9 +543,11 @@ When adding in a stochastic procedure you can either include it in the same hype
 
 ## Implementation {.tabset}
 
-The following takes the best basic GBM model found in the previous section and builds upon it by adding stochastic components. We perform another grid search across the four primary stochastic parameters available in XGBoost: (1) `subsample` rows before each tree and subsampling columns before each tree (`colsample_bytree`), level (`colsample_bylevel`), and split (`colsample_bynode`).
+The following takes the best basic GBM model found in the previous section and builds upon it by adding stochastic components. We perform another grid search across the various stochastic parameters available in XGBoost via the Python and R APIs.
 
 ### `r fontawesome::fa("python")` 
+
+In the Python API we will assess the following stochastic parameters: (1) `subsample` rows before each tree and subsampling columns before each tree (`colsample_bytree`), level (`colsample_bylevel`), and split (`colsample_bynode`).
 
 First, we recreate the XBGoost model object and add in the parameter values based on the random search in the previous section. We then apply another random search across 3 values for different stochastic hyperparameters. Again, for brevity, we look at 20 random combinations of these stochastic hyperparameters.
 
@@ -511,6 +607,51 @@ stochastic_random_search_results.best_params_
 
 ### `r fontawesome::fa("r-project")` 
 
+In the R API we will assess the following stochastic parameters: (1) subsample rows before each tree (`sample_size`) and (2) subsampling columns before each  split (`mtry`). 
+
+```{block, type='tip'}
+Similar to what we did in the random forest module, we can pass additional hyperparameters specific to XGBoost by including them in `set_engine()` call.
+```
+
+```{r}
+# create model object
+xgb_mod <- boost_tree(
+  trees = 81,
+  learn_rate = 0.0683,
+  tree_depth = 9,
+  min_n = 23,
+  sample_size = tune(),
+  mtry = tune()
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("regression")
+
+# create grid search design and search
+# across 10 combinations
+hyper_grid <- parameters(xgb_mod) %>%
+  update(mtry = finalize(mtry(), ames_train)) %>%
+  grid_latin_hypercube(size = 20)
+```
+
+```{block, type='warning'}
+This grid search takes only 2 minutes!
+```
+
+```{r, eval=FALSE}
+# perform grid search
+results <- tune_grid(xgb_mod, model_recipe, resamples = kfold, grid = hyper_grid)
+
+# model results
+show_best(results, metric = "rmse")
+## # A tibble: 5 x 8
+##    mtry sample_size .metric .estimator   mean     n std_err .config   
+##   <int>       <dbl> <chr>   <chr>       <dbl> <int>   <dbl> <chr>     
+## 1    66       0.828 rmse    standard   25761.     5   2673. Preproces…
+## 2    49       0.698 rmse    standard   25767.     5   2769. Preproces…
+## 3    65       0.751 rmse    standard   25812.     5   2813. Preproces…
+## 4    78       0.968 rmse    standard   25906.     5   2807. Preproces…
+## 5    31       0.778 rmse    standard   26009.     5   2496. Preproces…
+```
 
 
 # Regularized GBMs
@@ -660,6 +801,44 @@ np.abs(regularization_random_search_results.best_score_)
 
 ### `r fontawesome::fa("r-project")` 
 
+The following only applies the gamma hyperparameter via `boost_tree`'s `loss_reduction` parameter. Similar to what we did in the random forest module, we could perform a grid search across XGBoost's `alpha` and `lambda` regularization parameters by passing them in the `set_engine()` call; however, we'll leave that as a task for the reader.
+
+Similar to the Python example we do not see much improvement by adding regularization.
+
+```{r, eval=FALSE}
+# create model object
+xgb_mod <- boost_tree(
+  trees = 81,
+  learn_rate = 0.0683,
+  tree_depth = 9,
+  min_n = 23,
+  sample_size = 0.828,
+  mtry = 66,
+  loss_reduction = tune()
+) %>% 
+  set_engine(
+    "xgboost"
+    ) %>% 
+  set_mode("regression")
+
+# create grid of 10 loss_reducton values
+hyper_grid <- parameters(xgb_mod) %>%
+  grid_regular(levels = 10)
+
+# perform grid search
+results <- tune_grid(xgb_mod, model_recipe, resamples = kfold, grid = hyper_grid)
+
+# model results
+show_best(results, metric = "rmse")
+## # A tibble: 5 x 7
+##   loss_reduction .metric .estimator   mean     n std_err .config      
+##            <dbl> <chr>   <chr>       <dbl> <int>   <dbl> <chr>        
+## 1       4.64e- 3 rmse    standard   25568.     5   2681. Preprocessor…
+## 2       1   e-10 rmse    standard   25679.     5   2750. Preprocessor…
+## 3       3.16e+ 1 rmse    standard   25710.     5   2666. Preprocessor…
+## 4       1.90e- 9 rmse    standard   25787.     5   2674. Preprocessor…
+## 5       3.59e- 8 rmse    standard   25872.     5   2749. Preprocessor…
+```
 
 # Tuning strategy {.tabset}
 
@@ -676,7 +855,7 @@ This strategy follows, generally, the sections previously shown. Consequently, a
 
 ## `r fontawesome::fa("python")` 
 
-In this example we see that we actually get the best performance with a lower number of trees. We could actually perform another search that assesses even less number of trees, which could provide compute efficiencies. However, we'll leave that as an exercise for the reader.
+In this example we see that we actually get the best performance with a lower number of trees. We could actually perform another search that assesses even less number of trees, which could provide compute efficiency. However, we'll leave that as an exercise for the reader.
 
 ```{python, eval=FALSE}
 # create final GBM estimator
@@ -723,6 +902,39 @@ final_search_results.best_params_
 
 ## `r fontawesome::fa("r-project")` 
 
+In the R API we can apply `stop_iter` within our `boost_tree()` call. This allows us to crank up the number of trees to apply but automatically stop if we don't experience some improvement in the loss for `N` iterations.
+
+In this example we see that we actually get some improvement in our loss by using more trees.
+
+```{r}
+# create model object
+xgb_mod <- boost_tree(
+  trees = 5000,
+  learn_rate = 0.0683,
+  tree_depth = 9,
+  min_n = 23,
+  sample_size = 0.828,
+  mtry = 66,
+  loss_reduction = 4.64e-3,
+  stop_iter = 10
+) %>% 
+  set_engine(
+    "xgboost"
+    ) %>% 
+  set_mode("regression")
+```
+```{r, eval=FALSE}
+# train model
+results <- fit_resamples(xgb_mod, model_recipe, kfold)
+
+# model results
+collect_metrics(results)
+## # A tibble: 2 x 6
+##   .metric .estimator      mean     n   std_err .config             
+##   <chr>   <chr>          <dbl> <int>     <dbl> <chr>               
+## 1 rmse    standard   24674.        5 2130.     Preprocessor1_Model1
+## 2 rsq     standard       0.906     5    0.0195 Preprocessor1_Model1
+```
 
 
 # Feature interpretation {.tabset}
@@ -770,6 +982,19 @@ top_20_features = vi.nlargest(20, 'importance')
 
 ## `r fontawesome::fa("r-project")` 
 
+
+```{r, fig.height=5}
+# Create a final fit model 
+final_fit <- workflow() %>%
+  add_recipe(model_recipe) %>%
+  add_model(xgb_mod) %>%
+  fit(data = ames_train)
+
+# plot top 20 influential variables
+final_fit %>%
+  pull_workflow_fit() %>% 
+  vip::vip(num_features = 20)
+```
 
 
 # Final thoughts
