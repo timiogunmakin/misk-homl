@@ -76,7 +76,22 @@ y_train = train[["Sale_Price"]]
 
 ## `r fontawesome::fa("r-project")` 
 
-TBD
+```{r pkg-req}
+# Helper packages
+library(tidyverse)
+
+# Modeling packages
+library(tidymodels)
+library(stacks)
+```
+
+```{r ames-train}
+set.seed(123)
+ames <- AmesHousing::make_ames()
+split  <- rsample::initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
+```
 
 # The Idea
 
@@ -269,7 +284,210 @@ abs(results.mean())
 
 ## `r fontawesome::fa("r-project")` 
 
-TBD
+First, similar to the previous modules, we are going to create a recipe object that ordinal encodes our Quality/Condition features (i.e. Overall_Qual, Garage_Qual, Kitchen_Qual) and one-hot encode our remaining nominal features.
+
+```{r}
+# create model recipe with all features
+lvls <- c("Very_Poor", "Poor", "Fair", "Below_Average", "Average", "Typical", 
+          "Above_Average", "Good", "Very_Good", "Excellent", "Very_Excellent")
+
+model_recipe <- recipe(
+    Sale_Price ~ ., 
+    data = ames_train
+  ) %>%
+  step_string2factor(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"),
+    levels = lvls
+    ) %>% 
+  step_unknown(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    new_level = "None"
+    ) %>%
+  step_relevel(
+    ends_with("Qual"), ends_with("QC"), ends_with("_Cond"), 
+    ref_level = "None"
+    ) %>%
+  step_integer(ends_with("Qual"), ends_with("QC"), ends_with("_Cond")) %>%
+  step_dummy(all_nominal(), one_hot = TRUE)
+```
+
+We then create a general `workflow` object along with declare our loss metric as RMSE:
+
+```{r}
+# define a minimal workflow
+model_wflow <- 
+  workflow() %>% 
+  add_recipe(model_recipe)
+
+# define loss metric as RMSE
+metric <- metric_set(rmse)
+```
+
+Fitting results for use in ensembles need to be fitted with the control arguments `save_pred = TRUE` and `save_workflow = TRUE` — these settings ensure that the assessment set predictions, as well as the workflow used to fit the resamples, are stored in the resulting object. For convenience, the `stacks` library supplies a `control_stack_resamples()` function to generate the appropriate objects for you.
+
+```{r}
+ctrl_res <- control_stack_resamples()
+```
+
+We also define our 5-fold cross validation procedure.
+
+```{r}
+# use a 5-fold cross-validation
+set.seed(1)
+folds <- rsample::vfold_cv(ames_train, v = 5)
+```
+
+We now define our various model workflow objects. The following creates an:
+
+* Ordinary least squares linear regression model
+* Decision tree model
+* Random forest model
+* XGBoost gradient boosted model
+
+The decision tree, random forest, and XGBoost hyperparameters are all based on the final tuned models created in the previous modules. We add these to `workflow` objects and fit the 5-fold resampling procedure.
+
+```{r, eval=FALSE}
+###########################
+# Linear regression model #
+###########################
+# create a linear model definition
+lm_spec <- linear_reg() %>%
+  set_engine("lm")
+
+# add it to a workflow
+lm_wflow <- model_wflow %>% 
+  add_model(lm_spec)
+
+# fit to the 5-fold cv
+set.seed(1)
+lm_res <- 
+  fit_resamples(
+    lm_wflow,
+    resamples = folds,
+    metrics = metric,
+    control = ctrl_res
+  )
+
+#######################
+# Decision tree model #
+#######################
+# create a decistion tree model definition
+dt_spec <- decision_tree(
+  mode = "regression",
+  cost_complexity = 0.0000000001,
+  tree_depth = 8,
+  min_n = 21
+  ) %>% 
+  set_engine("rpart")
+
+# add it to a workflow
+dt_wflow <- model_wflow %>% 
+  add_model(dt_spec)
+
+# fit to the 5-fold cv
+set.seed(1)
+dt_res <- 
+  fit_resamples(
+    dt_wflow,
+    resamples = folds,
+    metrics = metric,
+    control = ctrl_res
+  )
+
+#######################
+# Random forest model #
+#######################
+# create random forest model object
+rf_spec <- rand_forest(
+  mode = "regression", 
+  trees = 1000,
+  mtry = 20,
+  min_n = 1
+  ) %>%
+  set_engine(
+    "ranger",
+    replace = FALSE,
+    sample.fraction = 0.8,
+    respect.unordered.factors = 'order',
+    seed = 123
+    )
+
+# add it to a workflow
+rf_wflow <- model_wflow %>% 
+  add_model(rf_spec)
+
+# fit to the 5-fold cv
+set.seed(1)
+rf_res <- 
+  fit_resamples(
+    rf_wflow,
+    resamples = folds,
+    metrics = metric,
+    control = ctrl_res
+  )
+
+#################
+# XGBoost model #
+#################
+# create XGBoost model object
+xgb_spec <- boost_tree(
+  trees = 5000,
+  learn_rate = 0.0683,
+  tree_depth = 9,
+  min_n = 23,
+  sample_size = 0.828,
+  mtry = 66,
+  loss_reduction = 4.64e-3,
+  stop_iter = 10
+) %>% 
+  set_engine(
+    "xgboost"
+    ) %>% 
+  set_mode("regression")
+
+# add it to a workflow
+xgb_wflow <- model_wflow %>% 
+  add_model(xgb_spec)
+
+# fit to the 5-fold cv
+set.seed(1)
+xgb_res <- 
+  fit_resamples(
+    xgb_wflow,
+    resamples = folds,
+    metrics = metric,
+    control = ctrl_res
+  )
+```
+
+We can now create a stacked model object and add each of the models:
+
+```{r, eval=FALSE}
+stacked_regressor <- stacks() %>%
+  add_candidates(lm_res) %>%
+  add_candidates(dt_res) %>%
+  add_candidates(rf_res) %>%
+  add_candidates(xgb_res)
+```
+
+The outputs from each of these candidate ensemble members are highly correlated, so we can apply the `blend_predictions()` function, which performs regularization to figure out how we can combine the outputs from the stack members to come up with a final prediction.
+
+The `blend_predictions` function determines how member model output will ultimately be combined in the final prediction by fitting a LASSO model on the data stack, predicting the true assessment set outcome using the predictions from each of the candidate members. Candidates with nonzero stacking coefficients become members.
+
+```{r, eval=FALSE}
+fitted_stack <- stacked_regressor %>%
+  blend_predictions() %>%
+  fit_members()
+```
+
+Unlike the Python example, we are unable to perform a cross validation procedure on the training data with our stacked model object. Consequently, to understand the performance of our stacked model we can apply it to the test data and assess how well it generalizes. In this example we see our stack model achieves an RMSE of about \$24,000 on the test data.
+
+```{r, eval=FALSE}
+pred <- fitted_stack %>% predict(ames_test)
+
+rmse_vec(ames_test$Sale_Price, pred$.pred)
+## [1] 24324.29
+```
 
 
 # Exercises
