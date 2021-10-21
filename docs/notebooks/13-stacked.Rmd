@@ -1,0 +1,83 @@
+---
+title: "Stacked Models"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    css: style.css
+bibliography: [references.bib, packages.bib]
+---
+
+<br>
+
+```{r setup, include=FALSE}
+
+# Set global knitr chunk options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      collapse = TRUE, fig.align = 'center')
+
+library(reticulate)
+use_virtualenv("/Users/b294776/Desktop/Workspace/Projects/misk/misk-homl/venv", required = TRUE)
+
+# Set the graphical theme
+ggplot2::theme_set(ggplot2::theme_light())
+
+# hidden requirements
+library(rpart)
+library(rpart.plot)
+library(ranger)
+```
+
+```{python, echo = FALSE}
+import plotnine
+import warnings
+warnings.filterwarnings("ignore")
+plotnine.themes.theme_set(new=plotnine.themes.theme_light())
+```
+
+
+
+# Learning objectives
+
+By the end of this module you will know:
+
+* What attributes make up gradient boosted machines.
+* How to implement an XGBoost gradient boosted tree model along with how to smartly approach hyperparameter tuning.
+* How to identify influential features and their effects on the response variable.
+
+# Prerequisites  {.tabset}
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# The Idea
+
+
+## Common ensemble methods
+
+
+## Super learner algorithm
+
+
+## Alternative methods
+
+
+## Available packages
+
+
+# Implementing stacking
+
+## `r fontawesome::fa("python")` 
+
+
+## `r fontawesome::fa("r-project")` 
+
+
+# Exercises
+
+
+# References
+
