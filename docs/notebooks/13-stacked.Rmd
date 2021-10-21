@@ -35,49 +35,97 @@ warnings.filterwarnings("ignore")
 plotnine.themes.theme_set(new=plotnine.themes.theme_light())
 ```
 
+In the previous modules, you've learned how to train individual learners, which in the context of this module will be referred to as _base learners_. ___Stacking___ (sometimes called "stacked generalization") involves training a new learning algorithm to combine the predictions of several base learners. First, the base learners are trained using the available training data, then a combiner or meta algorithm, called the _super learner_, is trained to make a final prediction based on the predictions of the base learners. Such stacked ensembles tend to outperform any of the individual base learners (e.g., a single RF or GBM) and have been shown to represent an asymptotically optimal system for learning [@super-laan-2003].
 
 
 # Learning objectives
 
 By the end of this module you will know:
 
-* What attributes make up gradient boosted machines.
-* How to implement an XGBoost gradient boosted tree model along with how to smartly approach hyperparameter tuning.
-* How to identify influential features and their effects on the response variable.
+* How models can be combined to improve performance.
+* How to implement model stacking in Python and R.
 
-# Prerequisites  {.tabset}
+# Prerequisites {.tabset}
 
 ## `r fontawesome::fa("python")` 
 
+TBD
 
 ## `r fontawesome::fa("r-project")` 
 
+TBD
 
 # The Idea
 
+Leo Breiman, known for his work on classification and regression trees and random forests, formalized stacking in his 1996 paper on _Stacked Regressions_ [@breiman1996stacked]. Although the idea originated in [@stacked-wolpert-1992] under the name "Stacked Generalizations", the modern form of stacking that uses internal k-fold CV was Breiman's contribution.
+
+However, it wasn’t until 2007 that the theoretical background for stacking was developed, and also when the algorithm took on the cooler name, ___Super Learner___ [@van2007super]. Moreover, the authors illustrated that super learners will learn an optimal combination of the base learner predictions and will typically perform as well as or better than any of the individual models that make up the stacked ensemble. Until this time, the mathematical reasons for why stacking worked were unknown and stacking was considered a black art. 
 
 ## Common ensemble methods
 
+Ensemble machine learning methods use multiple learning algorithms to obtain better predictive performance than could be obtained from any of the constituent learning algorithms.  The idea of combining multiple models rather than selecting the single best is well-known and has been around for a long time. In fact, many of the popular modern machine learning algorithms (including ones in previous chapters) are actually ensemble methods.  
+
+For example, [bagging](https://misk-data-science.github.io/misk-homl/docs/notebooks/10-bagging.html) and [random forests](https://misk-data-science.github.io/misk-homl/docs/notebooks/11-random-forests.html) are ensemble approaches that average the predictions from many decision trees to reduce prediction variance and are robust to outliers and noisy data; ultimately leading to greater predictive accuracy.  [Boosted decision trees](https://misk-data-science.github.io/misk-homl/docs/notebooks/12-gbm.html) are another ensemble approach that slowly learns unique patterns in the data by sequentially combining individual, shallow trees.
+
+Stacking, on the other hand, is designed to ensemble a _diverse group of strong learners_.
 
 ## Super learner algorithm
 
+The super learner algorithm consists of three phases:
 
-## Alternative methods
+1. Set up the ensemble
+    - Specify a list of $L$ base learners (with a specific set of model parameters).
+    - Specify a meta learning algorithm. This can be any one of the algorithms discussed in the previous modules but most often is some form of regularized regression.
+2. Train the ensemble
+    - Train each of the $L$ base learners on the training set.
+    - Perform _k_-fold CV on each of the base learners and collect the cross-validated predictions from each (the same _k_-folds must be used for each base learner). These predicted values represent $p_1, \dots, p_L$ in the equation below.
+    - The $N$ cross-validated predicted values from each of the $L$ algorithms can be combined to form a new $N \times L$ feature matrix (represented by $Z$ in the following equation). This matrix, along with the original response vector ($y$), are called the "level-one" data. ($N =$ number of rows in the training set.)
+    
+    \begin{equation}
+    n \Bigg \{ \Bigg [ p_1 \Bigg ] \cdots \Bigg [ p_L \Bigg ] \Bigg [ y \Bigg ] \rightarrow n \Bigg \{ \overbrace{\Bigg [ \quad Z \quad \Bigg ]}^L \Bigg [ y \Bigg ]
+    \end{equation}
+    - Train the meta learning algorithm on the level-one data ($y = f\left(Z\right)$). The "ensemble model" consists of the $L$ base learning models and the meta learning model, which can then be used to generate predictions on new data.
+
+3. Predict on new data.
+    - To generate ensemble predictions, first generate predictions from the base learners.
+    - Feed those predictions into the meta learner to generate the ensemble prediction.
+    
+```{block, type='tip'}
+Stacking never does worse than selecting the single best base learner on the training data (but not necessarily the validation or test data). The biggest gains are usually produced when stacking base learners that have high variability, and uncorrelated, predicted values. The more similar the predicted values are between the base learners, the less advantage there is to combining them.
+```
 
 
 ## Available packages
 
+There are several implementations for model stacking in the R and Python ecosystem.
 
-# Implementing stacking
+* [SuperLearner](https://github.com/ecpolley/SuperLearner) provides the original Super Learner and includes a clean interface to 30+ algorithms. (`r fontawesome::fa("r-project")`)
+* [subsemble](https://github.com/ledell/subsemble) also provides stacking via the super learner algorithm discussed above; however, it also offers improved parallelization over the __SuperLearner__ package and implements the subsemble algorithm [@sapp2014subsemble].^[The subsemble algorithm is a general subset ensemble prediction method, which can be used for small, moderate, or large data sets. Subsemble partitions the full data set into subsets of observations, fits a specified underlying algorithm on each subset, and uses a unique form of _k_-fold CV to output a prediction function that combines the subset-specific fits.] Unfortunately, __subsemble__ is currently only available via GitHub and is primarily maintained for backward compatibility rather than forward development. (`r fontawesome::fa("r-project")`)
+* [caretEnsemble](https://github.com/zachmayer/caretEnsemble), also provides an approach for stacking, but it implements a bootsrapped (rather than cross-validated) version of stacking. The bootstrapped version will train faster since bootsrapping (with a train/test set) requires a fraction of the work of _k_-fold CV; however, the the ensemble performance often suffers as a result of this shortcut. (`r fontawesome::fa("r-project")`)
+* [h2o](https://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/stacked-ensembles.html) provides an efficient implementation of stacking and allows you to stack existing base learners, stack a grid search, and also implements an automated machine learning search with stacked results. (`r fontawesome::fa("python")`, `r fontawesome::fa("r-project")`)
+* [vecstack](https://github.com/vecxoz/vecstack): A generalized stacking API that is compatible with scikit-learn. (`r fontawesome::fa("python")`)
+
+These are all worth exploring; however, for consistency we will be using the built in stacking functionality provided by scikit-learn (`r fontawesome::fa("python")`) and tidymodels (`r fontawesome::fa("r-project")`).
+
+
+# Implementing stacking {.tabset}
 
 ## `r fontawesome::fa("python")` 
 
+TBD
 
 ## `r fontawesome::fa("r-project")` 
+
+TBD
 
 
 # Exercises
 
+Using the Boston housing data set, where the response feature is the median value of homes within a census tract (`cmedv`):
+
+1. Recreate the optimal models identified from the exercises in the [linear regression](https://misk-data-science.github.io/misk-homl/docs/notebooks/04-linear-regression.html#Exercises),  [decision tree](https://misk-data-science.github.io/misk-homl/docs/notebooks/09-decision-trees.html#Exercises), [random forest](https://misk-data-science.github.io/misk-homl/docs/notebooks/11-random-forests.html#Exercises), and [gradient boosting](https://misk-data-science.github.io/misk-homl/docs/notebooks/12-gbm.html#Exercises) modules.
+2. Apply a stacked model and compare the model performance to the individual models.
+3. Now repeat 1 & 2 for the Attrition dataset, which is classification model rather than a regression model.
 
 # References
 
