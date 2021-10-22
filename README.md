@@ -52,7 +52,7 @@ Prior to session 1, please run the following scripts to ensure you have the nece
 
 | Language                       | Requirements     
 | ------------------------------ | :-------------: |
-| Python    | [link]() | 
+| Python    | [link](https://github.com/misk-data-science/misk-homl/blob/master/materials/Python/requirements.txt) | 
 | R    | [link](https://github.com/misk-data-science/misk-homl/blob/master/materials/R/00-setup.Rmd) | 
 
 ## Schedule
